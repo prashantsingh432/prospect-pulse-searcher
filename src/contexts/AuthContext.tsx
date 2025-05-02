@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface User {
   email: string;
+  displayName?: string;
 }
 
 interface AuthContextType {
@@ -52,18 +53,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return false;
     }
     
-    // Mock authentication - in real app, this would verify against a backend
-    if (email === "user@example.com" && password === "password") {
-      const user = { email };
+    // Hardcoded authentication for specific user
+    if (email.toLowerCase() === "prashant@amplior.com" && password === "prsi@123Amp") {
+      const user = { 
+        email, 
+        displayName: "AmpChamp" 
+      };
       localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
+      
+      // Show the welcome message
+      toast({
+        title: "Hi, AmpChamp! 👋",
+        description: "✅ You've signed in. Access granted.\nMake your best data day today — someone's success is just one call away.",
+        duration: 6000,
+      });
+      
       setLoading(false);
       return true;
     }
     
     toast({
       title: "Authentication Failed",
-      description: "Invalid email or password. Try user@example.com / password",
+      description: "Invalid email or password.",
       variant: "destructive",
     });
     setLoading(false);

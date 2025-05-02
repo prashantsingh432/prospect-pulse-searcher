@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -37,8 +38,8 @@ const Login = () => {
 
   const handleCreateAccount = () => {
     toast({
-      title: "Account Creation Disabled",
-      description: "Contact admin for access.",
+      title: "Feature Disabled",
+      description: "This feature is disabled. Contact admin for access.",
       variant: "destructive",
     });
   };
@@ -156,6 +157,12 @@ const Login = () => {
               Create account
             </Button>
           </p>
+          
+          <Alert className="bg-blue-50 border-blue-200 mt-6">
+            <AlertDescription className="text-center text-blue-700 italic">
+              "You're not just calling leads. You're creating success stories."
+            </AlertDescription>
+          </Alert>
         </CardFooter>
       </Card>
     </div>
