@@ -19,6 +19,7 @@ const Dashboard = () => {
   const [prospectName, setProspectName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [location, setLocation] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
   const [searchResults, setSearchResults] = useState<Prospect[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -27,6 +28,7 @@ const Dashboard = () => {
   const { data: allProspects, isLoading } = useQuery({
     queryKey: ["prospects"],
     queryFn: async () => {
+      console.log("Fetching all prospects");
       const { data, error } = await supabase
         .from("prospects")
         .select("*");
@@ -35,6 +37,8 @@ const Dashboard = () => {
         console.error("Error fetching prospects:", error);
         throw error;
       }
+      
+      console.log("Fetched prospects:", data);
       
       // Map database fields to our frontend model
       return (data || []).map(record => ({
@@ -50,10 +54,11 @@ const Dashboard = () => {
   });
 
   const handleSearch = useCallback(async () => {
-    if (!prospectName.trim() || !companyName.trim()) {
+    // Validate that at least one search field is provided
+    if (!prospectName.trim() && !companyName.trim() && !linkedinUrl.trim()) {
       toast({
         title: "Required fields missing",
-        description: "Prospect name and company name are required.",
+        description: "Please provide at least one search field (Prospect Name, Company Name, or LinkedIn URL).",
         variant: "destructive",
       });
       return;
@@ -62,23 +67,37 @@ const Dashboard = () => {
     setIsSearching(true);
     
     try {
-      // Build the query based on search criteria
-      let query = supabase
-        .from("prospects")
-        .select("*")
-        .ilike("full_name", `%${prospectName}%`)
-        .ilike("company_name", `%${companyName}%`);
+      // Start building the query
+      let query = supabase.from("prospects").select("*");
+      
+      // Add filters if values are provided (using case insensitive search)
+      if (prospectName.trim()) {
+        query = query.ilike("full_name", `%${prospectName}%`);
+      }
+      
+      if (companyName.trim()) {
+        query = query.ilike("company_name", `%${companyName}%`);
+      }
       
       // Add location filter if provided
       if (location.trim()) {
         query = query.ilike("prospect_city", `%${location}%`);
       }
       
+      // Add LinkedIn filter if provided
+      if (linkedinUrl.trim()) {
+        query = query.ilike("prospect_linkedin", `%${linkedinUrl}%`);
+      }
+      
+      console.log("Executing search query");
       const { data, error } = await query;
       
       if (error) {
+        console.error("Search error:", error);
         throw error;
       }
+      
+      console.log("Search results:", data);
       
       // Map database fields to our frontend model
       const results = (data || []).map(record => ({
@@ -115,7 +134,7 @@ const Dashboard = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [prospectName, companyName, location, toast]);
+  }, [prospectName, companyName, location, linkedinUrl, toast]);
   
   const copyAllResults = useCallback(() => {
     if (searchResults.length === 0) {
@@ -156,10 +175,10 @@ const Dashboard = () => {
             <CardTitle className="text-xl font-semibold">Search Prospects</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3 md:gap-6">
+            <div className="grid gap-4 md:grid-cols-2 md:gap-6">
               <div className="space-y-2">
                 <label htmlFor="prospectName" className="text-sm font-medium">
-                  Prospect Name <span className="text-red-500">*</span>
+                  Prospect Name {(!companyName.trim() && !linkedinUrl.trim()) && <span className="text-red-500">*</span>}
                 </label>
                 <Input
                   id="prospectName"
@@ -172,13 +191,26 @@ const Dashboard = () => {
               
               <div className="space-y-2">
                 <label htmlFor="companyName" className="text-sm font-medium">
-                  Company Name <span className="text-red-500">*</span>
+                  Company Name {(!prospectName.trim() && !linkedinUrl.trim()) && <span className="text-red-500">*</span>}
                 </label>
                 <Input
                   id="companyName"
                   placeholder="Search by company..."
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="linkedinUrl" className="text-sm font-medium">
+                  LinkedIn URL {(!prospectName.trim() && !companyName.trim()) && <span className="text-red-500">*</span>}
+                </label>
+                <Input
+                  id="linkedinUrl"
+                  placeholder="linkedin.com/in/username"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
                   className="w-full"
                 />
               </div>
@@ -198,7 +230,7 @@ const Dashboard = () => {
             </div>
             
             <div className="mt-6 flex justify-end">
-              <Button onClick={handleSearch} disabled={isSearching}>
+              <Button onClick={handleSearch} disabled={isSearching} className="bg-blue-600 hover:bg-blue-700">
                 {isSearching ? "Searching..." : "🔍 Search"}
               </Button>
             </div>
