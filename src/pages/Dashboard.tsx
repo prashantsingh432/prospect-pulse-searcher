@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Prospect, prospects } from "@/data/prospects";
+import { Prospect } from "@/data/prospects";
 import { SearchResults } from "@/components/SearchResults";
 import { SearchAnalytics } from "@/components/SearchAnalytics";
 import { Navbar } from "@/components/Navbar";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -21,7 +23,33 @@ const Dashboard = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = useCallback(() => {
+  // Fetch all prospects for analytics
+  const { data: allProspects, isLoading } = useQuery({
+    queryKey: ["prospects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("prospects")
+        .select("*");
+      
+      if (error) {
+        console.error("Error fetching prospects:", error);
+        throw error;
+      }
+      
+      // Map database fields to our frontend model
+      return (data || []).map(record => ({
+        id: record.id,
+        name: record.full_name,
+        company: record.company_name,
+        location: record.prospect_city || "",
+        phone: record.prospect_number || "",
+        email: record.prospect_email || "",
+        linkedin: record.prospect_linkedin || ""
+      })) as Prospect[];
+    }
+  });
+
+  const handleSearch = useCallback(async () => {
     if (!prospectName.trim() || !companyName.trim()) {
       toast({
         title: "Required fields missing",
@@ -33,19 +61,38 @@ const Dashboard = () => {
 
     setIsSearching(true);
     
-    // Simulate API search delay
-    setTimeout(() => {
-      const results = prospects.filter((prospect) => {
-        const nameMatch = prospect.name.toLowerCase().includes(prospectName.toLowerCase());
-        const companyMatch = prospect.company.toLowerCase().includes(companyName.toLowerCase());
-        const locationMatch = !location.trim() || prospect.location.toLowerCase().includes(location.toLowerCase());
-        
-        return nameMatch && companyMatch && locationMatch;
-      });
+    try {
+      // Build the query based on search criteria
+      let query = supabase
+        .from("prospects")
+        .select("*")
+        .ilike("full_name", `%${prospectName}%`)
+        .ilike("company_name", `%${companyName}%`);
+      
+      // Add location filter if provided
+      if (location.trim()) {
+        query = query.ilike("prospect_city", `%${location}%`);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Map database fields to our frontend model
+      const results = (data || []).map(record => ({
+        id: record.id,
+        name: record.full_name,
+        company: record.company_name,
+        location: record.prospect_city || "",
+        phone: record.prospect_number || "",
+        email: record.prospect_email || "",
+        linkedin: record.prospect_linkedin || ""
+      })) as Prospect[];
       
       setSearchResults(results);
       setHasSearched(true);
-      setIsSearching(false);
       
       if (results.length === 0) {
         toast({
@@ -58,7 +105,16 @@ const Dashboard = () => {
           description: `Found ${results.length} matching prospects.`,
         });
       }
-    }, 500);
+    } catch (error) {
+      console.error("Search error:", error);
+      toast({
+        title: "Search failed",
+        description: "An error occurred while searching. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+    }
   }, [prospectName, companyName, location, toast]);
   
   const copyAllResults = useCallback(() => {
@@ -164,7 +220,10 @@ const Dashboard = () => {
             
             {searchResults.length > 0 && (
               <div className="mt-8">
-                <SearchAnalytics results={searchResults} totalRecords={prospects.length} />
+                <SearchAnalytics 
+                  results={searchResults}
+                  totalRecords={allProspects?.length || 50}
+                />
               </div>
             )}
           </>
