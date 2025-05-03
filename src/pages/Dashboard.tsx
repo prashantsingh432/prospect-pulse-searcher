@@ -23,6 +23,7 @@ const Dashboard = () => {
   const [searchResults, setSearchResults] = useState<Prospect[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
   // Fetch all prospects for analytics
   const { data: allProspects, isLoading } = useQuery({
@@ -53,9 +54,19 @@ const Dashboard = () => {
     }
   });
 
+  // Validate search form - at least one of name, company or LinkedIn URL must be provided
+  const validateSearch = () => {
+    if (!prospectName.trim() && !companyName.trim() && !linkedinUrl.trim()) {
+      setValidationError("Please provide at least one search field (Prospect Name, Company Name, or LinkedIn URL)");
+      return false;
+    }
+    setValidationError("");
+    return true;
+  };
+
   const handleSearch = useCallback(async () => {
     // Validate that at least one search field is provided
-    if (!prospectName.trim() && !companyName.trim() && !linkedinUrl.trim()) {
+    if (!validateSearch()) {
       toast({
         title: "Required fields missing",
         description: "Please provide at least one search field (Prospect Name, Company Name, or LinkedIn URL).",
@@ -67,26 +78,54 @@ const Dashboard = () => {
     setIsSearching(true);
     
     try {
+      console.log("Starting search with parameters:", {
+        prospectName,
+        companyName,
+        location,
+        linkedinUrl
+      });
+      
       // Start building the query
       let query = supabase.from("prospects").select("*");
       
+      // Track if we've added any filters
+      let filtersAdded = false;
+      
       // Add filters if values are provided (using case insensitive search)
       if (prospectName.trim()) {
-        query = query.ilike("full_name", `%${prospectName}%`);
+        console.log("Adding prospect name filter:", prospectName);
+        query = query.ilike("full_name", `%${prospectName.trim()}%`);
+        filtersAdded = true;
       }
       
       if (companyName.trim()) {
-        query = query.ilike("company_name", `%${companyName}%`);
+        console.log("Adding company name filter:", companyName);
+        query = query.ilike("company_name", `%${companyName.trim()}%`);
+        filtersAdded = true;
       }
       
       // Add location filter if provided
       if (location.trim()) {
-        query = query.ilike("prospect_city", `%${location}%`);
+        console.log("Adding location filter:", location);
+        query = query.ilike("prospect_city", `%${location.trim()}%`);
+        filtersAdded = true;
       }
       
       // Add LinkedIn filter if provided
       if (linkedinUrl.trim()) {
-        query = query.ilike("prospect_linkedin", `%${linkedinUrl}%`);
+        console.log("Adding LinkedIn URL filter:", linkedinUrl);
+        query = query.ilike("prospect_linkedin", `%${linkedinUrl.trim()}%`);
+        filtersAdded = true;
+      }
+
+      if (!filtersAdded) {
+        toast({
+          title: "No search criteria provided",
+          description: "Please enter at least one search criterion",
+          variant: "destructive",
+        });
+        setIsSearching(false);
+        return;
       }
       
       console.log("Executing search query");
@@ -177,40 +216,64 @@ const Dashboard = () => {
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2 md:gap-6">
               <div className="space-y-2">
-                <label htmlFor="prospectName" className="text-sm font-medium">
-                  Prospect Name {(!companyName.trim() && !linkedinUrl.trim()) && <span className="text-red-500">*</span>}
+                <label htmlFor="prospectName" className="text-sm font-medium flex items-center">
+                  Prospect Name
+                  {!companyName.trim() && !linkedinUrl.trim() && (
+                    <span className="text-red-500 ml-1">*</span>
+                  )}
                 </label>
                 <Input
                   id="prospectName"
                   placeholder="Search by name..."
                   value={prospectName}
-                  onChange={(e) => setProspectName(e.target.value)}
+                  onChange={(e) => {
+                    setProspectName(e.target.value);
+                    if (e.target.value.trim() || companyName.trim() || linkedinUrl.trim()) {
+                      setValidationError("");
+                    }
+                  }}
                   className="w-full"
                 />
               </div>
               
               <div className="space-y-2">
-                <label htmlFor="companyName" className="text-sm font-medium">
-                  Company Name {(!prospectName.trim() && !linkedinUrl.trim()) && <span className="text-red-500">*</span>}
+                <label htmlFor="companyName" className="text-sm font-medium flex items-center">
+                  Company Name
+                  {!prospectName.trim() && !linkedinUrl.trim() && (
+                    <span className="text-red-500 ml-1">*</span>
+                  )}
                 </label>
                 <Input
                   id="companyName"
                   placeholder="Search by company..."
                   value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
+                  onChange={(e) => {
+                    setCompanyName(e.target.value);
+                    if (prospectName.trim() || e.target.value.trim() || linkedinUrl.trim()) {
+                      setValidationError("");
+                    }
+                  }}
                   className="w-full"
                 />
               </div>
               
               <div className="space-y-2">
-                <label htmlFor="linkedinUrl" className="text-sm font-medium">
-                  LinkedIn URL {(!prospectName.trim() && !companyName.trim()) && <span className="text-red-500">*</span>}
+                <label htmlFor="linkedinUrl" className="text-sm font-medium flex items-center">
+                  LinkedIn URL
+                  {!prospectName.trim() && !companyName.trim() && (
+                    <span className="text-red-500 ml-1">*</span>
+                  )}
                 </label>
                 <Input
                   id="linkedinUrl"
                   placeholder="linkedin.com/in/username"
                   value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  onChange={(e) => {
+                    setLinkedinUrl(e.target.value);
+                    if (prospectName.trim() || companyName.trim() || e.target.value.trim()) {
+                      setValidationError("");
+                    }
+                  }}
                   className="w-full"
                 />
               </div>
@@ -229,8 +292,16 @@ const Dashboard = () => {
               </div>
             </div>
             
+            {validationError && (
+              <div className="mt-4 text-red-500 text-sm">{validationError}</div>
+            )}
+            
             <div className="mt-6 flex justify-end">
-              <Button onClick={handleSearch} disabled={isSearching} className="bg-blue-600 hover:bg-blue-700">
+              <Button 
+                onClick={handleSearch} 
+                disabled={isSearching} 
+                className="bg-blue-600 hover:bg-blue-700"
+              >
                 {isSearching ? "Searching..." : "🔍 Search"}
               </Button>
             </div>
