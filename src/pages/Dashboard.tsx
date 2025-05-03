@@ -1,21 +1,24 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Prospect } from "@/data/prospects";
 import { SearchResults } from "@/components/SearchResults";
 import { SearchAnalytics } from "@/components/SearchAnalytics";
 import { Navbar } from "@/components/Navbar";
 import { useQuery } from "@tanstack/react-query";
+import { User, Linkedin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
+  const [activeTab, setActiveTab] = useState("prospect-info");
   const [prospectName, setProspectName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [location, setLocation] = useState("");
@@ -24,6 +27,15 @@ const Dashboard = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [validationError, setValidationError] = useState("");
+
+  // Reset form when switching tabs
+  useEffect(() => {
+    setProspectName("");
+    setCompanyName("");
+    setLocation("");
+    setLinkedinUrl("");
+    setValidationError("");
+  }, [activeTab]);
 
   // Fetch all prospects for analytics
   const { data: allProspects, isLoading } = useQuery({
@@ -54,22 +66,37 @@ const Dashboard = () => {
     }
   });
 
-  // Validate search form - at least one of name, company or LinkedIn URL must be provided
+  // Validate search form based on the active tab
   const validateSearch = () => {
-    if (!prospectName.trim() && !companyName.trim() && !linkedinUrl.trim()) {
-      setValidationError("Please provide at least one search field (Prospect Name, Company Name, or LinkedIn URL)");
-      return false;
+    if (activeTab === "prospect-info") {
+      if (!prospectName.trim() || !companyName.trim()) {
+        setValidationError("Both Prospect Name and Company Name are required");
+        return false;
+      }
+    } else if (activeTab === "linkedin-url") {
+      if (!linkedinUrl.trim()) {
+        setValidationError("LinkedIn URL is required");
+        return false;
+      }
+      
+      // Simple validation for LinkedIn URL format
+      const linkedinPattern = /linkedin\.com\/in\/.+/;
+      if (!linkedinPattern.test(linkedinUrl.trim())) {
+        setValidationError("Please enter a valid LinkedIn URL (format: linkedin.com/in/username)");
+        return false;
+      }
     }
+    
     setValidationError("");
     return true;
   };
 
   const handleSearch = useCallback(async () => {
-    // Validate that at least one search field is provided
+    // Validate search form
     if (!validateSearch()) {
       toast({
         title: "Required fields missing",
-        description: "Please provide at least one search field (Prospect Name, Company Name, or LinkedIn URL).",
+        description: validationError || "Please check the search requirements.",
         variant: "destructive",
       });
       return;
@@ -78,54 +105,33 @@ const Dashboard = () => {
     setIsSearching(true);
     
     try {
+      let query = supabase.from("prospects").select("*");
+      
       console.log("Starting search with parameters:", {
+        activeTab,
         prospectName,
         companyName,
         location,
         linkedinUrl
       });
       
-      // Start building the query
-      let query = supabase.from("prospects").select("*");
-      
-      // Track if we've added any filters
-      let filtersAdded = false;
-      
-      // Add filters if values are provided (using case insensitive search)
-      if (prospectName.trim()) {
-        console.log("Adding prospect name filter:", prospectName);
-        query = query.ilike("full_name", `%${prospectName.trim()}%`);
-        filtersAdded = true;
-      }
-      
-      if (companyName.trim()) {
-        console.log("Adding company name filter:", companyName);
-        query = query.ilike("company_name", `%${companyName.trim()}%`);
-        filtersAdded = true;
-      }
-      
-      // Add location filter if provided
-      if (location.trim()) {
-        console.log("Adding location filter:", location);
-        query = query.ilike("prospect_city", `%${location.trim()}%`);
-        filtersAdded = true;
-      }
-      
-      // Add LinkedIn filter if provided
-      if (linkedinUrl.trim()) {
-        console.log("Adding LinkedIn URL filter:", linkedinUrl);
+      // Different query logic based on active tab
+      if (activeTab === "linkedin-url") {
+        // Option B: Search by LinkedIn URL only
+        console.log("Searching by LinkedIn URL:", linkedinUrl);
         query = query.ilike("prospect_linkedin", `%${linkedinUrl.trim()}%`);
-        filtersAdded = true;
-      }
-
-      if (!filtersAdded) {
-        toast({
-          title: "No search criteria provided",
-          description: "Please enter at least one search criterion",
-          variant: "destructive",
-        });
-        setIsSearching(false);
-        return;
+      } else {
+        // Option A: Search by Prospect Name AND Company Name, with optional Location
+        console.log("Searching by Prospect and Company Name");
+        query = query
+          .ilike("full_name", `%${prospectName.trim()}%`)
+          .ilike("company_name", `%${companyName.trim()}%`);
+        
+        // Add location filter if provided
+        if (location.trim()) {
+          console.log("Adding location filter:", location);
+          query = query.ilike("prospect_city", `%${location.trim()}%`);
+        }
       }
       
       console.log("Executing search query");
@@ -173,7 +179,7 @@ const Dashboard = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [prospectName, companyName, location, linkedinUrl, toast]);
+  }, [activeTab, prospectName, companyName, location, linkedinUrl, toast, validationError]);
   
   const copyAllResults = useCallback(() => {
     if (searchResults.length === 0) {
@@ -214,97 +220,108 @@ const Dashboard = () => {
             <CardTitle className="text-xl font-semibold">Search Prospects</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 md:gap-6">
-              <div className="space-y-2">
-                <label htmlFor="prospectName" className="text-sm font-medium flex items-center">
-                  Prospect Name
-                  {!companyName.trim() && !linkedinUrl.trim() && (
-                    <span className="text-red-500 ml-1">*</span>
-                  )}
-                </label>
-                <Input
-                  id="prospectName"
-                  placeholder="Search by name..."
-                  value={prospectName}
-                  onChange={(e) => {
-                    setProspectName(e.target.value);
-                    if (e.target.value.trim() || companyName.trim() || linkedinUrl.trim()) {
-                      setValidationError("");
-                    }
-                  }}
-                  className="w-full"
-                />
-              </div>
+            <Tabs defaultValue="prospect-info" value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="prospect-info" className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  <span>Search by Prospect Info</span>
+                </TabsTrigger>
+                <TabsTrigger value="linkedin-url" className="flex items-center gap-2">
+                  <Linkedin className="h-4 w-4" />
+                  <span>Search by LinkedIn URL</span>
+                </TabsTrigger>
+              </TabsList>
               
-              <div className="space-y-2">
-                <label htmlFor="companyName" className="text-sm font-medium flex items-center">
-                  Company Name
-                  {!prospectName.trim() && !linkedinUrl.trim() && (
-                    <span className="text-red-500 ml-1">*</span>
-                  )}
-                </label>
-                <Input
-                  id="companyName"
-                  placeholder="Search by company..."
-                  value={companyName}
-                  onChange={(e) => {
-                    setCompanyName(e.target.value);
-                    if (prospectName.trim() || e.target.value.trim() || linkedinUrl.trim()) {
-                      setValidationError("");
-                    }
-                  }}
-                  className="w-full"
-                />
-              </div>
+              <TabsContent value="prospect-info" className="mt-0">
+                <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+                  <div className="space-y-2">
+                    <label htmlFor="prospectName" className="text-sm font-medium flex items-center">
+                      Prospect Name
+                      <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <Input
+                      id="prospectName"
+                      placeholder="Search by name..."
+                      value={prospectName}
+                      onChange={(e) => {
+                        setProspectName(e.target.value);
+                        if (e.target.value.trim() && companyName.trim()) {
+                          setValidationError("");
+                        }
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="companyName" className="text-sm font-medium flex items-center">
+                      Company Name
+                      <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <Input
+                      id="companyName"
+                      placeholder="Search by company..."
+                      value={companyName}
+                      onChange={(e) => {
+                        setCompanyName(e.target.value);
+                        if (prospectName.trim() && e.target.value.trim()) {
+                          setValidationError("");
+                        }
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2 md:col-span-2">
+                    <label htmlFor="location" className="text-sm font-medium">
+                      Location <span className="text-gray-400">(optional)</span>
+                    </label>
+                    <Input
+                      id="location"
+                      placeholder="City, State or leave blank"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
               
-              <div className="space-y-2">
-                <label htmlFor="linkedinUrl" className="text-sm font-medium flex items-center">
-                  LinkedIn URL
-                  {!prospectName.trim() && !companyName.trim() && (
+              <TabsContent value="linkedin-url" className="mt-0">
+                <div className="space-y-2">
+                  <label htmlFor="linkedinUrl" className="text-sm font-medium flex items-center">
+                    LinkedIn URL
                     <span className="text-red-500 ml-1">*</span>
-                  )}
-                </label>
-                <Input
-                  id="linkedinUrl"
-                  placeholder="linkedin.com/in/username"
-                  value={linkedinUrl}
-                  onChange={(e) => {
-                    setLinkedinUrl(e.target.value);
-                    if (prospectName.trim() || companyName.trim() || e.target.value.trim()) {
-                      setValidationError("");
-                    }
-                  }}
-                  className="w-full"
-                />
-              </div>
+                  </label>
+                  <Input
+                    id="linkedinUrl"
+                    placeholder="linkedin.com/in/username"
+                    value={linkedinUrl}
+                    onChange={(e) => {
+                      setLinkedinUrl(e.target.value);
+                      if (e.target.value.trim() && /linkedin\.com\/in\/.+/.test(e.target.value.trim())) {
+                        setValidationError("");
+                      }
+                    }}
+                    className="w-full"
+                  />
+                </div>
+              </TabsContent>
               
-              <div className="space-y-2">
-                <label htmlFor="location" className="text-sm font-medium">
-                  Location <span className="text-gray-400">(optional)</span>
-                </label>
-                <Input
-                  id="location"
-                  placeholder="City, State or leave blank"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="w-full"
-                />
+              {validationError && (
+                <div className="mt-4 text-red-500 text-sm">{validationError}</div>
+              )}
+              
+              <div className="mt-6 flex justify-end">
+                <Button 
+                  onClick={handleSearch} 
+                  disabled={isSearching} 
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSearching ? "Searching..." : "🔍 Search"}
+                </Button>
               </div>
-            </div>
-            
-            {validationError && (
-              <div className="mt-4 text-red-500 text-sm">{validationError}</div>
-            )}
-            
-            <div className="mt-6 flex justify-end">
-              <Button 
-                onClick={handleSearch} 
-                disabled={isSearching} 
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isSearching ? "Searching..." : "🔍 Search"}
-              </Button>
-            </div>
+            </Tabs>
           </CardContent>
         </Card>
         
