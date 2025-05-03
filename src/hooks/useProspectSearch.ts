@@ -16,6 +16,7 @@ export const useProspectSearch = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [validationError, setValidationError] = useState("");
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Reset form when switching tabs
   useEffect(() => {
@@ -26,21 +27,46 @@ export const useProspectSearch = () => {
     setValidationError("");
   }, [activeTab]);
 
+  // Test Supabase connection
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        console.log("Testing Supabase connection...");
+        const { data, error } = await supabase.from("prospects").select("count()", { count: "exact", head: true });
+        
+        if (error) {
+          console.error("Supabase connection error:", error);
+          setConnectionError(error.message);
+        } else {
+          console.log("Supabase connection successful");
+          setConnectionError(null);
+        }
+      } catch (err) {
+        console.error("Connection test failed:", err);
+        setConnectionError(err instanceof Error ? err.message : "Unknown connection error");
+      }
+    };
+    
+    testConnection();
+  }, []);
+
   // Validate search form based on the active tab
   const validateSearch = useCallback(() => {
     if (activeTab === "prospect-info") {
-      if (!prospectName.trim() || !companyName.trim()) {
-        setValidationError("Both Prospect Name and Company Name are required");
+      // For prospect info tab, require at least prospect name or company name
+      if (!prospectName.trim() && !companyName.trim()) {
+        setValidationError("At least one of Prospect Name or Company Name is required");
         return false;
       }
     } else if (activeTab === "linkedin-url") {
+      // For LinkedIn tab, require the LinkedIn URL
       if (!linkedinUrl.trim()) {
         setValidationError("LinkedIn URL is required");
         return false;
       }
       
       // Simple validation for LinkedIn URL format
-      const linkedinPattern = /linkedin\.com\/in\/.+/;
+      const linkedinPattern = /linkedin\.com\/in\/[a-zA-Z0-9_-]+/;
       if (!linkedinPattern.test(linkedinUrl.trim())) {
         setValidationError("Please enter a valid LinkedIn URL (format: linkedin.com/in/username)");
         return false;
@@ -63,10 +89,9 @@ export const useProspectSearch = () => {
     }
 
     setIsSearching(true);
+    setHasSearched(true);
     
     try {
-      let query = supabase.from("prospects").select("*");
-      
       console.log("Starting search with parameters:", {
         activeTab,
         prospectName,
@@ -79,67 +104,97 @@ export const useProspectSearch = () => {
       if (activeTab === "linkedin-url") {
         // Option B: Search by LinkedIn URL only
         console.log("Searching by LinkedIn URL:", linkedinUrl);
-        query = query.ilike("prospect_linkedin", `%${linkedinUrl.trim()}%`);
+        
+        const cleanLinkedinUrl = linkedinUrl.trim();
+        const { data, error } = await supabase
+          .from("prospects")
+          .select("*")
+          .ilike("prospect_linkedin", `%${cleanLinkedinUrl}%`);
+        
+        if (error) {
+          console.error("LinkedIn search error:", error);
+          throw error;
+        }
+        
+        console.log("LinkedIn search results:", data);
+        
+        // Map database fields to our frontend model
+        const results = (data || []).map(record => ({
+          id: record.id,
+          name: record.full_name,
+          company: record.company_name,
+          location: record.prospect_city || "",
+          phone: record.prospect_number || "",
+          email: record.prospect_email || "",
+          linkedin: record.prospect_linkedin || ""
+        })) as Prospect[];
+        
+        setSearchResults(results);
       } else {
         // Option A: Search by Prospect Name AND Company Name, with optional Location
         console.log("Searching by Prospect and Company Name");
-        query = query
-          .ilike("full_name", `%${prospectName.trim()}%`)
-          .ilike("company_name", `%${companyName.trim()}%`);
+        
+        // Start with the base query
+        let query = supabase.from("prospects").select("*");
+        
+        // Add filters based on provided inputs
+        if (prospectName.trim()) {
+          query = query.ilike("full_name", `%${prospectName.trim()}%`);
+        }
+        
+        if (companyName.trim()) {
+          query = query.ilike("company_name", `%${companyName.trim()}%`);
+        }
         
         // Add location filter if provided
         if (location.trim()) {
           console.log("Adding location filter:", location);
           query = query.ilike("prospect_city", `%${location.trim()}%`);
         }
+        
+        console.log("Executing search query");
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error("Search error:", error);
+          throw error;
+        }
+        
+        console.log("Search results:", data);
+        
+        // Map database fields to our frontend model
+        const results = (data || []).map(record => ({
+          id: record.id,
+          name: record.full_name,
+          company: record.company_name,
+          location: record.prospect_city || "",
+          phone: record.prospect_number || "",
+          email: record.prospect_email || "",
+          linkedin: record.prospect_linkedin || ""
+        })) as Prospect[];
+        
+        setSearchResults(results);
       }
       
-      console.log("Executing search query");
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error("Search error:", error);
-        throw error;
-      }
-      
-      console.log("Search results:", data);
-      
-      // Map database fields to our frontend model
-      const results = (data || []).map(record => ({
-        id: record.id,
-        name: record.full_name,
-        company: record.company_name,
-        location: record.prospect_city || "",
-        phone: record.prospect_number || "",
-        email: record.prospect_email || "",
-        linkedin: record.prospect_linkedin || ""
-      })) as Prospect[];
-      
-      setSearchResults(results);
-      setHasSearched(true);
-      
-      if (results.length === 0) {
-        toast({
-          title: "No results found",
-          description: "Try adjusting your search criteria.",
-        });
-      } else {
-        toast({
-          title: "Search complete",
-          description: `Found ${results.length} matching prospects.`,
-        });
-      }
+      toast({
+        title: "Search complete",
+        description: searchResults.length > 0 
+          ? `Found ${searchResults.length} matching prospects.` 
+          : "No matching prospects found.",
+      });
     } catch (error) {
       console.error("Search error:", error);
       toast({
         title: "Search failed",
-        description: "An error occurred while searching. Please try again.",
+        description: error instanceof Error 
+          ? `Error: ${error.message}` 
+          : "An error occurred while searching. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsSearching(false);
     }
-  }, [activeTab, prospectName, companyName, location, linkedinUrl, toast, validationError, validateSearch]);
+  }, [activeTab, prospectName, companyName, location, linkedinUrl, toast, validationError, validateSearch, searchResults.length]);
 
   const copyAllResults = useCallback(() => {
     if (searchResults.length === 0) {
@@ -186,6 +241,7 @@ export const useProspectSearch = () => {
     isSearching,
     validationError,
     setValidationError,
+    connectionError,
     handleSearch,
     copyAllResults
   };

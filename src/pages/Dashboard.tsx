@@ -7,6 +7,8 @@ import { Prospect } from "@/data/prospects";
 import { useProspectSearch } from "@/hooks/useProspectSearch";
 import { SearchContainer } from "@/components/dashboard/SearchContainer";
 import { ResultsContainer } from "@/components/dashboard/ResultsContainer";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -26,12 +28,13 @@ const Dashboard = () => {
     isSearching,
     validationError,
     setValidationError,
+    connectionError,
     handleSearch,
     copyAllResults
   } = useProspectSearch();
 
   // Fetch all prospects for analytics
-  const { data: allProspects, isLoading } = useQuery({
+  const { data: allProspects, isLoading, error: fetchError } = useQuery({
     queryKey: ["prospects"],
     queryFn: async () => {
       console.log("Fetching all prospects");
@@ -64,6 +67,24 @@ const Dashboard = () => {
       <Navbar />
       
       <main className="container mx-auto px-4 py-8">
+        {connectionError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Database connection error: {connectionError}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {fetchError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Error loading prospects: {fetchError instanceof Error ? fetchError.message : "Unknown error"}
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <SearchContainer
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -85,7 +106,8 @@ const Dashboard = () => {
           hasSearched={hasSearched}
           searchResults={searchResults}
           copyAllResults={copyAllResults}
-          totalRecords={allProspects?.length || 50}
+          totalRecords={allProspects?.length || 0}
+          isLoading={isLoading}
         />
       </main>
     </div>
