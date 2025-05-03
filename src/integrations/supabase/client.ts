@@ -28,6 +28,7 @@ export const supabase = createClient<Database>(
 // Utility function to test Supabase connection
 export const testSupabaseConnection = async () => {
   try {
+    console.log("Testing Supabase connection...");
     const { data, error } = await supabase.from("prospects").select("count()", { count: "exact", head: true });
     
     if (error) {

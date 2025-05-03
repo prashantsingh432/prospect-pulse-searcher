@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Prospect } from "@/data/prospects";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, testSupabaseConnection } from "@/integrations/supabase/client";
 
 export const useProspectSearch = () => {
   const { toast } = useToast();
@@ -17,6 +17,7 @@ export const useProspectSearch = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [validationError, setValidationError] = useState("");
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   // Reset form when switching tabs
   useEffect(() => {
@@ -29,17 +30,18 @@ export const useProspectSearch = () => {
 
   // Test Supabase connection
   useEffect(() => {
-    const testConnection = async () => {
+    const checkConnection = async () => {
       try {
         console.log("Testing Supabase connection...");
-        const { data, error } = await supabase.from("prospects").select("count()", { count: "exact", head: true });
+        const { data, error } = await supabase.from("prospects").select("*");
         
         if (error) {
           console.error("Supabase connection error:", error);
           setConnectionError(error.message);
         } else {
-          console.log("Supabase connection successful");
+          console.log("Fetched prospects:", data);
           setConnectionError(null);
+          setTotalRecords(data?.length || 0);
         }
       } catch (err) {
         console.error("Connection test failed:", err);
@@ -47,7 +49,7 @@ export const useProspectSearch = () => {
       }
     };
     
-    testConnection();
+    checkConnection();
   }, []);
 
   // Validate search form based on the active tab
@@ -242,6 +244,7 @@ export const useProspectSearch = () => {
     validationError,
     setValidationError,
     connectionError,
+    totalRecords,
     handleSearch,
     copyAllResults
   };
