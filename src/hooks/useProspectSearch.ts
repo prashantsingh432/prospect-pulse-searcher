@@ -1,7 +1,26 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Prospect } from "@/data/prospects";
 import { supabase, testSupabaseConnection } from "@/integrations/supabase/client";
+
+// Helper function to normalize LinkedIn URLs for more reliable searching
+const normalizeLinkedInUrl = (url: string): string => {
+  if (!url) return '';
+  
+  let normalizedUrl = url.trim().toLowerCase();
+  
+  // Remove protocol if present
+  normalizedUrl = normalizedUrl
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '');
+    
+  // Remove trailing slash if present
+  normalizedUrl = normalizedUrl.replace(/\/+$/, '');
+  
+  console.log(`Normalized LinkedIn URL: "${url}" → "${normalizedUrl}"`);
+  return normalizedUrl;
+};
 
 export const useProspectSearch = () => {
   const { toast } = useToast();
@@ -184,24 +203,56 @@ export const useProspectSearch = () => {
       let queryResults;
       
       if (activeTab === "linkedin-url") {
-        // Option B: Search by LinkedIn URL only
+        // Option B: Search by LinkedIn URL with improved normalization
         console.log("Searching by LinkedIn URL:", linkedinUrl);
         
-        const cleanLinkedinUrl = linkedinUrl.trim();
+        const normalizedLinkedInUrl = normalizeLinkedInUrl(linkedinUrl.trim());
+        console.log("Normalized URL for search:", normalizedLinkedInUrl);
         
         // More permissive search for LinkedIn URL - search in prospect_linkedin column
-        const { data, error } = await supabase
-          .from("prospects")
-          .select("*")
-          .ilike("prospect_linkedin", `%${cleanLinkedinUrl}%`);
+        // Use wildcards for better partial matching
+        let query = supabase.from("prospects").select("*");
         
-        if (error) {
-          console.error("LinkedIn search error:", error);
-          throw error;
+        // Try multiple search strategies for better matches
+        const searchPromises = [];
+        
+        // Strategy 1: Direct match on normalized URL (most precise)
+        searchPromises.push(
+          supabase
+            .from("prospects")
+            .select("*")
+            .filter("prospect_linkedin", "ilike", `%${normalizedLinkedInUrl}%`)
+        );
+        
+        // Strategy 2: Try to match just the username portion (e.g., "johndoe" part from linkedin.com/in/johndoe)
+        const usernameMatch = normalizedLinkedInUrl.match(/linkedin\.com\/in\/([^\/]+)/i);
+        if (usernameMatch && usernameMatch[1]) {
+          const username = usernameMatch[1];
+          console.log("Extracted username for search:", username);
+          searchPromises.push(
+            supabase
+              .from("prospects")
+              .select("*")
+              .filter("prospect_linkedin", "ilike", `%${username}%`)
+          );
         }
         
-        console.log("LinkedIn search results:", data);
-        queryResults = data;
+        // Execute all search strategies in parallel
+        const searchResults = await Promise.all(searchPromises);
+        console.log("Multiple search strategies results:", searchResults);
+        
+        // Combine and deduplicate results
+        const allResults = searchResults
+          .filter(result => !result.error && result.data)
+          .flatMap(result => result.data || []);
+          
+        // Remove duplicates by ID
+        const uniqueResults = Array.from(
+          new Map(allResults.map(item => [item.id, item])).values()
+        );
+        
+        console.log("LinkedIn search results:", uniqueResults);
+        queryResults = uniqueResults;
         
       } else {
         // Option A: Search by Prospect Name AND/OR Company Name, with optional Location
@@ -285,7 +336,8 @@ export const useProspectSearch = () => {
           prospectName,
           companyName,
           location,
-          linkedinUrl
+          linkedinUrl,
+          normalizedUrl: normalizeLinkedInUrl(linkedinUrl)
         },
         results: queryResults,
         timestamp: new Date()

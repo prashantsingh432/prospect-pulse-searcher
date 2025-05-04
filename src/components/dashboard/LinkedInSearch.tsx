@@ -2,7 +2,13 @@
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, HelpCircle } from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface LinkedInSearchProps {
   linkedinUrl: string;
@@ -52,6 +58,18 @@ export const LinkedInSearch = ({
         <label htmlFor="linkedinUrl" className="text-sm font-medium flex items-center">
           LinkedIn URL
           <span className="text-red-500 ml-1">*</span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-5 w-5 p-0 ml-1">
+                  <HelpCircle size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>We'll try to match this URL with our database. URLs are normalized for better matching.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </label>
         <div className="relative">
           <Input
@@ -87,11 +105,12 @@ export const LinkedInSearch = ({
         </div>
         
         <div className="text-xs">
-          <p className="text-gray-500">Examples:</p>
+          <p className="text-gray-500">URL Formats We Accept:</p>
           <ul className="ml-4 list-disc text-gray-400">
             <li>linkedin.com/in/username</li>
             <li>https://www.linkedin.com/in/username</li>
             <li>www.linkedin.com/in/username</li>
+            <li>linkedin.com/in/username/</li>
           </ul>
         </div>
       </div>
