@@ -21,8 +21,7 @@ export const supabase = createClient<Database>(
       headers: {
         'x-application-name': 'prospect-pulse',
       },
-    },
-    debug: true // Enable debug mode to get more detailed logs
+    }
   }
 );
 
