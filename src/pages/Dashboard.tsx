@@ -8,7 +8,9 @@ import { useProspectSearch } from "@/hooks/useProspectSearch";
 import { SearchContainer } from "@/components/dashboard/SearchContainer";
 import { ResultsContainer } from "@/components/dashboard/ResultsContainer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Info } from "lucide-react";
+import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -28,9 +30,11 @@ const Dashboard = () => {
     isSearching,
     validationError,
     setValidationError,
-    connectionError,
+    connectionStatus,
     handleSearch,
-    copyAllResults
+    copyAllResults,
+    testConnection,
+    debugInfo
   } = useProspectSearch();
 
   // Fetch all prospects for analytics
@@ -62,16 +66,34 @@ const Dashboard = () => {
     }
   });
 
+  // Log when the dashboard is mounted for debugging purposes
+  useEffect(() => {
+    console.log("Dashboard mounted, allProspects:", allProspects);
+  }, [allProspects]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
       <main className="container mx-auto px-4 py-8">
-        {connectionError && (
-          <Alert variant="destructive" className="mb-6">
+        {/* Connection Status */}
+        {connectionStatus && (
+          <Alert variant={connectionStatus.connected ? "default" : "destructive"} className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Database connection error: {connectionError}
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                {connectionStatus.connected 
+                  ? `Connected to database. Last checked: ${connectionStatus.lastChecked?.toLocaleTimeString()}` 
+                  : `Database connection issue: ${connectionStatus.message}`}
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={testConnection}
+                disabled={isSearching}
+              >
+                Test Connection
+              </Button>
             </AlertDescription>
           </Alert>
         )}
@@ -81,6 +103,20 @@ const Dashboard = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               Error loading prospects: {fetchError instanceof Error ? fetchError.message : "Unknown error"}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {debugInfo?.error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div>
+                <strong>Debug Error Info:</strong> 
+                <pre className="mt-2 bg-gray-100 p-2 rounded text-xs overflow-x-auto">
+                  {JSON.stringify(debugInfo.error, null, 2)}
+                </pre>
+              </div>
             </AlertDescription>
           </Alert>
         )}
@@ -108,6 +144,7 @@ const Dashboard = () => {
           copyAllResults={copyAllResults}
           totalRecords={allProspects?.length || 0}
           isLoading={isLoading}
+          debugInfo={debugInfo}
         />
       </main>
     </div>

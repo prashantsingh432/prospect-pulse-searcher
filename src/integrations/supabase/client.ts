@@ -22,6 +22,7 @@ export const supabase = createClient<Database>(
         'x-application-name': 'prospect-pulse',
       },
     },
+    debug: true // Enable debug mode to get more detailed logs
   }
 );
 
@@ -29,20 +30,44 @@ export const supabase = createClient<Database>(
 export const testSupabaseConnection = async () => {
   try {
     console.log("Testing Supabase connection...");
-    const { data, error } = await supabase.from("prospects").select("count()", { count: "exact", head: true });
+    console.log("Supabase URL:", SUPABASE_URL);
+    console.log("Supabase key available:", !!SUPABASE_PUBLISHABLE_KEY);
     
-    if (error) {
-      console.error("Supabase connection error:", error);
-      return { success: false, error };
+    // First, check if we can access the service
+    const { data: serviceCheck, error: serviceError } = await supabase.from("prospects").select("count()", { count: "exact", head: true });
+    
+    if (serviceError) {
+      console.error("Supabase connection error:", serviceError);
+      return { success: false, error: serviceError, message: `Connection failed: ${serviceError.message}` };
     }
     
-    console.log("Supabase connection successful");
-    return { success: true, data };
+    // Now try to fetch one row to verify data access
+    const { data: sampleData, error: sampleError } = await supabase
+      .from("prospects")
+      .select("*")
+      .limit(1);
+    
+    if (sampleError) {
+      console.error("Data access error:", sampleError);
+      return { 
+        success: false, 
+        error: sampleError, 
+        message: `Connected, but cannot access data: ${sampleError.message}` 
+      };
+    }
+    
+    console.log("Supabase connection successful, sample data:", sampleData);
+    return { 
+      success: true, 
+      data: sampleData, 
+      message: `Connected successfully. ${sampleData?.length || 0} sample records found.` 
+    };
   } catch (err) {
-    console.error("Connection test failed:", err);
+    console.error("Connection test failed with exception:", err);
     return { 
       success: false, 
-      error: err instanceof Error ? err : new Error("Unknown connection error") 
+      error: err instanceof Error ? err : new Error("Unknown connection error"),
+      message: `Exception during connection test: ${err instanceof Error ? err.message : "Unknown error"}`
     };
   }
 };
