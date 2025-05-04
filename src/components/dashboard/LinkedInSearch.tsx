@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { validateLinkedInUrl, formatLinkedInUrl } from "@/utils/linkedInUtils";
 
 interface LinkedInSearchProps {
   linkedinUrl: string;
@@ -24,33 +25,6 @@ export const LinkedInSearch = ({
   setValidationError,
 }: LinkedInSearchProps) => {
   const [isFocused, setIsFocused] = useState(false);
-  
-  // More permissive LinkedIn URL validation function - just check if it contains linkedin.com
-  const validateLinkedInUrl = (url: string) => {
-    const trimmedUrl = url.trim();
-    if (!trimmedUrl) {
-      return false;
-    }
-    
-    return /linkedin\.com/i.test(trimmedUrl);
-  };
-
-  // Helper to clean up LinkedIn URLs
-  const formatLinkedInUrl = (url: string): string => {
-    let cleaned = url.trim();
-    
-    // If it doesn't contain linkedin.com, don't process further
-    if (!cleaned.includes('linkedin.com')) {
-      return cleaned;
-    }
-    
-    // If it doesn't start with http/https, add it
-    if (!cleaned.startsWith('http')) {
-      cleaned = 'https://' + cleaned;
-    }
-    
-    return cleaned;
-  };
 
   return (
     <div className="space-y-4">
