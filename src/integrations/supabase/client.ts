@@ -25,40 +25,4 @@ export const supabase = createClient<Database>(
   }
 );
 
-// Utility function to test Supabase connection
-export const testSupabaseConnection = async () => {
-  try {
-    console.log("Testing Supabase connection...");
-    console.log("Supabase URL:", SUPABASE_URL);
-    console.log("Supabase key available:", !!SUPABASE_PUBLISHABLE_KEY);
-    
-    // First test if we can access the database at all
-    const { data: testData, error: testError } = await supabase
-      .from("prospects")
-      .select("*")
-      .limit(1);
-    
-    if (testError) {
-      console.error("Supabase connection test failed:", testError);
-      return { 
-        success: false, 
-        error: testError,
-        message: `Connection test failed: ${testError.message}`
-      };
-    }
-    
-    console.log("Supabase connection successful, test data:", testData);
-    return { 
-      success: true, 
-      data: testData,
-      message: `Connected successfully. Found ${testData?.length || 0} test records.`
-    };
-  } catch (err) {
-    console.error("Connection test failed with exception:", err);
-    return { 
-      success: false, 
-      error: err instanceof Error ? err : new Error("Unknown connection error"),
-      message: `Exception during connection test: ${err instanceof Error ? err.message : "Unknown error"}`
-    };
-  }
-};
+// Note: testSupabaseConnection is now imported from connectionService.ts
