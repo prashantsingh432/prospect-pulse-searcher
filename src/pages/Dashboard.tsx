@@ -2,7 +2,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, testSupabaseConnection } from "@/integrations/supabase/client";
 import { Prospect } from "@/data/prospects";
 import { useProspectSearch } from "@/hooks/useProspectSearch";
 import { SearchContainer } from "@/components/dashboard/SearchContainer";
@@ -37,46 +37,54 @@ const Dashboard = () => {
     debugInfo
   } = useProspectSearch();
 
-  // Fetch all prospects for analytics
+  // Fetch all prospects for analytics - disabled for now until connection is fixed
   const { data: allProspects, isLoading, error: fetchError } = useQuery({
     queryKey: ["prospects"],
     queryFn: async () => {
       console.log("Fetching all prospects");
-      const { data, error } = await supabase
-        .from("prospects")
-        .select("*");
-      
-      if (error) {
-        console.error("Error fetching prospects:", error);
-        throw error;
+      try {
+        const { data, error } = await supabase
+          .from("prospects")
+          .select("*");
+        
+        if (error) {
+          console.error("Error fetching prospects:", error);
+          throw error;
+        }
+        
+        console.log("Fetched prospects:", data);
+        
+        // Map database fields to our frontend model
+        return (data || []).map(record => ({
+          id: record.id,
+          name: record.full_name,
+          company: record.company_name,
+          location: record.prospect_city || "",
+          phone: record.prospect_number || "",
+          email: record.prospect_email || "",
+          linkedin: record.prospect_linkedin || ""
+        })) as Prospect[];
+      } catch (err) {
+        console.error("Query error:", err);
+        return [] as Prospect[];
       }
-      
-      console.log("Fetched prospects:", data);
-      
-      // Map database fields to our frontend model
-      return (data || []).map(record => ({
-        id: record.id,
-        name: record.full_name,
-        company: record.company_name,
-        location: record.prospect_city || "",
-        phone: record.prospect_number || "",
-        email: record.prospect_email || "",
-        linkedin: record.prospect_linkedin || ""
-      })) as Prospect[];
-    }
+    },
+    enabled: false // Disable the query until connection is fixed
   });
 
   // Log when the dashboard is mounted for debugging purposes
   useEffect(() => {
-    console.log("Dashboard mounted, allProspects:", allProspects);
-  }, [allProspects]);
+    console.log("Dashboard mounted");
+    // Test connection on mount
+    testConnection();
+  }, [testConnection]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
       <main className="container mx-auto px-4 py-8">
-        {/* Connection Status */}
+        {/* Connection Status Alert */}
         {connectionStatus && (
           <Alert variant={connectionStatus.connected ? "default" : "destructive"} className="mb-6">
             <AlertCircle className="h-4 w-4" />
@@ -107,6 +115,7 @@ const Dashboard = () => {
           </Alert>
         )}
         
+        {/* Debug Info Display */}
         {debugInfo?.error && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />

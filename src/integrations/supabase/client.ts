@@ -32,34 +32,26 @@ export const testSupabaseConnection = async () => {
     console.log("Supabase URL:", SUPABASE_URL);
     console.log("Supabase key available:", !!SUPABASE_PUBLISHABLE_KEY);
     
-    // First, check if we can access the service
-    const { data: serviceCheck, error: serviceError } = await supabase.from("prospects").select("count()", { count: "exact", head: true });
-    
-    if (serviceError) {
-      console.error("Supabase connection error:", serviceError);
-      return { success: false, error: serviceError, message: `Connection failed: ${serviceError.message}` };
-    }
-    
-    // Now try to fetch one row to verify data access
-    const { data: sampleData, error: sampleError } = await supabase
+    // First test if we can access the database at all
+    const { data: testData, error: testError } = await supabase
       .from("prospects")
       .select("*")
       .limit(1);
     
-    if (sampleError) {
-      console.error("Data access error:", sampleError);
+    if (testError) {
+      console.error("Supabase connection test failed:", testError);
       return { 
         success: false, 
-        error: sampleError, 
-        message: `Connected, but cannot access data: ${sampleError.message}` 
+        error: testError,
+        message: `Connection test failed: ${testError.message}`
       };
     }
     
-    console.log("Supabase connection successful, sample data:", sampleData);
+    console.log("Supabase connection successful, test data:", testData);
     return { 
       success: true, 
-      data: sampleData, 
-      message: `Connected successfully. ${sampleData?.length || 0} sample records found.` 
+      data: testData,
+      message: `Connected successfully. Found ${testData?.length || 0} test records.`
     };
   } catch (err) {
     console.error("Connection test failed with exception:", err);

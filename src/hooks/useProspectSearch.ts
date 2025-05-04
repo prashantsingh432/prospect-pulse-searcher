@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Prospect } from "@/data/prospects";
@@ -20,11 +19,7 @@ export const useProspectSearch = () => {
     connected: boolean;
     message: string;
     lastChecked: Date | null;
-  }>({
-    connected: false,
-    message: "Not connected yet",
-    lastChecked: null
-  });
+  } | null>(null);
   const [totalRecords, setTotalRecords] = useState(0);
   const [debugInfo, setDebugInfo] = useState<any>(null);
 
@@ -50,7 +45,6 @@ export const useProspectSearch = () => {
             message: result.message || "Connected successfully",
             lastChecked: new Date()
           });
-          setTotalRecords(result.data?.length || 0);
           setDebugInfo(result);
         }
       } catch (err) {
@@ -130,7 +124,6 @@ export const useProspectSearch = () => {
           message: result.message || "Connected successfully",
           lastChecked: new Date()
         });
-        setTotalRecords(result.data?.length || 0);
         setDebugInfo(result);
         
         toast({
