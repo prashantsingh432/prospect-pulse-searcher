@@ -31,7 +31,18 @@ export const useProspectSearch = () => {
         const result = await testSupabaseConnection();
         
         setConnectionStatus(result);
-        setDebugInfo(result);
+        setDebugInfo(prev => ({ ...prev, connectionTest: result }));
+        
+        if (result.success) {
+          // Update total records count
+          const { data, error } = await supabase
+            .from("prospects")
+            .select("id", { count: "exact" });
+            
+          if (!error) {
+            setTotalRecords(data?.length || 0);
+          }
+        }
       } catch (err) {
         console.error("Connection check error:", err);
         setConnectionStatus({
@@ -71,7 +82,18 @@ export const useProspectSearch = () => {
       const result = await testSupabaseConnection();
       
       setConnectionStatus(result);
-      setDebugInfo(result);
+      setDebugInfo(prev => ({ ...prev, connectionTest: result }));
+      
+      if (result.success) {
+        // Update total records count
+        const { data, error } = await supabase
+          .from("prospects")
+          .select("id", { count: "exact" });
+          
+        if (!error) {
+          setTotalRecords(data?.length || 0);
+        }
+      }
       
       toast({
         title: result.success ? "Database connected" : "Database connection failed",
@@ -220,3 +242,5 @@ export const useProspectSearch = () => {
     debugInfo
   };
 };
+
+import { supabase } from "@/integrations/supabase/client";

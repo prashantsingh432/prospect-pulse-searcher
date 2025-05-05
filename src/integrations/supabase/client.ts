@@ -24,5 +24,3 @@ export const supabase = createClient<Database>(
     }
   }
 );
-
-// Removed duplicate function as it's available in connectionService.ts

@@ -7,7 +7,7 @@ export interface ConnectionTestResult {
   message?: string;
   data?: any;
   lastChecked: Date;
-  connected: boolean; // Added the required 'connected' property
+  connected: boolean; 
 }
 
 /**
@@ -22,7 +22,7 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
     const { data: testData, error: testError } = await supabase
       .from("prospects")
       .select("*")
-      .limit(1);
+      .limit(5);
     
     if (testError) {
       console.error("Supabase connection test failed:", testError);

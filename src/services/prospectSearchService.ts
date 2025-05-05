@@ -60,7 +60,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
       
       const debugInfo = {
         query: params,
-        results: queryResults,
+        results: queryResults.length,
         timestamp: new Date()
       };
       
@@ -75,7 +75,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
         results: [],
         debugInfo: {
           query: params,
-          normalizedUrl: normalizeLinkedInUrl(linkedinUrl),
+          normalizedUrl: activeTab === "linkedin-url" ? normalizeLinkedInUrl(linkedinUrl) : null,
           timestamp: new Date()
         },
         success: true,
@@ -103,6 +103,10 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
 async function searchByLinkedInUrl(linkedinUrl: string): Promise<any[]> {
   console.log("Searching by LinkedIn URL:", linkedinUrl);
   
+  if (!linkedinUrl.trim()) {
+    return [];
+  }
+  
   const normalizedLinkedInUrl = normalizeLinkedInUrl(linkedinUrl.trim());
   console.log("Normalized URL for search:", normalizedLinkedInUrl);
   
@@ -114,7 +118,7 @@ async function searchByLinkedInUrl(linkedinUrl: string): Promise<any[]> {
     supabase
       .from("prospects")
       .select("*")
-      .filter("prospect_linkedin", "ilike", `%${normalizedLinkedInUrl}%`)
+      .ilike("prospect_linkedin", `%${normalizedLinkedInUrl}%`)
   );
   
   // Strategy 2: Try to match just the username portion
@@ -125,13 +129,13 @@ async function searchByLinkedInUrl(linkedinUrl: string): Promise<any[]> {
       supabase
         .from("prospects")
         .select("*")
-        .filter("prospect_linkedin", "ilike", `%${username}%`)
+        .ilike("prospect_linkedin", `%${username}%`)
     );
   }
   
   // Execute all search strategies in parallel
   const searchResults = await Promise.all(searchPromises);
-  console.log("Multiple search strategies results:", searchResults);
+  console.log("Multiple search strategies results:", searchResults.map(r => r.data?.length || 0));
   
   // Combine and deduplicate results
   const allResults = searchResults
@@ -143,7 +147,7 @@ async function searchByLinkedInUrl(linkedinUrl: string): Promise<any[]> {
     new Map(allResults.map(item => [item.id, item])).values()
   );
   
-  console.log("LinkedIn search results:", uniqueResults);
+  console.log(`LinkedIn search found ${uniqueResults.length} results`);
   return uniqueResults;
 }
 
@@ -167,12 +171,9 @@ async function searchByProspectInfo(
   }
   
   if (companyName.trim()) {
-    // If we already have a name filter, we need to use the or filter for company
     if (prospectName.trim()) {
-      // We need to remove the previous ilike filter and use a combined or filter
+      // We need to use OR filter if both name and company are provided
       query = supabase.from("prospects").select("*");
-      
-      // Combined filter for name OR company
       query = query.or(`full_name.ilike.%${prospectName.trim()}%,company_name.ilike.%${companyName.trim()}%`);
       console.log("Added combined name+company filter");
     } else {
@@ -196,6 +197,6 @@ async function searchByProspectInfo(
     throw error;
   }
   
-  console.log("Search results:", data);
+  console.log(`Search found ${data?.length || 0} results`);
   return data || [];
 }
