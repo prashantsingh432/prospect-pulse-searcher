@@ -8,6 +8,7 @@ export interface ConnectionTestResult {
   data?: any;
   lastChecked: Date;
   connected: boolean; 
+  recordCount?: number;
 }
 
 /**
@@ -35,13 +36,23 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
       };
     }
     
+    // Get the total count of records
+    const { count, error: countError } = await supabase
+      .from("prospects")
+      .select("*", { count: "exact", head: true });
+      
+    if (countError) {
+      console.error("Error getting record count:", countError);
+    }
+    
     console.log("Supabase connection successful, test data:", testData);
     return { 
       success: true, 
       data: testData,
-      message: `Connected successfully. Found ${testData?.length || 0} test records.`,
+      message: `Connected successfully. Found ${testData?.length || 0} test records. Total database records: ${count || 'unknown'}.`,
       lastChecked: new Date(),
-      connected: true
+      connected: true,
+      recordCount: count
     };
   } catch (err) {
     console.error("Connection test failed with exception:", err);

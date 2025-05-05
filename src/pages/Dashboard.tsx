@@ -92,7 +92,7 @@ const Dashboard = () => {
             <AlertDescription className="flex items-center justify-between">
               <span>
                 {connectionStatus.connected 
-                  ? `Connected to database. Last checked: ${connectionStatus.lastChecked?.toLocaleTimeString()}` 
+                  ? `Connected to database. ${connectionStatus.recordCount ? `Found ${connectionStatus.recordCount} total records.` : ''} Last checked: ${connectionStatus.lastChecked?.toLocaleTimeString()}` 
                   : `Database connection issue: ${connectionStatus.message}`}
               </span>
               <Button 
@@ -152,7 +152,7 @@ const Dashboard = () => {
           hasSearched={hasSearched}
           searchResults={searchResults}
           copyAllResults={copyAllResults}
-          totalRecords={allProspects?.length || 0}
+          totalRecords={allProspects?.length || connectionStatus?.recordCount || 0}
           isLoading={isLoading}
           debugInfo={debugInfo}
         />
