@@ -38,7 +38,8 @@ export const useProspectSearch = () => {
           success: false,
           message: err instanceof Error ? err.message : "Unknown error checking connection",
           lastChecked: new Date(),
-          error: err
+          error: err,
+          connected: false
         });
         setDebugInfo({ error: err });
       }
@@ -83,7 +84,8 @@ export const useProspectSearch = () => {
         success: false,
         message: err instanceof Error ? err.message : "Unknown error checking connection",
         lastChecked: new Date(),
-        error: err
+        error: err,
+        connected: false
       });
       setDebugInfo({ error: err });
       
@@ -97,6 +99,7 @@ export const useProspectSearch = () => {
     }
   }, [toast]);
 
+  // Handle search using the prospectSearchService
   const handleSearch = useCallback(async () => {
     // Validate search form
     if (!validateSearch()) {
@@ -165,6 +168,7 @@ export const useProspectSearch = () => {
     validationError
   ]);
 
+  // Copy all search results to clipboard
   const copyAllResults = useCallback(() => {
     if (searchResults.length === 0) {
       toast({

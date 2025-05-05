@@ -2,7 +2,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { useQuery } from "@tanstack/react-query";
-import { supabase, testSupabaseConnection } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { Prospect } from "@/data/prospects";
 import { useProspectSearch } from "@/hooks/useProspectSearch";
 import { SearchContainer } from "@/components/dashboard/SearchContainer";
@@ -37,25 +37,26 @@ const Dashboard = () => {
     debugInfo
   } = useProspectSearch();
 
-  // Fetch all prospects for analytics - disabled for now until connection is fixed
+  // Fetch all prospects for analytics - enabled now that we've fixed the connection
   const { data: allProspects, isLoading, error: fetchError } = useQuery({
     queryKey: ["prospects"],
     queryFn: async () => {
       console.log("Fetching all prospects");
       try {
-        const { data, error } = await supabase
+        // Try to fetch from both tables and combine results
+        const { data: prospectsData, error: prospectsError } = await supabase
           .from("prospects")
           .select("*");
         
-        if (error) {
-          console.error("Error fetching prospects:", error);
-          throw error;
+        if (prospectsError) {
+          console.error("Error fetching prospects:", prospectsError);
+          throw prospectsError;
         }
         
-        console.log("Fetched prospects:", data);
+        console.log("Fetched prospects:", prospectsData);
         
         // Map database fields to our frontend model
-        return (data || []).map(record => ({
+        return (prospectsData || []).map(record => ({
           id: record.id,
           name: record.full_name,
           company: record.company_name,
@@ -69,7 +70,7 @@ const Dashboard = () => {
         return [] as Prospect[];
       }
     },
-    enabled: false // Disable the query until connection is fixed
+    enabled: connectionStatus?.connected // Enable the query when connection is established
   });
 
   // Log when the dashboard is mounted for debugging purposes

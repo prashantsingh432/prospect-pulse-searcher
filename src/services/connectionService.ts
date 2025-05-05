@@ -7,6 +7,7 @@ export interface ConnectionTestResult {
   message?: string;
   data?: any;
   lastChecked: Date;
+  connected: boolean; // Added the required 'connected' property
 }
 
 /**
@@ -29,7 +30,8 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
         success: false, 
         error: testError,
         message: `Connection test failed: ${testError.message}`,
-        lastChecked: new Date()
+        lastChecked: new Date(),
+        connected: false
       };
     }
     
@@ -38,7 +40,8 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
       success: true, 
       data: testData,
       message: `Connected successfully. Found ${testData?.length || 0} test records.`,
-      lastChecked: new Date()
+      lastChecked: new Date(),
+      connected: true
     };
   } catch (err) {
     console.error("Connection test failed with exception:", err);
@@ -46,7 +49,8 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
       success: false, 
       error: err instanceof Error ? err : new Error("Unknown connection error"),
       message: `Exception during connection test: ${err instanceof Error ? err.message : "Unknown error"}`,
-      lastChecked: new Date()
+      lastChecked: new Date(),
+      connected: false
     };
   }
 };
