@@ -2,7 +2,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, testSupabaseConnection } from "@/integrations/supabase/client";
 import { Prospect } from "@/data/prospects";
 import { useProspectSearch } from "@/hooks/useProspectSearch";
 import { SearchContainer } from "@/components/dashboard/SearchContainer";
@@ -11,7 +11,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Info } from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ConnectionStatus } from "@/components/dashboard/ConnectionStatus";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -70,7 +69,7 @@ const Dashboard = () => {
         return [] as Prospect[];
       }
     },
-    enabled: connectionStatus?.connected === true // Only enable when connection is verified
+    enabled: false // Disable the query until connection is fixed
   });
 
   // Log when the dashboard is mounted for debugging purposes
@@ -85,8 +84,27 @@ const Dashboard = () => {
       <Navbar />
       
       <main className="container mx-auto px-4 py-8">
-        {/* Connection Status Component */}
-        <ConnectionStatus status={connectionStatus} onRetry={testConnection} />
+        {/* Connection Status Alert */}
+        {connectionStatus && (
+          <Alert variant={connectionStatus.connected ? "default" : "destructive"} className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                {connectionStatus.connected 
+                  ? `Connected to database. Last checked: ${connectionStatus.lastChecked?.toLocaleTimeString()}` 
+                  : `Database connection issue: ${connectionStatus.message}`}
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={testConnection}
+                disabled={isSearching}
+              >
+                Test Connection
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
         
         {fetchError && (
           <Alert variant="destructive" className="mb-6">

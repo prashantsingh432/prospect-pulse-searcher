@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface ConnectionTestResult {
   success: boolean;
-  connected: boolean; // Adding this property to fix the TypeScript error
   error?: any;
   message?: string;
   data?: any;
@@ -27,8 +26,7 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
     if (testError) {
       console.error("Supabase connection test failed:", testError);
       return { 
-        success: false,
-        connected: false, 
+        success: false, 
         error: testError,
         message: `Connection test failed: ${testError.message}`,
         lastChecked: new Date()
@@ -37,8 +35,7 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
     
     console.log("Supabase connection successful, test data:", testData);
     return { 
-      success: true,
-      connected: true,
+      success: true, 
       data: testData,
       message: `Connected successfully. Found ${testData?.length || 0} test records.`,
       lastChecked: new Date()
@@ -46,8 +43,7 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
   } catch (err) {
     console.error("Connection test failed with exception:", err);
     return { 
-      success: false,
-      connected: false,
+      success: false, 
       error: err instanceof Error ? err : new Error("Unknown connection error"),
       message: `Exception during connection test: ${err instanceof Error ? err.message : "Unknown error"}`,
       lastChecked: new Date()
