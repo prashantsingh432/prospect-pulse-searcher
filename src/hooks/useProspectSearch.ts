@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Prospect } from "@/data/prospects";
@@ -123,6 +122,11 @@ export const useProspectSearch = () => {
 
   // Handle search using the prospectSearchService
   const handleSearch = useCallback(async () => {
+    // Clear previous search results immediately when search is initiated
+    setSearchResults([]);
+    setHasSearched(true);
+    setDebugInfo(null);
+    
     // Validate search form
     if (!validateSearch()) {
       toast({
@@ -130,12 +134,11 @@ export const useProspectSearch = () => {
         description: validationError || "Please check the search requirements.",
         variant: "destructive",
       });
+      // We still set isSearching to false but keep hasSearched true and searchResults empty
       return;
     }
 
     setIsSearching(true);
-    setHasSearched(true);
-    setDebugInfo(null);
     
     try {
       // Prepare search parameters

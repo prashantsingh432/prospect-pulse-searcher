@@ -9,6 +9,80 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string | null
+          details: Json | null
+          id: number
+          prospect_id: number | null
+          timestamp: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          details?: Json | null
+          id?: number
+          prospect_id?: number | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          details?: Json | null
+          id?: number
+          prospect_id?: number | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exports: {
+        Row: {
+          format: string | null
+          id: number
+          prospect_ids: number[] | null
+          timestamp: string | null
+          user_id: string | null
+        }
+        Insert: {
+          format?: string | null
+          id?: number
+          prospect_ids?: number[] | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          format?: string | null
+          id?: number
+          prospect_ids?: number[] | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospects: {
         Row: {
           company_name: string
@@ -36,6 +110,33 @@ export type Database = {
           prospect_email?: string | null
           prospect_linkedin?: string | null
           prospect_number?: string | null
+        }
+        Relationships: []
+      }
+      users: {
+        Row: {
+          email: string
+          id: string
+          last_active: string | null
+          name: string | null
+          role: string
+          status: string | null
+        }
+        Insert: {
+          email: string
+          id?: string
+          last_active?: string | null
+          name?: string | null
+          role?: string
+          status?: string | null
+        }
+        Update: {
+          email?: string
+          id?: string
+          last_active?: string | null
+          name?: string | null
+          role?: string
+          status?: string | null
         }
         Relationships: []
       }

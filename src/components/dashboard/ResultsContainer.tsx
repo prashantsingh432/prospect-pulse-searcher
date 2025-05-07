@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { SearchResults } from "@/components/SearchResults";
 import { SearchAnalytics } from "@/components/SearchAnalytics";

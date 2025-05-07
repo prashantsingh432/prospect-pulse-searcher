@@ -1,3 +1,4 @@
+
 /**
  * Validates prospect search form based on the active tab
  */
