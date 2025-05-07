@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Prospect } from "@/data/prospects";
 import { normalizeLinkedInUrl, extractLinkedInUsername } from "@/utils/linkedInUtils";
@@ -164,23 +163,15 @@ async function searchByProspectInfo(
   // Start with the base query
   let query = supabase.from("prospects").select("*");
   
-  // Add filters based on provided inputs
+  // Add filters based on provided inputs (AND logic)
   if (prospectName.trim()) {
     query = query.ilike("full_name", `%${prospectName.trim()}%`);
     console.log("Added name filter:", prospectName);
   }
   
   if (companyName.trim()) {
-    if (prospectName.trim()) {
-      // We need to use OR filter if both name and company are provided
-      query = supabase.from("prospects").select("*");
-      query = query.or(`full_name.ilike.%${prospectName.trim()}%,company_name.ilike.%${companyName.trim()}%`);
-      console.log("Added combined name+company filter");
-    } else {
-      // Only company filter
-      query = query.ilike("company_name", `%${companyName.trim()}%`);
-      console.log("Added company filter:", companyName);
-    }
+    query = query.ilike("company_name", `%${companyName.trim()}%`);
+    console.log("Added company filter:", companyName);
   }
   
   // Add location filter if provided - this is always an AND condition

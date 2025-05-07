@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 
@@ -54,17 +53,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     
     // Hardcoded authentication for specific user
-    if (email.toLowerCase() === "prashant@amplior.com" && password === "prsi@123Amp") {
+    if (
+      (email.toLowerCase() === "prashant@amplior.com" && password === "prsi@123Amp") ||
+      (email.toLowerCase() === "prashant@admin.com" && password === "admin")
+    ) {
       const user = { 
         email, 
-        displayName: "AmpChamp" 
+        displayName: email.toLowerCase() === "prashant@admin.com" ? "Admin" : "AmpChamp" 
       };
       localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
       
       // Show the welcome message
       toast({
-        title: "Hi, AmpChamp! 👋",
+        title: `Hi, ${user.displayName}! 👋`,
         description: "✅ You've signed in. Access granted.\nMake your best data day today — someone's success is just one call away.",
         duration: 6000,
       });

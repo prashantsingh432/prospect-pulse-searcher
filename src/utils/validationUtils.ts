@@ -1,4 +1,3 @@
-
 /**
  * Validates prospect search form based on the active tab
  */
@@ -10,11 +9,11 @@ export const validateProspectSearch = (
 ): { isValid: boolean; errorMessage: string } => {
   
   if (activeTab === "prospect-info") {
-    // For prospect info tab, require at least prospect name or company name
-    if (!prospectName.trim() && !companyName.trim()) {
+    // Require BOTH prospect name and company name
+    if (!prospectName.trim() || !companyName.trim()) {
       return {
         isValid: false,
-        errorMessage: "At least one of Prospect Name or Company Name is required"
+        errorMessage: "Both Prospect Name and Company Name are required"
       };
     }
   } else if (activeTab === "linkedin-url") {

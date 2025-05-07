@@ -1,4 +1,3 @@
-
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { useQuery } from "@tanstack/react-query";
@@ -36,6 +35,8 @@ const Dashboard = () => {
     testConnection,
     debugInfo
   } = useProspectSearch();
+
+  const isAdmin = user && user.email === "prashant@admin.com";
 
   // Fetch all prospects for analytics - enabled now that we've fixed the connection
   const { data: allProspects, isLoading, error: fetchError } = useQuery({
@@ -86,26 +87,7 @@ const Dashboard = () => {
       
       <main className="container mx-auto px-4 py-8">
         {/* Connection Status Alert */}
-        {connectionStatus && (
-          <Alert variant={connectionStatus.connected ? "default" : "destructive"} className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="flex items-center justify-between">
-              <span>
-                {connectionStatus.connected 
-                  ? `Connected to database. ${connectionStatus.recordCount ? `Found ${connectionStatus.recordCount} total records.` : ''} Last checked: ${connectionStatus.lastChecked?.toLocaleTimeString()}` 
-                  : `Database connection issue: ${connectionStatus.message}`}
-              </span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={testConnection}
-                disabled={isSearching}
-              >
-                Test Connection
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Removed connection status alert for callers */}
         
         {fetchError && (
           <Alert variant="destructive" className="mb-6">
@@ -155,6 +137,7 @@ const Dashboard = () => {
           totalRecords={allProspects?.length || connectionStatus?.recordCount || 0}
           isLoading={isLoading}
           debugInfo={debugInfo}
+          isAdmin={isAdmin}
         />
       </main>
     </div>

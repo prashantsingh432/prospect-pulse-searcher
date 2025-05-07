@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { SearchResults } from "@/components/SearchResults";
 import { SearchAnalytics } from "@/components/SearchAnalytics";
@@ -15,6 +14,7 @@ interface ResultsContainerProps {
   totalRecords: number;
   isLoading?: boolean;
   debugInfo?: any;
+  isAdmin?: boolean;
 }
 
 export const ResultsContainer = ({
@@ -23,7 +23,8 @@ export const ResultsContainer = ({
   copyAllResults,
   totalRecords,
   isLoading = false,
-  debugInfo
+  debugInfo,
+  isAdmin = false
 }: ResultsContainerProps) => {
   const [showDebug, setShowDebug] = useState(false);
 
@@ -45,15 +46,16 @@ export const ResultsContainer = ({
       <div className="mb-4 flex justify-between items-center">
         <h2 className="text-lg font-medium">Search Results</h2>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setShowDebug(!showDebug)}
-          >
-            <Bug size={16} className="mr-1" />
-            {showDebug ? "Hide Debug" : "Show Debug"}
-          </Button>
-          
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowDebug(!showDebug)}
+            >
+              <Bug size={16} className="mr-1" />
+              {showDebug ? "Hide Debug" : "Show Debug"}
+            </Button>
+          )}
           {searchResults.length > 0 && (
             <Button variant="outline" onClick={copyAllResults}>
               📋 Copy All Results

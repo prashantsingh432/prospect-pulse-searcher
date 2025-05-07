@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Prospect } from "@/data/prospects";
 import { Button } from "@/components/ui/button";
@@ -12,10 +11,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { Linkedin } from "lucide-react";
+import { Linkedin, User, Building2, Mail, Phone, MapPin, ClipboardList } from "lucide-react";
 
 interface SearchResultsProps {
   results: Prospect[];
+}
+
+// Add a function to generate a color from a string (name)
+function stringToColor(str: string) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const color = `hsl(${hash % 360}, 70%, 50%)`;
+  return color;
 }
 
 export const SearchResults = ({ results }: SearchResultsProps) => {
@@ -53,23 +62,29 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
 
   return (
     <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
+      <div
+        className="overflow-x-auto select-none"
+        onContextMenu={e => e.preventDefault()}
+      >
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>LinkedIn</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead className="w-[100px] text-right">Actions</TableHead>
+              <TableHead><span className="inline-flex items-center gap-1"><User size={16}/> Name</span></TableHead>
+              <TableHead><span className="inline-flex items-center gap-1"><Building2 size={16}/> Company</span></TableHead>
+              <TableHead><span className="inline-flex items-center gap-1"><Mail size={16}/> Email</span></TableHead>
+              <TableHead><span className="inline-flex items-center gap-1"><Phone size={16}/> Phone</span></TableHead>
+              <TableHead><span className="inline-flex items-center gap-1"><Linkedin size={16}/> LinkedIn</span></TableHead>
+              <TableHead><span className="inline-flex items-center gap-1"><MapPin size={16}/> Location</span></TableHead>
+              <TableHead className="w-[100px] text-right"><span className="inline-flex items-center gap-1"><ClipboardList size={16}/> Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {results.map((prospect) => (
               <TableRow key={prospect.id}>
-                <TableCell className="font-medium">{prospect.name}</TableCell>
+                <TableCell className="font-medium flex items-center gap-2">
+                  <User size={20} style={{ color: stringToColor(prospect.name) }} />
+                  {prospect.name}
+                </TableCell>
                 <TableCell>{prospect.company}</TableCell>
                 <TableCell>{prospect.email}</TableCell>
                 <TableCell>{prospect.phone}</TableCell>
