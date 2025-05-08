@@ -55,26 +55,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const checkUserRole = async (userId: string, email: string) => {
-    // Try to get user role from users table
-    const { data, error } = await supabase
-      .from('users')
-      .select('role, name')
-      .eq('id', userId)
-      .single();
-    
-    if (error || !data) {
-      console.error("Error fetching user role:", error?.message);
-      return;
+    try {
+      // Try to get user role from users table
+      const { data, error } = await supabase
+        .from('users')
+        .select('role, name')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching user role:", error.message);
+        return;
+      }
+      
+      const userWithRole = {
+        email,
+        displayName: data?.name || email.split('@')[0],
+        role: data?.role || 'caller' // Default to caller if role not found
+      };
+      
+      localStorage.setItem('user', JSON.stringify(userWithRole));
+      setUser(userWithRole);
+    } catch (err) {
+      console.error("Error in checkUserRole:", err);
     }
-    
-    const userWithRole = {
-      email,
-      displayName: data.name || email.split('@')[0],
-      role: data.role
-    };
-    
-    localStorage.setItem('user', JSON.stringify(userWithRole));
-    setUser(userWithRole);
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -92,22 +96,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     
     try {
-      // Try Supabase authentication first
+      // Normalize email to lowercase to avoid case sensitivity issues
+      const normalizedEmail = email.toLowerCase();
+      
+      // Try Supabase authentication
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         password: password
       });
       
       if (error) {
+        console.error("Authentication error:", error.message);
+        
         // Fall back to hardcoded authentication for specific users
         if (
-          (email.toLowerCase() === "prashant@amplior.com" && password === "prsi@123Amp") ||
-          (email.toLowerCase() === "prashant@admin.com" && password === "admin")
+          (normalizedEmail === "prashant@amplior.com" && password === "prsi@123Amp") ||
+          (normalizedEmail === "prashant@admin.com" && password === "admin")
         ) {
           const user = { 
-            email, 
-            displayName: email.toLowerCase() === "prashant@admin.com" ? "Admin" : "AmpChamp",
-            role: email.toLowerCase() === "prashant@admin.com" ? "admin" : "caller"
+            email: normalizedEmail, 
+            displayName: normalizedEmail === "prashant@admin.com" ? "Admin" : "AmpChamp",
+            role: normalizedEmail === "prashant@admin.com" ? "admin" : "caller"
           };
           localStorage.setItem('user', JSON.stringify(user));
           setUser(user);
@@ -121,10 +130,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
           setLoading(false);
           return true;
+        } 
+        
+        // Special case handling for the listed users
+        const knownUsers = [
+          { email: "arnab.hungerbox@amplior.com", password: "arnab@123Amp1", role: "caller" },
+          { email: "ayush.hungerbox@amplior.com", password: "ayush@123Amp12", role: "caller" },
+          { email: "kushi.hungerbox@amplior.com", password: "kushi@123Amp13", role: "caller" },
+          { email: "anushka.hungerbox@amplior.com", password: "Anushka@13Amp1", role: "caller" },
+          { email: "mahak.hungerbox@amplior.com", password: "mahak@123Amp18", role: "caller" },
+          { email: "ankita.dc@amplior.com", password: "ankita@123Amp", role: "caller" },
+          { email: "rishita.dc@amplior.com", password: "rishita@124@Amp", role: "caller" },
+          { email: "vandita.dc@amplior.com", password: "vandita@142PV", role: "caller" },
+          { email: "shivam.datateam@amplior.com", password: "shivam@123Amp", role: "caller" }
+        ];
+        
+        const matchedUser = knownUsers.find(
+          u => u.email.toLowerCase() === normalizedEmail && u.password === password
+        );
+        
+        if (matchedUser) {
+          const user = { 
+            email: matchedUser.email, 
+            displayName: matchedUser.email.split('@')[0], 
+            role: matchedUser.role
+          };
+          
+          localStorage.setItem('user', JSON.stringify(user));
+          setUser(user);
+          
+          toast({
+            title: `Hi, ${user.displayName}! 👋`,
+            description: "✅ You've signed in. Access granted.\nMake your best data day today — someone's success is just one call away.",
+            duration: 6000,
+          });
+          
+          setLoading(false);
+          return true;
         } else {
           toast({
             title: "Authentication Failed",
-            description: error.message || "Invalid email or password.",
+            description: "Invalid email or password. Please check your credentials and try again.",
             variant: "destructive",
           });
           setLoading(false);
@@ -146,7 +192,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
         return true;
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Authentication Error",
         description: error.message || "An error occurred during authentication.",
