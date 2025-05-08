@@ -26,7 +26,7 @@ export const UserCreator = () => {
   const { toast } = useToast();
 
   const users: UserToCreate[] = [
-    { email: "arnab.hungerbox@amplior.om", password: "arnab@123Amp1" },
+    { email: "arnab.hungerbox@amplior.com", password: "arnab@123Amp1" },
     { email: "ayush.hungerbox@amplior.com", password: "ayush@123Amp12" },
     { email: "kushi.hungerbox@amplior.com", password: "kushi@123Amp13" },
     { email: "Anushka.hungerbox@amplior.com", password: "Anushka@13Amp1" },
@@ -57,7 +57,7 @@ export const UserCreator = () => {
 
       // Call our edge function
       const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/create-users`,
+        `${import.meta.env.VITE_SUPABASE_URL || "https://lodpoepylygsryjdkqjg.supabase.co"}/functions/v1/create-users`,
         {
           method: "POST",
           headers: {
