@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Prospect } from "@/data/prospects";
 import { Button } from "@/components/ui/button";
@@ -28,15 +29,18 @@ function stringToColor(str: string) {
   return color;
 }
 
-// Function to mask phone numbers
-const maskPhoneNumber = (phone: string): string => {
-  if (!phone) return "";
+// Function to mask phone numbers using visible prefix and blurred suffix
+const maskPhoneNumber = (phone: string): { prefix: string; suffix: string } => {
+  if (!phone) return { prefix: "", suffix: "" };
   
   // Check if it's a US format number
   if (phone.includes("-")) {
     const parts = phone.split("-");
     if (parts.length === 3) {
-      return `${parts[0]}-${parts[1].charAt(0)}••-••••`;
+      return {
+        prefix: `${parts[0]}-${parts[1].charAt(0)}`,
+        suffix: parts[1].substring(1) + "-" + parts[2]
+      };
     }
   }
   
@@ -44,12 +48,17 @@ const maskPhoneNumber = (phone: string): string => {
   if (phone.startsWith("+")) {
     // Keep country code and first 2-3 digits visible
     const visiblePart = phone.substring(0, 6);
-    const hiddenPart = "•".repeat(phone.length - 6);
-    return `${visiblePart}${hiddenPart}`;
+    return {
+      prefix: visiblePart,
+      suffix: phone.substring(6)
+    };
   }
   
   // Default masking pattern
-  return `${phone.substring(0, 3)}${"•".repeat(phone.length - 3)}`;
+  return {
+    prefix: phone.substring(0, 3),
+    suffix: phone.substring(3)
+  };
 };
 
 export const SearchResults = ({ results }: SearchResultsProps) => {
@@ -154,7 +163,23 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
                             onClick={() => handlePhoneClick(prospect.id, prospect.phone)}
                             className={`text-left font-mono ${revealedPhones[prospect.id] ? 'text-primary' : 'text-slate-700 hover:text-primary cursor-pointer underline decoration-dashed underline-offset-4'}`}
                           >
-                            {revealedPhones[prospect.id] ? prospect.phone : maskPhoneNumber(prospect.phone)}
+                            {(() => {
+                              const { prefix, suffix } = maskPhoneNumber(prospect.phone);
+                              return (
+                                <span className="relative">
+                                  {prefix}
+                                  <span 
+                                    className={`transition-all duration-300 ${
+                                      revealedPhones[prospect.id] 
+                                        ? 'blur-none opacity-100' 
+                                        : 'blur-[4px] opacity-70'
+                                    }`}
+                                  >
+                                    {suffix}
+                                  </span>
+                                </span>
+                              );
+                            })()}
                           </button>
                           
                           {justCopied[prospect.id] && (
