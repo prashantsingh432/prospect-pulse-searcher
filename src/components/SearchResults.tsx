@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Prospect } from "@/data/prospects";
 import { Button } from "@/components/ui/button";
@@ -61,14 +60,76 @@ const maskPhoneNumber = (phone: string): { prefix: string; suffix: string } => {
   };
 };
 
+// Component to render a single phone number with reveal functionality
+const PhoneNumberCell = ({ 
+  phone, 
+  prospectId, 
+  phoneIndex, 
+  revealedPhones, 
+  justCopied, 
+  onPhoneClick 
+}: {
+  phone: string;
+  prospectId: number;
+  phoneIndex: number;
+  revealedPhones: Record<string, boolean>;
+  justCopied: Record<string, boolean>;
+  onPhoneClick: (prospectId: number, phoneIndex: number, phone: string) => void;
+}) => {
+  if (!phone) return null;
+  
+  const phoneKey = `${prospectId}-${phoneIndex}`;
+  
+  return (
+    <div className="relative mb-1">
+      <button 
+        onClick={() => onPhoneClick(prospectId, phoneIndex, phone)}
+        className={`text-left font-mono text-sm ${revealedPhones[phoneKey] ? 'text-primary' : 'text-slate-700 hover:text-primary cursor-pointer underline decoration-dashed underline-offset-4'}`}
+      >
+        {(() => {
+          const { prefix, suffix } = maskPhoneNumber(phone);
+          return (
+            <span className="relative">
+              {prefix}
+              <span 
+                className={`transition-all duration-300 ${
+                  revealedPhones[phoneKey] 
+                    ? 'blur-none opacity-100' 
+                    : 'blur-[4px] opacity-70'
+                }`}
+              >
+                {suffix}
+              </span>
+            </span>
+          );
+        })()}
+      </button>
+      
+      {justCopied[phoneKey] && (
+        <div className="absolute -top-8 left-0 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center gap-1 shadow-sm animate-fade-in z-10">
+          <Check size={12} />
+          <span>Copied!</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const SearchResults = ({ results }: SearchResultsProps) => {
   const { toast } = useToast();
   const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [revealedPhones, setRevealedPhones] = useState<Record<number, boolean>>({});
-  const [justCopied, setJustCopied] = useState<Record<number, boolean>>({});
+  const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
+  const [justCopied, setJustCopied] = useState<Record<string, boolean>>({});
 
   const copyProspectDetails = (prospect: Prospect) => {
-    const text = `Name: ${prospect.name}\nCompany: ${prospect.company}\nEmail: ${prospect.email}\nPhone: ${prospect.phone}\nLinkedIn: ${prospect.linkedin}\nLocation: ${prospect.location}`;
+    const phoneNumbers = [
+      prospect.phone,
+      prospect.phone2,
+      prospect.phone3,
+      prospect.phone4
+    ].filter(Boolean).join(', ');
+    
+    const text = `Name: ${prospect.name}\nCompany: ${prospect.company}\nEmail: ${prospect.email}\nPhone Numbers: ${phoneNumbers}\nLinkedIn: ${prospect.linkedin}\nLocation: ${prospect.location}`;
     
     navigator.clipboard.writeText(text).then(() => {
       toast({
@@ -88,25 +149,27 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
     });
   };
 
-  const handlePhoneClick = (prospectId: number, phone: string) => {
+  const handlePhoneClick = (prospectId: number, phoneIndex: number, phone: string) => {
+    const phoneKey = `${prospectId}-${phoneIndex}`;
+    
     // Reveal phone number
     setRevealedPhones(prev => ({
       ...prev,
-      [prospectId]: true
+      [phoneKey]: true
     }));
 
     // Copy to clipboard and show notification
     navigator.clipboard.writeText(phone).then(() => {
       setJustCopied(prev => ({
         ...prev,
-        [prospectId]: true
+        [phoneKey]: true
       }));
 
       // Clear notification after 3 seconds
       setTimeout(() => {
         setJustCopied(prev => ({
           ...prev,
-          [prospectId]: false
+          [phoneKey]: false
         }));
       }, 3000);
     }).catch((error) => {
@@ -140,7 +203,7 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
                 <TableHead><span className="inline-flex items-center gap-1"><User size={16}/> Name</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Building2 size={16}/> Company</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Mail size={16}/> Email</span></TableHead>
-                <TableHead><span className="inline-flex items-center gap-1"><Phone size={16}/> Phone</span></TableHead>
+                <TableHead><span className="inline-flex items-center gap-1"><Phone size={16}/> Phone Numbers</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Linkedin size={16}/> LinkedIn</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><MapPin size={16}/> Location</span></TableHead>
                 <TableHead className="w-[100px] text-right"><span className="inline-flex items-center gap-1"><ClipboardList size={16}/> Actions</span></TableHead>
@@ -158,40 +221,43 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
                   <TableCell>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="relative">
-                          <button 
-                            onClick={() => handlePhoneClick(prospect.id, prospect.phone)}
-                            className={`text-left font-mono ${revealedPhones[prospect.id] ? 'text-primary' : 'text-slate-700 hover:text-primary cursor-pointer underline decoration-dashed underline-offset-4'}`}
-                          >
-                            {(() => {
-                              const { prefix, suffix } = maskPhoneNumber(prospect.phone);
-                              return (
-                                <span className="relative">
-                                  {prefix}
-                                  <span 
-                                    className={`transition-all duration-300 ${
-                                      revealedPhones[prospect.id] 
-                                        ? 'blur-none opacity-100' 
-                                        : 'blur-[4px] opacity-70'
-                                    }`}
-                                  >
-                                    {suffix}
-                                  </span>
-                                </span>
-                              );
-                            })()}
-                          </button>
-                          
-                          {justCopied[prospect.id] && (
-                            <div className="absolute -top-8 left-0 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center gap-1 shadow-sm animate-fade-in">
-                              <Check size={12} />
-                              <span>Copied to clipboard!</span>
-                            </div>
-                          )}
+                        <div className="space-y-1">
+                          <PhoneNumberCell
+                            phone={prospect.phone}
+                            prospectId={prospect.id}
+                            phoneIndex={1}
+                            revealedPhones={revealedPhones}
+                            justCopied={justCopied}
+                            onPhoneClick={handlePhoneClick}
+                          />
+                          <PhoneNumberCell
+                            phone={prospect.phone2 || ""}
+                            prospectId={prospect.id}
+                            phoneIndex={2}
+                            revealedPhones={revealedPhones}
+                            justCopied={justCopied}
+                            onPhoneClick={handlePhoneClick}
+                          />
+                          <PhoneNumberCell
+                            phone={prospect.phone3 || ""}
+                            prospectId={prospect.id}
+                            phoneIndex={3}
+                            revealedPhones={revealedPhones}
+                            justCopied={justCopied}
+                            onPhoneClick={handlePhoneClick}
+                          />
+                          <PhoneNumberCell
+                            phone={prospect.phone4 || ""}
+                            prospectId={prospect.id}
+                            phoneIndex={4}
+                            revealedPhones={revealedPhones}
+                            justCopied={justCopied}
+                            onPhoneClick={handlePhoneClick}
+                          />
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="text-xs">Click to reveal & copy</p>
+                        <p className="text-xs">Click to reveal & copy phone numbers</p>
                       </TooltipContent>
                     </Tooltip>
                   </TableCell>

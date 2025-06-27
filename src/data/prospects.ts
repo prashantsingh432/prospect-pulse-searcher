@@ -1,9 +1,13 @@
+
 export interface Prospect {
   id: number;
   name: string;
   company: string;
   location: string;
   phone: string;
+  phone2?: string;
+  phone3?: string;
+  phone4?: string;
   email: string;
   linkedin: string;
 }
@@ -16,6 +20,7 @@ export const prospects: Prospect[] = [
     company: "Tata Private Limited",
     location: "Delhi",
     phone: "+91 98765 43210",
+    phone2: "+91 87654 32109",
     email: "mohit.rawat@gmail.com",
     linkedin: "linkedin.com/in/mohitrawat"
   },
@@ -34,6 +39,8 @@ export const prospects: Prospect[] = [
     company: "Wipro Limited",
     location: "Chennai",
     phone: "+91 76543 21098",
+    phone2: "+91 65432 10987",
+    phone3: "+91 54321 09876",
     email: "rajesh.kumar@wipro.com",
     linkedin: "linkedin.com/in/rajeshkumar"
   },

@@ -92,6 +92,9 @@ export type Database = {
           prospect_email: string | null
           prospect_linkedin: string | null
           prospect_number: string | null
+          prospect_number2: string | null
+          prospect_number3: string | null
+          prospect_number4: string | null
         }
         Insert: {
           company_name: string
@@ -101,6 +104,9 @@ export type Database = {
           prospect_email?: string | null
           prospect_linkedin?: string | null
           prospect_number?: string | null
+          prospect_number2?: string | null
+          prospect_number3?: string | null
+          prospect_number4?: string | null
         }
         Update: {
           company_name?: string
@@ -110,6 +116,9 @@ export type Database = {
           prospect_email?: string | null
           prospect_linkedin?: string | null
           prospect_number?: string | null
+          prospect_number2?: string | null
+          prospect_number3?: string | null
+          prospect_number4?: string | null
         }
         Relationships: []
       }

@@ -53,6 +53,9 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
         company: record.company_name,
         location: record.prospect_city || "",
         phone: record.prospect_number || "",
+        phone2: record.prospect_number2 || "",
+        phone3: record.prospect_number3 || "",
+        phone4: record.prospect_number4 || "",
         email: record.prospect_email || "",
         linkedin: record.prospect_linkedin || ""
       })) as Prospect[];
