@@ -1,36 +1,56 @@
+
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
+
 export const Navbar = () => {
-  const {
-    logout,
-    isAdmin,
-    user
-  } = useAuth();
+  const { logout, isAdmin, user } = useAuth();
   const navigate = useNavigate();
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
-  return <nav className="bg-white shadow-sm">
+
+  return (
+    <nav className="bg-white shadow-sm border-b">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <div className="flex items-center">
+        <div className="flex items-center gap-6">
           <h1 className="text-xl font-bold text-[#0000ff]">Prospect Pulse- Amplior</h1>
+          
+          {/* Project Name Display */}
+          {user?.projectName && (
+            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full">
+              <span className="text-blue-600">🔹</span>
+              <span className="text-sm font-medium text-blue-700">
+                Project: {user.projectName}
+              </span>
+            </div>
+          )}
         </div>
         
         <div className="flex items-center gap-4">
-          {isAdmin() && <Button variant="outline" asChild>
+          {isAdmin() && (
+            <Button variant="outline" asChild>
               <Link to="/admin">Admin</Link>
-            </Button>}
+            </Button>
+          )}
           
-          <span className="text-sm text-gray-600 hidden md:inline-block">
-            {user?.displayName || user?.email}
-          </span>
+          {/* User Name Display */}
+          {user?.fullName && (
+            <div className="flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full">
+              <span className="text-green-600">👤</span>
+              <span className="text-sm font-medium text-green-700 hidden md:inline-block">
+                {user.fullName}
+              </span>
+            </div>
+          )}
           
           <Button variant="ghost" onClick={handleLogout}>
             Logout
           </Button>
         </div>
       </div>
-    </nav>;
+    </nav>
+  );
 };
