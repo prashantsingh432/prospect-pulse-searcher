@@ -1,6 +1,5 @@
 
 export interface Prospect {
-  id: number;
   name: string;
   company: string;
   location: string;
@@ -15,7 +14,6 @@ export interface Prospect {
 // This is mock data for development - in production, this will come from Supabase
 export const prospects: Prospect[] = [
   {
-    id: 1,
     name: "Mohit Singh Rawat",
     company: "Tata Private Limited",
     location: "Delhi",
@@ -25,7 +23,6 @@ export const prospects: Prospect[] = [
     linkedin: "linkedin.com/in/mohitrawat"
   },
   {
-    id: 2,
     name: "Priya Sharma",
     company: "Infosys Technologies",
     location: "Bangalore",
@@ -34,7 +31,6 @@ export const prospects: Prospect[] = [
     linkedin: "linkedin.com/in/priyasharma"
   },
   {
-    id: 3,
     name: "Rajesh Kumar",
     company: "Wipro Limited",
     location: "Chennai",
@@ -45,7 +41,6 @@ export const prospects: Prospect[] = [
     linkedin: "linkedin.com/in/rajeshkumar"
   },
   {
-    id: 4,
     name: "Ananya Patel",
     company: "TCS",
     location: "Mumbai",
@@ -54,7 +49,6 @@ export const prospects: Prospect[] = [
     linkedin: "linkedin.com/in/ananyapatel"
   },
   {
-    id: 5,
     name: "Vikram Malhotra",
     company: "Reliance Industries",
     location: "Mumbai",
@@ -63,7 +57,6 @@ export const prospects: Prospect[] = [
     linkedin: "linkedin.com/in/vikrammalhotra"
   },
   {
-    id: 6,
     name: "Neha Gupta",
     company: "Infosys Technologies",
     location: "Pune",
@@ -72,7 +65,6 @@ export const prospects: Prospect[] = [
     linkedin: "linkedin.com/in/nehagupta"
   },
   {
-    id: 7,
     name: "Amit Shah",
     company: "Tata Private Limited",
     location: "Ahmedabad",
@@ -81,7 +73,6 @@ export const prospects: Prospect[] = [
     linkedin: "linkedin.com/in/amitshah"
   },
   {
-    id: 8,
     name: "Divya Reddy",
     company: "Microsoft India",
     location: "Hyderabad",
@@ -90,7 +81,6 @@ export const prospects: Prospect[] = [
     linkedin: "linkedin.com/in/divyareddy"
   },
   {
-    id: 9,
     name: "Sanjay Verma",
     company: "Wipro Limited",
     location: "Bangalore",
@@ -99,7 +89,6 @@ export const prospects: Prospect[] = [
     linkedin: "linkedin.com/in/sanjayverma"
   },
   {
-    id: 10,
     name: "Pooja Mehta",
     company: "TCS",
     location: "Delhi",

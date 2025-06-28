@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Prospect } from "@/data/prospects";
 import { Button } from "@/components/ui/button";
@@ -63,27 +64,27 @@ const maskPhoneNumber = (phone: string): { prefix: string; suffix: string } => {
 // Component to render a single phone number with reveal functionality
 const PhoneNumberCell = ({ 
   phone, 
-  prospectId, 
+  prospectKey, 
   phoneIndex, 
   revealedPhones, 
   justCopied, 
   onPhoneClick 
 }: {
   phone: string;
-  prospectId: number;
+  prospectKey: string;
   phoneIndex: number;
   revealedPhones: Record<string, boolean>;
   justCopied: Record<string, boolean>;
-  onPhoneClick: (prospectId: number, phoneIndex: number, phone: string) => void;
+  onPhoneClick: (prospectKey: string, phoneIndex: number, phone: string) => void;
 }) => {
   if (!phone) return null;
   
-  const phoneKey = `${prospectId}-${phoneIndex}`;
+  const phoneKey = `${prospectKey}-${phoneIndex}`;
   
   return (
     <div className="relative mb-1">
       <button 
-        onClick={() => onPhoneClick(prospectId, phoneIndex, phone)}
+        onClick={() => onPhoneClick(prospectKey, phoneIndex, phone)}
         className={`text-left font-mono text-sm ${revealedPhones[phoneKey] ? 'text-primary' : 'text-slate-700 hover:text-primary cursor-pointer underline decoration-dashed underline-offset-4'}`}
       >
         {(() => {
@@ -117,7 +118,7 @@ const PhoneNumberCell = ({
 
 export const SearchResults = ({ results }: SearchResultsProps) => {
   const { toast } = useToast();
-  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [copiedProspect, setCopiedProspect] = useState<string | null>(null);
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [justCopied, setJustCopied] = useState<Record<string, boolean>>({});
 
@@ -131,14 +132,17 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
     
     const text = `Name: ${prospect.name}\nCompany: ${prospect.company}\nEmail: ${prospect.email}\nPhone Numbers: ${phoneNumbers}\nLinkedIn: ${prospect.linkedin}\nLocation: ${prospect.location}`;
     
+    // Create a unique key for this prospect based on name and company
+    const prospectKey = `${prospect.name}-${prospect.company}`;
+    
     navigator.clipboard.writeText(text).then(() => {
       toast({
         title: "Copied to clipboard",
         description: `${prospect.name}'s details copied.`,
       });
       
-      setCopiedId(prospect.id);
-      setTimeout(() => setCopiedId(null), 2000);
+      setCopiedProspect(prospectKey);
+      setTimeout(() => setCopiedProspect(null), 2000);
     }).catch((error) => {
       toast({
         title: "Failed to copy",
@@ -149,8 +153,8 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
     });
   };
 
-  const handlePhoneClick = (prospectId: number, phoneIndex: number, phone: string) => {
-    const phoneKey = `${prospectId}-${phoneIndex}`;
+  const handlePhoneClick = (prospectKey: string, phoneIndex: number, phone: string) => {
+    const phoneKey = `${prospectKey}-${phoneIndex}`;
     
     // Reveal phone number
     setRevealedPhones(prev => ({
@@ -210,80 +214,85 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {results.map((prospect) => (
-                <TableRow key={prospect.id}>
-                  <TableCell className="font-medium flex items-center gap-2">
-                    <User size={20} style={{ color: stringToColor(prospect.name) }} />
-                    {prospect.name}
-                  </TableCell>
-                  <TableCell>{prospect.company}</TableCell>
-                  <TableCell>{prospect.email}</TableCell>
-                  <TableCell>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="space-y-1">
-                          <PhoneNumberCell
-                            phone={prospect.phone}
-                            prospectId={prospect.id}
-                            phoneIndex={1}
-                            revealedPhones={revealedPhones}
-                            justCopied={justCopied}
-                            onPhoneClick={handlePhoneClick}
-                          />
-                          <PhoneNumberCell
-                            phone={prospect.phone2 || ""}
-                            prospectId={prospect.id}
-                            phoneIndex={2}
-                            revealedPhones={revealedPhones}
-                            justCopied={justCopied}
-                            onPhoneClick={handlePhoneClick}
-                          />
-                          <PhoneNumberCell
-                            phone={prospect.phone3 || ""}
-                            prospectId={prospect.id}
-                            phoneIndex={3}
-                            revealedPhones={revealedPhones}
-                            justCopied={justCopied}
-                            onPhoneClick={handlePhoneClick}
-                          />
-                          <PhoneNumberCell
-                            phone={prospect.phone4 || ""}
-                            prospectId={prospect.id}
-                            phoneIndex={4}
-                            revealedPhones={revealedPhones}
-                            justCopied={justCopied}
-                            onPhoneClick={handlePhoneClick}
-                          />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">Click to reveal & copy phone numbers</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <a 
-                      href={`https://${prospect.linkedin}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline inline-flex items-center"
-                    >
-                      <Linkedin size={16} className="mr-1" />
-                      Profile
-                    </a>
-                  </TableCell>
-                  <TableCell>{prospect.location}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyProspectDetails(prospect)}
-                    >
-                      {copiedId === prospect.id ? "Copied!" : "📋 Copy"}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {results.map((prospect, index) => {
+                // Create a unique key for this prospect based on name and company
+                const prospectKey = `${prospect.name}-${prospect.company}`;
+                
+                return (
+                  <TableRow key={prospectKey}>
+                    <TableCell className="font-medium flex items-center gap-2">
+                      <User size={20} style={{ color: stringToColor(prospect.name) }} />
+                      {prospect.name}
+                    </TableCell>
+                    <TableCell>{prospect.company}</TableCell>
+                    <TableCell>{prospect.email}</TableCell>
+                    <TableCell>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="space-y-1">
+                            <PhoneNumberCell
+                              phone={prospect.phone}
+                              prospectKey={prospectKey}
+                              phoneIndex={1}
+                              revealedPhones={revealedPhones}
+                              justCopied={justCopied}
+                              onPhoneClick={handlePhoneClick}
+                            />
+                            <PhoneNumberCell
+                              phone={prospect.phone2 || ""}
+                              prospectKey={prospectKey}
+                              phoneIndex={2}
+                              revealedPhones={revealedPhones}
+                              justCopied={justCopied}
+                              onPhoneClick={handlePhoneClick}
+                            />
+                            <PhoneNumberCell
+                              phone={prospect.phone3 || ""}
+                              prospectKey={prospectKey}
+                              phoneIndex={3}
+                              revealedPhones={revealedPhones}
+                              justCopied={justCopied}
+                              onPhoneClick={handlePhoneClick}
+                            />
+                            <PhoneNumberCell
+                              phone={prospect.phone4 || ""}
+                              prospectKey={prospectKey}
+                              phoneIndex={4}
+                              revealedPhones={revealedPhones}
+                              justCopied={justCopied}
+                              onPhoneClick={handlePhoneClick}
+                            />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Click to reveal & copy phone numbers</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <a 
+                        href={`https://${prospect.linkedin}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline inline-flex items-center"
+                      >
+                        <Linkedin size={16} className="mr-1" />
+                        Profile
+                      </a>
+                    </TableCell>
+                    <TableCell>{prospect.location}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyProspectDetails(prospect)}
+                      >
+                        {copiedProspect === prospectKey ? "Copied!" : "📋 Copy"}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

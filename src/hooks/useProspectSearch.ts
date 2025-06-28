@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Prospect } from "@/data/prospects";
@@ -5,6 +6,7 @@ import { testSupabaseConnection, type ConnectionTestResult } from "@/services/co
 import { searchProspects, type SearchParams } from "@/services/prospectSearchService";
 import { validateProspectSearch } from "@/utils/validationUtils";
 import { formatProspectsForClipboard } from "@/utils/clipboardUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 export const useProspectSearch = () => {
   const { toast } = useToast();
@@ -36,7 +38,7 @@ export const useProspectSearch = () => {
           // Update total records count
           const { data, error } = await supabase
             .from("prospects")
-            .select("id", { count: "exact" });
+            .select("full_name", { count: "exact" });
             
           if (!error) {
             setTotalRecords(data?.length || 0);
@@ -87,7 +89,7 @@ export const useProspectSearch = () => {
         // Update total records count
         const { data, error } = await supabase
           .from("prospects")
-          .select("id", { count: "exact" });
+          .select("full_name", { count: "exact" });
           
         if (!error) {
           setTotalRecords(data?.length || 0);
@@ -245,5 +247,3 @@ export const useProspectSearch = () => {
     debugInfo
   };
 };
-
-import { supabase } from "@/integrations/supabase/client";

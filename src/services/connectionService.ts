@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ConnectionTestResult {
@@ -21,7 +22,7 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
     // First test if we can access the database at all with a simple query
     const { data: testData, error: testError } = await supabase
       .from("prospects")
-      .select("id, full_name, company_name")
+      .select("full_name, company_name, prospect_email")
       .limit(5);
     
     if (testError) {

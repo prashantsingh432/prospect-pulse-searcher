@@ -1,3 +1,4 @@
+
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { useQuery } from "@tanstack/react-query";
@@ -57,8 +58,7 @@ const Dashboard = () => {
         console.log("Fetched prospects:", prospectsData);
         
         // Map database fields to our frontend model
-        return (prospectsData || []).map(record => ({
-          id: record.id,
+        return (prospectsData || []).map((record, index) => ({
           name: record.full_name,
           company: record.company_name,
           location: record.prospect_city || "",

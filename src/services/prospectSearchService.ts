@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Prospect } from "@/data/prospects";
 import { normalizeLinkedInUrl, extractLinkedInUsername } from "@/utils/linkedInUtils";
@@ -47,8 +48,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
     
     // Process and map the results to the Prospect model
     if (queryResults && queryResults.length > 0) {
-      const results = queryResults.map(record => ({
-        id: record.id,
+      const results = queryResults.map((record, index) => ({
         name: record.full_name,
         company: record.company_name,
         location: record.prospect_city || "",
@@ -144,9 +144,9 @@ async function searchByLinkedInUrl(linkedinUrl: string): Promise<any[]> {
     .filter(result => !result.error && result.data)
     .flatMap(result => result.data || []);
     
-  // Remove duplicates by ID
+  // Remove duplicates by name + company combination (since we don't have id)
   const uniqueResults = Array.from(
-    new Map(allResults.map(item => [item.id, item])).values()
+    new Map(allResults.map(item => [`${item.full_name}-${item.company_name}`, item])).values()
   );
   
   console.log(`LinkedIn search found ${uniqueResults.length} results`);
