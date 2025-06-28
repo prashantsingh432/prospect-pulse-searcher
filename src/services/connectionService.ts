@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ConnectionTestResult {
@@ -19,14 +18,26 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
   try {
     console.log("Testing Supabase connection...");
     
-    // First test if we can access the database at all
+    // First test if we can access the database at all with a simple query
     const { data: testData, error: testError } = await supabase
       .from("prospects")
-      .select("*")
+      .select("id, full_name, company_name")
       .limit(5);
     
     if (testError) {
       console.error("Supabase connection test failed:", testError);
+      
+      // Check if it's a column not found error
+      if (testError.message?.includes('column') && testError.message?.includes('does not exist')) {
+        return { 
+          success: false, 
+          error: testError,
+          message: `Database schema issue: ${testError.message}. Please ensure the prospects table has the correct schema.`,
+          lastChecked: new Date(),
+          connected: false
+        };
+      }
+      
       return { 
         success: false, 
         error: testError,
@@ -52,7 +63,7 @@ export const testSupabaseConnection = async (): Promise<ConnectionTestResult> =>
       message: `Connected successfully. Found ${testData?.length || 0} test records. Total database records: ${count || 'unknown'}.`,
       lastChecked: new Date(),
       connected: true,
-      recordCount: count
+      recordCount: count || 0
     };
   } catch (err) {
     console.error("Connection test failed with exception:", err);

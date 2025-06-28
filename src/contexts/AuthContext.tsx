@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,6 +64,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) {
         console.error("Error fetching user role:", error.message);
+        // If user doesn't exist in users table, create a default user object
+        const userWithRole = {
+          email,
+          displayName: email.split('@')[0],
+          role: 'caller' // Default to caller if role not found
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userWithRole));
+        setUser(userWithRole);
         return;
       }
       
@@ -78,6 +86,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(userWithRole);
     } catch (err) {
       console.error("Error in checkUserRole:", err);
+      // Fallback to basic user object
+      const userWithRole = {
+        email,
+        displayName: email.split('@')[0],
+        role: 'caller'
+      };
+      
+      localStorage.setItem('user', JSON.stringify(userWithRole));
+      setUser(userWithRole);
     }
   };
 
@@ -99,83 +116,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Normalize email to lowercase to avoid case sensitivity issues
       const normalizedEmail = email.toLowerCase();
       
-      // Try Supabase authentication
+      // Define hardcoded users for fallback authentication
+      const knownUsers = [
+        { email: "prashant@amplior.com", password: "prsi@123Amp", role: "caller", displayName: "AmpChamp" },
+        { email: "prashant@admin.com", password: "admin", role: "admin", displayName: "Admin" },
+        { email: "arnab.hungerbox@amplior.com", password: "arnab@123Amp1", role: "caller", displayName: "arnab.hungerbox" },
+        { email: "ayush.hungerbox@amplior.com", password: "ayush@123Amp12", role: "caller", displayName: "ayush.hungerbox" },
+        { email: "kushi.hungerbox@amplior.com", password: "kushi@123Amp13", role: "caller", displayName: "kushi.hungerbox" },
+        { email: "anushka.hungerbox@amplior.com", password: "Anushka@13Amp1", role: "caller", displayName: "anushka.hungerbox" },
+        { email: "mahak.hungerbox@amplior.com", password: "mahak@123Amp18", role: "caller", displayName: "mahak.hungerbox" },
+        { email: "ankita.dc@amplior.com", password: "ankita@123Amp", role: "caller", displayName: "ankita.dc" },
+        { email: "rishita.dc@amplior.com", password: "rishita@124@Amp", role: "caller", displayName: "rishita.dc" },
+        { email: "vandita.dc@amplior.com", password: "vandita@142PV", role: "caller", displayName: "vandita.dc" },
+        { email: "shivam.datateam@amplior.com", password: "shivam@123Amp", role: "caller", displayName: "shivam.datateam" }
+      ];
+      
+      // First try hardcoded authentication for known users
+      const matchedUser = knownUsers.find(
+        u => u.email.toLowerCase() === normalizedEmail && u.password === password
+      );
+      
+      if (matchedUser) {
+        const user = { 
+          email: matchedUser.email, 
+          displayName: matchedUser.displayName, 
+          role: matchedUser.role
+        };
+        
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+        
+        toast({
+          title: `Hi, ${user.displayName}! 👋`,
+          description: "✅ You've signed in. Access granted.\nMake your best data day today — someone's success is just one call away.",
+          duration: 6000,
+        });
+        
+        setLoading(false);
+        return true;
+      }
+      
+      // If not a known user, try Supabase authentication
       const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password: password
       });
       
       if (error) {
-        console.error("Authentication error:", error.message);
+        console.error("Supabase authentication error:", error.message);
         
-        // Fall back to hardcoded authentication for specific users
-        if (
-          (normalizedEmail === "prashant@amplior.com" && password === "prsi@123Amp") ||
-          (normalizedEmail === "prashant@admin.com" && password === "admin")
-        ) {
-          const user = { 
-            email: normalizedEmail, 
-            displayName: normalizedEmail === "prashant@admin.com" ? "Admin" : "AmpChamp",
-            role: normalizedEmail === "prashant@admin.com" ? "admin" : "caller"
-          };
-          localStorage.setItem('user', JSON.stringify(user));
-          setUser(user);
-          
-          // Show the welcome message
-          toast({
-            title: `Hi, ${user.displayName}! 👋`,
-            description: "✅ You've signed in. Access granted.\nMake your best data day today — someone's success is just one call away.",
-            duration: 6000,
-          });
-          
-          setLoading(false);
-          return true;
-        } 
-        
-        // Special case handling for the listed users
-        const knownUsers = [
-          { email: "arnab.hungerbox@amplior.com", password: "arnab@123Amp1", role: "caller" },
-          { email: "ayush.hungerbox@amplior.com", password: "ayush@123Amp12", role: "caller" },
-          { email: "kushi.hungerbox@amplior.com", password: "kushi@123Amp13", role: "caller" },
-          { email: "anushka.hungerbox@amplior.com", password: "Anushka@13Amp1", role: "caller" },
-          { email: "mahak.hungerbox@amplior.com", password: "mahak@123Amp18", role: "caller" },
-          { email: "ankita.dc@amplior.com", password: "ankita@123Amp", role: "caller" },
-          { email: "rishita.dc@amplior.com", password: "rishita@124@Amp", role: "caller" },
-          { email: "vandita.dc@amplior.com", password: "vandita@142PV", role: "caller" },
-          { email: "shivam.datateam@amplior.com", password: "shivam@123Amp", role: "caller" }
-        ];
-        
-        const matchedUser = knownUsers.find(
-          u => u.email.toLowerCase() === normalizedEmail && u.password === password
-        );
-        
-        if (matchedUser) {
-          const user = { 
-            email: matchedUser.email, 
-            displayName: matchedUser.email.split('@')[0], 
-            role: matchedUser.role
-          };
-          
-          localStorage.setItem('user', JSON.stringify(user));
-          setUser(user);
-          
-          toast({
-            title: `Hi, ${user.displayName}! 👋`,
-            description: "✅ You've signed in. Access granted.\nMake your best data day today — someone's success is just one call away.",
-            duration: 6000,
-          });
-          
-          setLoading(false);
-          return true;
-        } else {
-          toast({
-            title: "Authentication Failed",
-            description: "Invalid email or password. Please check your credentials and try again.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return false;
-        }
+        toast({
+          title: "Authentication Failed",
+          description: "Invalid email or password. Please check your credentials and try again.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return false;
       }
       
       if (data.user) {
@@ -193,6 +189,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return true;
       }
     } catch (error: any) {
+      console.error("Authentication error:", error);
       toast({
         title: "Authentication Error",
         description: error.message || "An error occurred during authentication.",
