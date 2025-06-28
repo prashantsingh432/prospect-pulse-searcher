@@ -36,13 +36,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "activity_logs_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "activity_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -87,7 +80,6 @@ export type Database = {
         Row: {
           company_name: string
           full_name: string
-          id: number
           prospect_city: string | null
           prospect_email: string | null
           prospect_linkedin: string | null
@@ -99,7 +91,6 @@ export type Database = {
         Insert: {
           company_name: string
           full_name: string
-          id?: number
           prospect_city?: string | null
           prospect_email?: string | null
           prospect_linkedin?: string | null
@@ -111,7 +102,6 @@ export type Database = {
         Update: {
           company_name?: string
           full_name?: string
-          id?: number
           prospect_city?: string | null
           prospect_email?: string | null
           prospect_linkedin?: string | null
