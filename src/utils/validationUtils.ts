@@ -3,18 +3,18 @@
  * Validates prospect search form based on the active tab
  */
 export const validateProspectSearch = (
-  activeTab: string, 
-  prospectName: string, 
-  companyName: string, 
+  activeTab: string,
+  prospectName: string,
+  companyName: string,
   linkedinUrl: string
 ): { isValid: boolean; errorMessage: string } => {
-  
+
   if (activeTab === "prospect-info") {
-    // Require BOTH prospect name and company name
-    if (!prospectName.trim() || !companyName.trim()) {
+    // Only require company name - prospect name and location are optional
+    if (!companyName.trim()) {
       return {
         isValid: false,
-        errorMessage: "Both Prospect Name and Company Name are required"
+        errorMessage: "Company Name is required"
       };
     }
   } else if (activeTab === "linkedin-url") {
@@ -25,7 +25,7 @@ export const validateProspectSearch = (
         errorMessage: "LinkedIn URL is required"
       };
     }
-    
+
     // Simple validation for LinkedIn URL format
     const linkedinPattern = /linkedin\.com/i;
     if (!linkedinPattern.test(linkedinUrl.trim())) {
@@ -35,6 +35,6 @@ export const validateProspectSearch = (
       };
     }
   }
-  
+
   return { isValid: true, errorMessage: "" };
 };

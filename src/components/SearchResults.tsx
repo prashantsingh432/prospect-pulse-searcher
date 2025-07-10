@@ -15,6 +15,37 @@ import { Card } from "@/components/ui/card";
 import { Linkedin, User, Building2, Mail, Phone, MapPin, ClipboardList, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// Utility function to format LinkedIn URLs properly
+const formatLinkedInUrl = (url: string): string => {
+  if (!url || url.trim() === '') return '#';
+
+  const trimmedUrl = url.trim();
+
+  // If it already starts with http:// or https://, return as is
+  if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+    return trimmedUrl;
+  }
+
+  // If it starts with linkedin.com or www.linkedin.com, add https://
+  if (trimmedUrl.startsWith('linkedin.com') || trimmedUrl.startsWith('www.linkedin.com')) {
+    return `https://${trimmedUrl}`;
+  }
+
+  // If it's just a username or path, construct the full URL
+  if (trimmedUrl.startsWith('/in/') || trimmedUrl.startsWith('in/')) {
+    const path = trimmedUrl.startsWith('/') ? trimmedUrl : `/${trimmedUrl}`;
+    return `https://linkedin.com${path}`;
+  }
+
+  // If it doesn't contain linkedin.com, assume it's a username and construct the URL
+  if (!trimmedUrl.includes('linkedin.com')) {
+    return `https://linkedin.com/in/${trimmedUrl}`;
+  }
+
+  // Default case: add https:// if missing
+  return `https://${trimmedUrl}`;
+};
+
 interface SearchResultsProps {
   results: Prospect[];
 }
@@ -61,14 +92,50 @@ const maskPhoneNumber = (phone: string): { prefix: string; suffix: string } => {
   };
 };
 
+// Component to render email with interactive styling
+const EmailCell = ({
+  email,
+  prospectKey,
+  clickedEmails,
+  onEmailClick
+}: {
+  email: string;
+  prospectKey: string;
+  clickedEmails: Record<string, boolean>;
+  onEmailClick: (prospectKey: string, email: string) => void;
+}) => {
+  if (!email) return null;
+
+  const isClicked = clickedEmails[prospectKey];
+
+  return (
+    <a
+      href={`mailto:${email}`}
+      onClick={(e) => {
+        e.preventDefault();
+        onEmailClick(prospectKey, email);
+        // Open email client after state update
+        setTimeout(() => {
+          window.location.href = `mailto:${email}`;
+        }, 100);
+      }}
+      className={`hover:underline cursor-pointer transition-colors ${
+        isClicked ? 'text-blue-800' : 'text-blue-600'
+      }`}
+    >
+      {email}
+    </a>
+  );
+};
+
 // Component to render a single phone number with reveal functionality
-const PhoneNumberCell = ({ 
-  phone, 
-  prospectKey, 
-  phoneIndex, 
-  revealedPhones, 
-  justCopied, 
-  onPhoneClick 
+const PhoneNumberCell = ({
+  phone,
+  prospectKey,
+  phoneIndex,
+  revealedPhones,
+  justCopied,
+  onPhoneClick
 }: {
   phone: string;
   prospectKey: string;
@@ -83,9 +150,9 @@ const PhoneNumberCell = ({
   
   return (
     <div className="relative mb-1">
-      <button 
+      <button
         onClick={() => onPhoneClick(prospectKey, phoneIndex, phone)}
-        className={`text-left font-mono text-sm ${revealedPhones[phoneKey] ? 'text-primary' : 'text-slate-700 hover:text-primary cursor-pointer underline decoration-dashed underline-offset-4'}`}
+        className={`text-left font-mono text-sm transition-colors ${revealedPhones[phoneKey] ? 'text-blue-800' : 'text-blue-600 hover:text-blue-800 cursor-pointer underline decoration-dashed underline-offset-4'}`}
       >
         {(() => {
           const { prefix, suffix } = maskPhoneNumber(phone);
@@ -121,6 +188,7 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
   const [copiedProspect, setCopiedProspect] = useState<string | null>(null);
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [justCopied, setJustCopied] = useState<Record<string, boolean>>({});
+  const [clickedEmails, setClickedEmails] = useState<Record<string, boolean>>({});
 
   const copyProspectDetails = (prospect: Prospect) => {
     const phoneNumbers = [
@@ -153,9 +221,17 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
     });
   };
 
+  const handleEmailClick = (prospectKey: string, email: string) => {
+    // Mark email as clicked to change color
+    setClickedEmails(prev => ({
+      ...prev,
+      [prospectKey]: true
+    }));
+  };
+
   const handlePhoneClick = (prospectKey: string, phoneIndex: number, phone: string) => {
     const phoneKey = `${prospectKey}-${phoneIndex}`;
-    
+
     // Reveal phone number
     setRevealedPhones(prev => ({
       ...prev,
@@ -225,7 +301,14 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
                       {prospect.name}
                     </TableCell>
                     <TableCell>{prospect.company}</TableCell>
-                    <TableCell>{prospect.email}</TableCell>
+                    <TableCell>
+                      <EmailCell
+                        email={prospect.email}
+                        prospectKey={prospectKey}
+                        clickedEmails={clickedEmails}
+                        onEmailClick={handleEmailClick}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -270,15 +353,19 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <a 
-                        href={`https://${prospect.linkedin}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline inline-flex items-center"
-                      >
-                        <Linkedin size={16} className="mr-1" />
-                        Profile
-                      </a>
+                      {prospect.linkedin ? (
+                        <a
+                          href={formatLinkedInUrl(prospect.linkedin)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline inline-flex items-center"
+                        >
+                          <Linkedin size={16} className="mr-1" />
+                          Profile
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No LinkedIn</span>
+                      )}
                     </TableCell>
                     <TableCell>{prospect.location}</TableCell>
                     <TableCell className="text-right">

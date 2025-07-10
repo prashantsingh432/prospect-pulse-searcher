@@ -24,10 +24,10 @@ export const ProspectInfoSearch = ({
   setValidationError,
 }: ProspectInfoSearchProps) => {
   const validateFields = () => {
-    if (prospectName.trim() || companyName.trim()) {
+    if (companyName.trim()) {
       setValidationError("");
     } else {
-      setValidationError("At least one of Prospect Name or Company Name is required");
+      setValidationError("Company Name is required");
     }
   };
 
@@ -36,7 +36,7 @@ export const ProspectInfoSearch = ({
       <div className="space-y-2">
         <label htmlFor="prospectName" className="text-sm font-medium flex items-center">
           Prospect Name
-          {!companyName && <span className="text-red-500 ml-1">*</span>}
+          <span className="text-gray-400 ml-1 text-xs">(optional)</span>
         </label>
         <Input
           id="prospectName"
@@ -44,21 +44,16 @@ export const ProspectInfoSearch = ({
           value={prospectName}
           onChange={(e) => {
             setProspectName(e.target.value);
-            if (e.target.value.trim() || companyName.trim()) {
-              setValidationError("");
-            } else {
-              setValidationError("At least one of Prospect Name or Company Name is required");
-            }
+            // No validation needed for prospect name as it's optional
           }}
-          onBlur={validateFields}
           className="w-full"
         />
       </div>
-      
+
       <div className="space-y-2">
         <label htmlFor="companyName" className="text-sm font-medium flex items-center">
           Company Name
-          {!prospectName && <span className="text-red-500 ml-1">*</span>}
+          <span className="text-red-500 ml-1">*</span>
         </label>
         <Input
           id="companyName"
@@ -66,10 +61,10 @@ export const ProspectInfoSearch = ({
           value={companyName}
           onChange={(e) => {
             setCompanyName(e.target.value);
-            if (prospectName.trim() || e.target.value.trim()) {
+            if (e.target.value.trim()) {
               setValidationError("");
             } else {
-              setValidationError("At least one of Prospect Name or Company Name is required");
+              setValidationError("Company Name is required");
             }
           }}
           onBlur={validateFields}
