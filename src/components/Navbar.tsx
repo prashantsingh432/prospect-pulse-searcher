@@ -13,10 +13,10 @@ export const Navbar = () => {
     navigate("/login");
   };
   return <nav className="bg-white shadow-sm border-b">
-      <div className="container flex justify-between items-center mx-0 my-0 px-px py-px">
+      <div className="container flex justify-between items-center mx-auto px-4 py-3">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
-            <img src="/lovable-uploads/4ffa38c9-418b-49d3-8fd5-2838eb38f484.png" alt="AltLeads Logo" className="h-20 w-auto" />
+            <img src="/lovable-uploads/4ffa38c9-418b-49d3-8fd5-2838eb38f484.png" alt="AltLeads Logo" className="h-8 w-auto" />
             <h1 className="text-xl font-bold text-[#0000ff]">Prospect Finder</h1>
           </div>
           

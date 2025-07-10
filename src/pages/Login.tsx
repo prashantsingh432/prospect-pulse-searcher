@@ -66,20 +66,23 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-4">
-          <div className="flex justify-center mb-2">
-            <img 
-              src="/lovable-uploads/4ffa38c9-418b-49d3-8fd5-2838eb38f484.png" 
-              alt="AltLeads Logo" 
-              className="h-16 w-auto"
+        <CardHeader className="space-y-4 text-center">
+          <div className="flex justify-center mb-4">
+            <img
+              src="/lovable-uploads/4ffa38c9-418b-49d3-8fd5-2838eb38f484.png"
+              alt="AltLeads Logo"
+              className="h-12 w-auto"
             />
           </div>
-          <CardTitle className="text-2xl font-semibold text-center">
-            Hi, Welcome! 👋
-          </CardTitle>
-          <CardDescription className="text-center text-gray-500">
-            Sign in to access Prospect Finder
-          </CardDescription>
+          <div className="space-y-2">
+            <div className="text-2xl font-bold text-blue-600">AltLeads</div>
+            <CardTitle className="text-2xl font-semibold text-gray-900">
+              Hi, Welcome! 👋
+            </CardTitle>
+            <CardDescription className="text-gray-500">
+              Sign in to access Prospect Finder
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
