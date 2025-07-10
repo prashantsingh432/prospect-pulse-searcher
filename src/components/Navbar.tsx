@@ -20,7 +20,7 @@ export const Navbar = () => {
             <img 
               src="/lovable-uploads/4ffa38c9-418b-49d3-8fd5-2838eb38f484.png" 
               alt="AltLeads Logo" 
-              className="h-12 w-auto"
+              className="h-16 w-auto"
             />
             <h1 className="text-xl font-bold text-[#0000ff]">Prospect Finder</h1>
           </div>
