@@ -16,7 +16,14 @@ export const Navbar = () => {
     <nav className="bg-white shadow-sm border-b">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center gap-6">
-          <h1 className="text-xl font-bold text-[#0000ff]">Prospect Pulse- Amplior</h1>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/lovable-uploads/4ffa38c9-418b-49d3-8fd5-2838eb38f484.png" 
+              alt="AltLeads Logo" 
+              className="h-8 w-auto"
+            />
+            <h1 className="text-xl font-bold text-[#0000ff]">Prospect Finder</h1>
+          </div>
           
           {/* Project Name Display */}
           {user?.projectName && (
