@@ -67,7 +67,7 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-4 text-center pt-4">
-          <div className="space-y-3">
+          <div className="space-y-2">
             <img
               src="/lovable-uploads/4ffa38c9-418b-49d3-8fd5-2838eb38f484.png"
               alt="AltLeads Logo"
