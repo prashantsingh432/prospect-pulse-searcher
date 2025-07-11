@@ -13,7 +13,7 @@ export const Navbar = () => {
     navigate("/login");
   };
   return <nav className="bg-white shadow-sm border-b">
-      <div className="container flex justify-between items-center mx-auto px-4 py-3">
+      <div className="container flex justify-between items-center mx-auto px-[17px] py-0">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <img src="/lovable-uploads/4ffa38c9-418b-49d3-8fd5-2838eb38f484.png" alt="AltLeads Logo" className="w-[110px] h-auto" />
