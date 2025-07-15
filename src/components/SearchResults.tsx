@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { Linkedin, User, Building2, Mail, Phone, MapPin, ClipboardList, Check } from "lucide-react";
+import { Linkedin, User, Building2, Mail, Phone, MapPin, Briefcase, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Utility function to format LinkedIn URLs properly
@@ -280,13 +280,13 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead><span className="inline-flex items-center gap-1"><User size={16}/> Name</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Building2 size={16}/> Company</span></TableHead>
+                <TableHead><span className="inline-flex items-center gap-1"><User size={16}/> Name</span></TableHead>
+                <TableHead><span className="inline-flex items-center gap-1"><Briefcase size={16}/> Designation</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Mail size={16}/> Email</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Phone size={16}/> Phone Numbers</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Linkedin size={16}/> LinkedIn</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><MapPin size={16}/> Location</span></TableHead>
-                <TableHead className="w-[100px] text-right"><span className="inline-flex items-center gap-1"><ClipboardList size={16}/> Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -296,11 +296,12 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
                 
                 return (
                   <TableRow key={prospectKey}>
-                    <TableCell className="font-medium flex items-center gap-2">
+                    <TableCell className="font-medium">{prospect.company}</TableCell>
+                    <TableCell className="flex items-center gap-2">
                       <User size={20} style={{ color: stringToColor(prospect.name) }} />
                       {prospect.name}
                     </TableCell>
-                    <TableCell>{prospect.company}</TableCell>
+                    <TableCell>{prospect.designation || <span className="text-gray-400 text-sm">N/A</span>}</TableCell>
                     <TableCell>
                       <EmailCell
                         email={prospect.email}
@@ -368,15 +369,6 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
                       )}
                     </TableCell>
                     <TableCell>{prospect.location}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyProspectDetails(prospect)}
-                      >
-                        {copiedProspect === prospectKey ? "Copied!" : "📋 Copy"}
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 );
               })}

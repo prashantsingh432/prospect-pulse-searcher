@@ -2,6 +2,7 @@
 export interface Prospect {
   name: string;
   company: string;
+  designation?: string;
   location: string;
   phone: string;
   phone2?: string;
