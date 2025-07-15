@@ -34,23 +34,6 @@ export const ProspectInfoSearch = ({
   return (
     <div className="grid gap-4 md:grid-cols-2 md:gap-6">
       <div className="space-y-2">
-        <label htmlFor="prospectName" className="text-sm font-medium flex items-center">
-          Prospect Name
-          <span className="text-gray-400 ml-1 text-xs">(optional)</span>
-        </label>
-        <Input
-          id="prospectName"
-          placeholder="Search by name..."
-          value={prospectName}
-          onChange={(e) => {
-            setProspectName(e.target.value);
-            // No validation needed for prospect name as it's optional
-          }}
-          className="w-full"
-        />
-      </div>
-
-      <div className="space-y-2">
         <label htmlFor="companyName" className="text-sm font-medium flex items-center">
           Company Name
           <span className="text-red-500 ml-1">*</span>
@@ -68,6 +51,23 @@ export const ProspectInfoSearch = ({
             }
           }}
           onBlur={validateFields}
+          className="w-full"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="prospectName" className="text-sm font-medium flex items-center">
+          Prospect Name
+          <span className="text-gray-400 ml-1 text-xs">(optional)</span>
+        </label>
+        <Input
+          id="prospectName"
+          placeholder="Search by name..."
+          value={prospectName}
+          onChange={(e) => {
+            setProspectName(e.target.value);
+            // No validation needed for prospect name as it's optional
+          }}
           className="w-full"
         />
       </div>

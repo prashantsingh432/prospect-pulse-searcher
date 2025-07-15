@@ -85,6 +85,7 @@ export type Database = {
         Row: {
           company_name: string
           full_name: string
+          id: number
           prospect_city: string | null
           prospect_designation: string | null
           prospect_email: string | null
@@ -97,6 +98,7 @@ export type Database = {
         Insert: {
           company_name: string
           full_name: string
+          id?: number
           prospect_city?: string | null
           prospect_designation?: string | null
           prospect_email?: string | null
@@ -109,6 +111,7 @@ export type Database = {
         Update: {
           company_name?: string
           full_name?: string
+          id?: number
           prospect_city?: string | null
           prospect_designation?: string | null
           prospect_email?: string | null
