@@ -86,6 +86,7 @@ export type Database = {
           company_name: string
           full_name: string
           prospect_city: string | null
+          prospect_designation: string | null
           prospect_email: string | null
           prospect_linkedin: string | null
           prospect_number: string | null
@@ -97,6 +98,7 @@ export type Database = {
           company_name: string
           full_name: string
           prospect_city?: string | null
+          prospect_designation?: string | null
           prospect_email?: string | null
           prospect_linkedin?: string | null
           prospect_number?: string | null
@@ -108,6 +110,7 @@ export type Database = {
           company_name?: string
           full_name?: string
           prospect_city?: string | null
+          prospect_designation?: string | null
           prospect_email?: string | null
           prospect_linkedin?: string | null
           prospect_number?: string | null
