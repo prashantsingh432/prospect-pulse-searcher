@@ -97,11 +97,13 @@ const EmailCell = ({
   email,
   prospectKey,
   clickedEmails,
+  copiedEmails,
   onEmailClick
 }: {
   email: string;
   prospectKey: string;
   clickedEmails: Record<string, boolean>;
+  copiedEmails: Record<string, boolean>;
   onEmailClick: (prospectKey: string, email: string) => void;
 }) => {
   if (!email) return null;
@@ -109,22 +111,25 @@ const EmailCell = ({
   const isClicked = clickedEmails[prospectKey];
 
   return (
-    <a
-      href={`mailto:${email}`}
-      onClick={(e) => {
-        e.preventDefault();
-        onEmailClick(prospectKey, email);
-        // Open email client after state update
-        setTimeout(() => {
-          window.location.href = `mailto:${email}`;
-        }, 100);
-      }}
-      className={`hover:underline cursor-pointer transition-colors ${
-        isClicked ? 'text-blue-800' : 'text-blue-600'
-      }`}
-    >
-      {email}
-    </a>
+    <div className="relative">
+      <span
+        onClick={(e) => {
+          e.preventDefault();
+          onEmailClick(prospectKey, email);
+        }}
+        className={`hover:underline cursor-pointer transition-colors ${
+          isClicked ? 'text-blue-800' : 'text-blue-600'
+        }`}
+      >
+        {email}
+      </span>
+      {copiedEmails[prospectKey] && (
+        <div className="absolute -top-8 left-0 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center gap-1 shadow-sm animate-fade-in z-10">
+          <Check size={12} />
+          <span>Copied!</span>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -189,6 +194,7 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [justCopied, setJustCopied] = useState<Record<string, boolean>>({});
   const [clickedEmails, setClickedEmails] = useState<Record<string, boolean>>({});
+  const [copiedEmails, setCopiedEmails] = useState<Record<string, boolean>>({});
 
   const copyProspectDetails = (prospect: Prospect) => {
     const phoneNumbers = [
@@ -228,6 +234,29 @@ Location: ${prospect.location || 'N/A'}`;
       ...prev,
       [prospectKey]: true
     }));
+
+    // Copy email to clipboard
+    navigator.clipboard.writeText(email).then(() => {
+      setCopiedEmails(prev => ({
+        ...prev,
+        [prospectKey]: true
+      }));
+
+      // Clear notification after 2 seconds
+      setTimeout(() => {
+        setCopiedEmails(prev => ({
+          ...prev,
+          [prospectKey]: false
+        }));
+      }, 2000);
+    }).catch((error) => {
+      toast({
+        title: "Failed to copy email",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+      console.error("Copy email failed:", error);
+    });
   };
 
   const handlePhoneClick = (prospectKey: string, phoneIndex: number, phone: string) => {
@@ -281,7 +310,6 @@ Location: ${prospect.location || 'N/A'}`;
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-16">Copy</TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Building2 size={16}/> Company</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><User size={16}/> Name</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Briefcase size={16}/> Designation</span></TableHead>
@@ -289,6 +317,7 @@ Location: ${prospect.location || 'N/A'}`;
                 <TableHead><span className="inline-flex items-center gap-1"><Phone size={16}/> Phone Numbers</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Linkedin size={16}/> LinkedIn</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><MapPin size={16}/> Location</span></TableHead>
+                <TableHead className="w-20">Copy</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -298,24 +327,6 @@ Location: ${prospect.location || 'N/A'}`;
                 
                 return (
                   <TableRow key={prospectKey}>
-                    <TableCell>
-                      <div className="relative">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyProspectDetails(prospect)}
-                          className="text-xs h-7 px-2"
-                        >
-                          Copy
-                        </Button>
-                        {copiedProspect === prospectKey && (
-                          <div className="absolute -top-8 left-0 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center gap-1 shadow-sm animate-fade-in z-10">
-                            <Check size={12} />
-                            <span>Copied!</span>
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
                     <TableCell className="font-medium">{prospect.company}</TableCell>
                     <TableCell className="flex items-center gap-2">
                       <User size={20} style={{ color: stringToColor(prospect.name) }} />
@@ -327,6 +338,7 @@ Location: ${prospect.location || 'N/A'}`;
                         email={prospect.email}
                         prospectKey={prospectKey}
                         clickedEmails={clickedEmails}
+                        copiedEmails={copiedEmails}
                         onEmailClick={handleEmailClick}
                       />
                     </TableCell>
@@ -389,6 +401,22 @@ Location: ${prospect.location || 'N/A'}`;
                       )}
                     </TableCell>
                     <TableCell>{prospect.location}</TableCell>
+                    <TableCell>
+                      <div className="relative">
+                        <Button
+                          onClick={() => copyProspectDetails(prospect)}
+                          className="vibrant-copy-btn bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-xs h-8 px-3 rounded-md font-semibold shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl flex items-center gap-1"
+                        >
+                          📋 Copy
+                        </Button>
+                        {copiedProspect === prospectKey && (
+                          <div className="absolute -top-8 right-0 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center gap-1 shadow-sm animate-fade-in z-10">
+                            <Check size={12} />
+                            <span>Copied!</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })}
