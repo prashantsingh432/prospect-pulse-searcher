@@ -57,11 +57,6 @@ export const ResultsContainer = ({
               {showDebug ? "Hide Debug" : "Show Debug"}
             </Button>
           )}
-          {searchResults.length > 0 && (
-            <Button variant="outline" onClick={copyAllResults}>
-              📋 Copy All Results
-            </Button>
-          )}
         </div>
       </div>
       

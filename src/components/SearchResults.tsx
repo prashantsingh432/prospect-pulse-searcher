@@ -198,17 +198,18 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
       prospect.phone4
     ].filter(Boolean).join(', ');
     
-    const text = `Name: ${prospect.name}\nCompany: ${prospect.company}\nEmail: ${prospect.email}\nPhone Numbers: ${phoneNumbers}\nLinkedIn: ${prospect.linkedin}\nLocation: ${prospect.location}`;
+    const text = `Company: ${prospect.company}
+Name: ${prospect.name}
+Designation: ${prospect.designation || 'N/A'}
+Email: ${prospect.email || 'N/A'}
+Phone: ${phoneNumbers || 'N/A'}
+LinkedIn: ${prospect.linkedin || 'N/A'}
+Location: ${prospect.location || 'N/A'}`;
     
     // Create a unique key for this prospect based on name and company
     const prospectKey = `${prospect.name}-${prospect.company}`;
     
     navigator.clipboard.writeText(text).then(() => {
-      toast({
-        title: "Copied to clipboard",
-        description: `${prospect.name}'s details copied.`,
-      });
-      
       setCopiedProspect(prospectKey);
       setTimeout(() => setCopiedProspect(null), 2000);
     }).catch((error) => {
@@ -280,6 +281,7 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16">Copy</TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Building2 size={16}/> Company</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><User size={16}/> Name</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Briefcase size={16}/> Designation</span></TableHead>
@@ -296,6 +298,24 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
                 
                 return (
                   <TableRow key={prospectKey}>
+                    <TableCell>
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyProspectDetails(prospect)}
+                          className="text-xs h-7 px-2"
+                        >
+                          Copy
+                        </Button>
+                        {copiedProspect === prospectKey && (
+                          <div className="absolute -top-8 left-0 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center gap-1 shadow-sm animate-fade-in z-10">
+                            <Check size={12} />
+                            <span>Copied!</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="font-medium">{prospect.company}</TableCell>
                     <TableCell className="flex items-center gap-2">
                       <User size={20} style={{ color: stringToColor(prospect.name) }} />
