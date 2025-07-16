@@ -61,6 +61,7 @@ const Dashboard = () => {
         return (prospectsData || []).map((record, index) => ({
           name: record.full_name,
           company: record.company_name,
+          designation: record.prospect_designation || "",
           location: record.prospect_city || "",
           phone: record.prospect_number || "",
           phone2: record.prospect_number2 || "",

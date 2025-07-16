@@ -51,6 +51,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
       const results = queryResults.map((record, index) => ({
         name: record.full_name,
         company: record.company_name,
+        designation: record.prospect_designation || "",
         location: record.prospect_city || "",
         phone: record.prospect_number || "",
         phone2: record.prospect_number2 || "",
