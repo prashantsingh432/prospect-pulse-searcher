@@ -53,17 +53,7 @@ export const UserCreator = () => {
     try {
       console.log("Fetching users using edge function...");
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error("No active session");
-      }
-
-      const response = await supabase.functions.invoke('list-users', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const response = await supabase.functions.invoke('list-users');
 
       if (response.error) {
         console.error("Edge function error:", response.error);
@@ -125,12 +115,6 @@ export const UserCreator = () => {
     try {
       console.log("Creating user:", newUserEmail, "with role:", newUserRole);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error("No active session");
-      }
-
       const response = await supabase.functions.invoke('create-users', {
         body: {
           users: [{
@@ -138,9 +122,6 @@ export const UserCreator = () => {
             password: newUserPassword,
             role: newUserRole
           }]
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
@@ -196,17 +177,8 @@ export const UserCreator = () => {
     try {
       console.log("Deleting user:", selectedUserToDelete);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error("No active session");
-      }
-
       const response = await supabase.functions.invoke('delete-user', {
         body: { userId: selectedUserToDelete },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
       });
 
       if (response.error) {
