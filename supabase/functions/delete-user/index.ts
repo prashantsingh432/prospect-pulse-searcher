@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -48,6 +49,22 @@ serve(async (req) => {
       );
     }
 
+    console.log(`Attempting to delete user: ${userId}`);
+
+    // First, get user info before deletion
+    const { data: userInfo } = await supabaseAdmin.auth.admin.getUserById(userId);
+    
+    // Delete from users table first
+    const { error: deleteFromTableError } = await supabaseAdmin
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (deleteFromTableError) {
+      console.error("Error deleting from users table:", deleteFromTableError);
+      // Continue with auth user deletion even if this fails
+    }
+
     // Delete the user using admin API
     const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
@@ -59,19 +76,13 @@ serve(async (req) => {
       );
     }
 
-    // Also delete from users table if it exists
-    const { error: deleteFromTableError } = await supabaseAdmin
-      .from('users')
-      .delete()
-      .eq('id', userId);
-
-    if (deleteFromTableError) {
-      console.error("Error deleting from users table:", deleteFromTableError);
-      // Don't fail the request if this fails, as the auth user is already deleted
-    }
+    console.log(`Successfully deleted user: ${userInfo?.user?.email || userId}`);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'User deleted successfully' }),
+      JSON.stringify({ 
+        success: true, 
+        message: `User ${userInfo?.user?.email || userId} deleted successfully` 
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

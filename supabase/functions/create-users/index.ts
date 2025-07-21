@@ -55,47 +55,57 @@ serve(async (req) => {
     // Create each user
     for (const user of users) {
       try {
+        console.log(`Creating user: ${user.email} with role: ${user.role}`);
+        
         const { data, error } = await supabaseAdmin.auth.admin.createUser({
           email: user.email,
           password: user.password,
-          email_confirm: true // Auto-confirm emails
+          email_confirm: true, // Auto-confirm emails
+          user_metadata: {
+            role: user.role || 'caller',
+            full_name: user.email.split('@')[0]
+          }
         });
 
         if (error) {
+          console.error(`Error creating user ${user.email}:`, error.message);
           results.push({
             email: user.email,
             success: false,
             message: error.message
           });
-          console.error(`Error creating user ${user.email}:`, error.message);
         } else {
-          results.push({
-            email: user.email,
-            success: true,
-            userId: data.user.id
-          });
+          console.log(`User ${user.email} created successfully with ID: ${data.user.id}`);
           
-          // Insert into users table with 'caller' role
+          // Insert into users table
           const { error: insertError } = await supabaseAdmin
             .from('users')
             .insert({
               id: data.user.id,
               email: user.email,
-              role: 'caller',
-              name: user.email.split('@')[0] // Extract name from email
+              role: user.role || 'caller',
+              name: user.email.split('@')[0]
             });
           
           if (insertError) {
             console.error(`Error adding user ${user.email} to users table:`, insertError.message);
+            // Don't fail the request if this fails, as the auth user is already created
           }
+
+          results.push({
+            email: user.email,
+            success: true,
+            userId: data.user.id,
+            message: 'User created successfully'
+          });
         }
       } catch (err) {
+        console.error(`Exception creating user ${user.email}:`, err);
         results.push({
           email: user.email,
           success: false,
           message: err.message || 'Unknown error'
         });
-        console.error(`Exception creating user ${user.email}:`, err);
       }
     }
 
@@ -104,6 +114,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    console.error("Exception in create-users function:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
