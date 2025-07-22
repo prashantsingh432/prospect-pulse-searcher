@@ -6,7 +6,8 @@ export const validateProspectSearch = (
   activeTab: string,
   prospectName: string,
   companyName: string,
-  linkedinUrl: string
+  linkedinUrl: string,
+  phoneNumber?: string
 ): { isValid: boolean; errorMessage: string } => {
 
   if (activeTab === "prospect-info") {
@@ -32,6 +33,21 @@ export const validateProspectSearch = (
       return {
         isValid: false,
         errorMessage: "Please enter a URL containing 'linkedin.com'"
+      };
+    }
+  } else if (activeTab === "phone-number") {
+    if (!phoneNumber?.trim()) {
+      return {
+        isValid: false,
+        errorMessage: "Phone number is required for phone number search."
+      };
+    }
+    // Basic phone number validation - should have at least 6 digits
+    const normalizedPhone = phoneNumber.replace(/\D/g, '');
+    if (normalizedPhone.length < 6) {
+      return {
+        isValid: false,
+        errorMessage: "Phone number should have at least 6 digits."
       };
     }
   }

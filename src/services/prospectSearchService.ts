@@ -10,6 +10,7 @@ export interface SearchParams {
   companyName: string;
   location: string;
   linkedinUrl: string;
+  phoneNumber: string;
 }
 
 export interface SearchResult {
@@ -24,7 +25,7 @@ export interface SearchResult {
  * Search for prospects based on the provided parameters
  */
 export const searchProspects = async (params: SearchParams): Promise<SearchResult> => {
-  const { activeTab, prospectName, companyName, location, linkedinUrl } = params;
+  const { activeTab, prospectName, companyName, location, linkedinUrl, phoneNumber } = params;
   
   try {
     console.log("Starting search with parameters:", params);
@@ -41,6 +42,9 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
     if (activeTab === "linkedin-url") {
       // Search by LinkedIn URL
       queryResults = await searchByLinkedInUrl(linkedinUrl);
+    } else if (activeTab === "phone-number") {
+      // Search by phone number
+      queryResults = await searchByPhoneNumber(phoneNumber);
     } else {
       // Search by prospect info
       queryResults = await searchByProspectInfo(prospectName, companyName, location);
@@ -79,6 +83,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
         debugInfo: {
           query: params,
           normalizedUrl: activeTab === "linkedin-url" ? normalizeLinkedInUrl(linkedinUrl) : null,
+          normalizedPhone: activeTab === "phone-number" ? normalizePhoneNumber(phoneNumber) : null,
           timestamp: new Date()
         },
         success: true,
@@ -194,4 +199,82 @@ async function searchByProspectInfo(
   
   console.log(`Search found ${data?.length || 0} results`);
   return data || [];
+}
+
+/**
+ * Normalize phone number by removing all non-digit characters
+ */
+function normalizePhoneNumber(phoneNumber: string): string {
+  return phoneNumber.replace(/\D/g, '');
+}
+
+/**
+ * Search for prospects by phone number with flexible matching
+ */
+async function searchByPhoneNumber(phoneNumber: string): Promise<any[]> {
+  console.log("Searching by phone number:", phoneNumber);
+  
+  if (!phoneNumber.trim()) {
+    return [];
+  }
+  
+  // Normalize the input phone number (remove all non-digits)
+  const normalizedInput = normalizePhoneNumber(phoneNumber.trim());
+  console.log("Normalized input phone number:", normalizedInput);
+  
+  if (normalizedInput.length < 6) {
+    console.log("Phone number too short for search");
+    return [];
+  }
+  
+  // Try multiple search strategies for better phone number matches
+  const searchPromises = [];
+  
+  // Strategy 1: Direct match on normalized number
+  searchPromises.push(
+    supabase
+      .from("prospects")
+      .select("*")
+      .or(`prospect_number.ilike.%${normalizedInput}%,prospect_number2.ilike.%${normalizedInput}%,prospect_number3.ilike.%${normalizedInput}%,prospect_number4.ilike.%${normalizedInput}%`)
+  );
+  
+  // Strategy 2: Match with country code variations (+91, 0091, 91)
+  if (normalizedInput.length === 10) {
+    // Indian mobile number - try with +91 prefix
+    const withCountryCode = `91${normalizedInput}`;
+    searchPromises.push(
+      supabase
+        .from("prospects")
+        .select("*")
+        .or(`prospect_number.ilike.%${withCountryCode}%,prospect_number2.ilike.%${withCountryCode}%,prospect_number3.ilike.%${withCountryCode}%,prospect_number4.ilike.%${withCountryCode}%`)
+    );
+  }
+  
+  // Strategy 3: If input has country code, also search without it
+  if (normalizedInput.startsWith('91') && normalizedInput.length === 12) {
+    const withoutCountryCode = normalizedInput.substring(2);
+    searchPromises.push(
+      supabase
+        .from("prospects")
+        .select("*")
+        .or(`prospect_number.ilike.%${withoutCountryCode}%,prospect_number2.ilike.%${withoutCountryCode}%,prospect_number3.ilike.%${withoutCountryCode}%,prospect_number4.ilike.%${withoutCountryCode}%`)
+    );
+  }
+  
+  // Execute all search strategies in parallel
+  const searchResults = await Promise.all(searchPromises);
+  console.log("Multiple phone search strategies results:", searchResults.map(r => r.data?.length || 0));
+  
+  // Combine and deduplicate results
+  const allResults = searchResults
+    .filter(result => !result.error && result.data)
+    .flatMap(result => result.data || []);
+    
+  // Remove duplicates by name + company combination
+  const uniqueResults = Array.from(
+    new Map(allResults.map(item => [`${item.full_name}-${item.company_name}`, item])).values()
+  );
+  
+  console.log(`Phone number search found ${uniqueResults.length} results`);
+  return uniqueResults;
 }

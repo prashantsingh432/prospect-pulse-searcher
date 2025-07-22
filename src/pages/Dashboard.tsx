@@ -25,6 +25,8 @@ const Dashboard = () => {
     setLocation,
     linkedinUrl,
     setLinkedinUrl,
+    phoneNumber,
+    setPhoneNumber,
     searchResults,
     hasSearched,
     isSearching,
@@ -128,6 +130,8 @@ const Dashboard = () => {
           setLocation={setLocation}
           linkedinUrl={linkedinUrl}
           setLinkedinUrl={setLinkedinUrl}
+          phoneNumber={phoneNumber}
+          setPhoneNumber={setPhoneNumber}
           validationError={validationError}
           setValidationError={setValidationError}
           isSearching={isSearching}
