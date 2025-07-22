@@ -9,6 +9,8 @@ interface ProspectInfoSearchProps {
   setCompanyName: (value: string) => void;
   location: string;
   setLocation: (value: string) => void;
+  phoneNumber: string;
+  setPhoneNumber: (value: string) => void;
   validationError: string;
   setValidationError: (value: string) => void;
 }
@@ -20,6 +22,8 @@ export const ProspectInfoSearch = ({
   setCompanyName,
   location,
   setLocation,
+  phoneNumber,
+  setPhoneNumber,
   validationError,
   setValidationError,
 }: ProspectInfoSearchProps) => {
@@ -72,7 +76,7 @@ export const ProspectInfoSearch = ({
         />
       </div>
       
-      <div className="space-y-2 md:col-span-2">
+      <div className="space-y-2">
         <label htmlFor="location" className="text-sm font-medium">
           Location <span className="text-gray-400">(optional)</span>
         </label>
@@ -81,6 +85,20 @@ export const ProspectInfoSearch = ({
           placeholder="City, State or leave blank"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
+          className="w-full"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="phoneNumber" className="text-sm font-medium">
+          Phone Number <span className="text-gray-400">(optional)</span>
+        </label>
+        <Input
+          id="phoneNumber"
+          type="tel"
+          placeholder="Search by phone..."
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
           className="w-full"
         />
       </div>

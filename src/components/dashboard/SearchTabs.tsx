@@ -13,6 +13,8 @@ interface SearchTabsProps {
   setCompanyName: (value: string) => void;
   location: string;
   setLocation: (value: string) => void;
+  phoneNumber: string;
+  setPhoneNumber: (value: string) => void;
   linkedinUrl: string;
   setLinkedinUrl: (value: string) => void;
   validationError: string;
@@ -30,6 +32,8 @@ export const SearchTabs = ({
   setCompanyName,
   location,
   setLocation,
+  phoneNumber,
+  setPhoneNumber,
   linkedinUrl,
   setLinkedinUrl,
   validationError,
@@ -60,6 +64,8 @@ export const SearchTabs = ({
           setCompanyName={setCompanyName}
           location={location}
           setLocation={setLocation}
+          phoneNumber={phoneNumber}
+          setPhoneNumber={setPhoneNumber}
           validationError={validationError}
           setValidationError={setValidationError}
         />

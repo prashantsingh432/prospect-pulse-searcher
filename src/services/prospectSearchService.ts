@@ -9,6 +9,7 @@ export interface SearchParams {
   prospectName: string;
   companyName: string;
   location: string;
+  phoneNumber: string;
   linkedinUrl: string;
 }
 
@@ -24,7 +25,7 @@ export interface SearchResult {
  * Search for prospects based on the provided parameters
  */
 export const searchProspects = async (params: SearchParams): Promise<SearchResult> => {
-  const { activeTab, prospectName, companyName, location, linkedinUrl } = params;
+  const { activeTab, prospectName, companyName, location, phoneNumber, linkedinUrl } = params;
   
   try {
     console.log("Starting search with parameters:", params);
@@ -43,7 +44,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
       queryResults = await searchByLinkedInUrl(linkedinUrl);
     } else {
       // Search by prospect info
-      queryResults = await searchByProspectInfo(prospectName, companyName, location);
+      queryResults = await searchByProspectInfo(prospectName, companyName, location, phoneNumber);
     }
     
     // Process and map the results to the Prospect model
@@ -160,7 +161,8 @@ async function searchByLinkedInUrl(linkedinUrl: string): Promise<any[]> {
 async function searchByProspectInfo(
   prospectName: string, 
   companyName: string, 
-  location: string
+  location: string,
+  phoneNumber: string
 ): Promise<any[]> {
   console.log("Searching by Prospect and/or Company Name with Location filter");
   
@@ -182,6 +184,15 @@ async function searchByProspectInfo(
   if (location.trim()) {
     query = query.ilike("prospect_city", `%${location.trim()}%`);
     console.log("Added location filter:", location);
+  }
+  
+  // Add phone number filter if provided - search across all phone number fields
+  if (phoneNumber.trim()) {
+    const normalizedPhone = phoneNumber.replace(/\D/g, ''); // Remove all non-digits
+    if (normalizedPhone.length >= 6) { // Minimum 6 digits for valid search
+      query = query.or(`prospect_number.ilike.%${normalizedPhone}%,prospect_number2.ilike.%${normalizedPhone}%,prospect_number3.ilike.%${normalizedPhone}%,prospect_number4.ilike.%${normalizedPhone}%`);
+      console.log("Added phone number filter:", normalizedPhone);
+    }
   }
   
   console.log("Executing search query...");

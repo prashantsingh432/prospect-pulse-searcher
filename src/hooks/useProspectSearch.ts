@@ -15,6 +15,7 @@ export const useProspectSearch = () => {
   const [prospectName, setProspectName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [location, setLocation] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [searchResults, setSearchResults] = useState<Prospect[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -65,6 +66,7 @@ export const useProspectSearch = () => {
     setProspectName("");
     setCompanyName("");
     setLocation("");
+    setPhoneNumber("");
     setLinkedinUrl("");
     setValidationError("");
   }, [activeTab]);
@@ -149,6 +151,7 @@ export const useProspectSearch = () => {
         prospectName,
         companyName,
         location,
+        phoneNumber,
         linkedinUrl
       };
       
@@ -189,6 +192,7 @@ export const useProspectSearch = () => {
     prospectName, 
     companyName, 
     location, 
+    phoneNumber,
     linkedinUrl, 
     toast, 
     validateSearch, 
@@ -232,6 +236,8 @@ export const useProspectSearch = () => {
     setCompanyName,
     location,
     setLocation,
+    phoneNumber,
+    setPhoneNumber,
     linkedinUrl,
     setLinkedinUrl,
     searchResults,
