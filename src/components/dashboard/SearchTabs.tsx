@@ -4,8 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ProspectInfoSearch } from "./ProspectInfoSearch";
 import { LinkedInSearch } from "./LinkedInSearch";
-import { PhoneNumberSearch } from "./PhoneNumberSearch";
-import { Linkedin, User, Phone } from "lucide-react";
+import { Linkedin, User } from "lucide-react";
 
 interface SearchTabsProps {
   prospectName: string;
@@ -16,8 +15,6 @@ interface SearchTabsProps {
   setLocation: (value: string) => void;
   linkedinUrl: string;
   setLinkedinUrl: (value: string) => void;
-  phoneNumber: string;
-  setPhoneNumber: (value: string) => void;
   validationError: string;
   setValidationError: (value: string) => void;
   activeTab: string;
@@ -35,8 +32,6 @@ export const SearchTabs = ({
   setLocation,
   linkedinUrl,
   setLinkedinUrl,
-  phoneNumber,
-  setPhoneNumber,
   validationError,
   setValidationError,
   activeTab,
@@ -46,7 +41,7 @@ export const SearchTabs = ({
 }: SearchTabsProps) => {
   return (
     <Tabs defaultValue="prospect-info" value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-3 mb-6">
+      <TabsList className="grid w-full grid-cols-2 mb-6">
         <TabsTrigger value="prospect-info" className="flex items-center gap-2">
           <User className="h-4 w-4" />
           <span>Search by Prospect Info</span>
@@ -54,10 +49,6 @@ export const SearchTabs = ({
         <TabsTrigger value="linkedin-url" className="flex items-center gap-2">
           <Linkedin className="h-4 w-4" />
           <span>Search by LinkedIn URL</span>
-        </TabsTrigger>
-        <TabsTrigger value="phone-number" className="flex items-center gap-2">
-          <Phone className="h-4 w-4" />
-          <span>Search by Phone Number</span>
         </TabsTrigger>
       </TabsList>
       
@@ -78,15 +69,6 @@ export const SearchTabs = ({
         <LinkedInSearch 
           linkedinUrl={linkedinUrl}
           setLinkedinUrl={setLinkedinUrl}
-          validationError={validationError}
-          setValidationError={setValidationError}
-        />
-      </TabsContent>
-      
-      <TabsContent value="phone-number" className="mt-0">
-        <PhoneNumberSearch 
-          phoneNumber={phoneNumber}
-          setPhoneNumber={setPhoneNumber}
           validationError={validationError}
           setValidationError={setValidationError}
         />

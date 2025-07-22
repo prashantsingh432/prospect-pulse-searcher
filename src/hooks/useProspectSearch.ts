@@ -16,7 +16,6 @@ export const useProspectSearch = () => {
   const [companyName, setCompanyName] = useState("");
   const [location, setLocation] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [searchResults, setSearchResults] = useState<Prospect[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -67,16 +66,15 @@ export const useProspectSearch = () => {
     setCompanyName("");
     setLocation("");
     setLinkedinUrl("");
-    setPhoneNumber("");
     setValidationError("");
   }, [activeTab]);
 
   // Validate search form based on the active tab
   const validateSearch = useCallback(() => {
-    const validation = validateProspectSearch(activeTab, prospectName, companyName, linkedinUrl, phoneNumber);
+    const validation = validateProspectSearch(activeTab, prospectName, companyName, linkedinUrl);
     setValidationError(validation.errorMessage);
     return validation.isValid;
-  }, [activeTab, prospectName, companyName, linkedinUrl, phoneNumber]);
+  }, [activeTab, prospectName, companyName, linkedinUrl]);
 
   // Manually test connection - useful for debugging
   const testConnection = useCallback(async () => {
@@ -151,8 +149,7 @@ export const useProspectSearch = () => {
         prospectName,
         companyName,
         location,
-        linkedinUrl,
-        phoneNumber
+        linkedinUrl
       };
       
       // Execute the search
@@ -193,7 +190,6 @@ export const useProspectSearch = () => {
     companyName, 
     location, 
     linkedinUrl, 
-    phoneNumber,
     toast, 
     validateSearch, 
     validationError
@@ -238,8 +234,6 @@ export const useProspectSearch = () => {
     setLocation,
     linkedinUrl,
     setLinkedinUrl,
-    phoneNumber,
-    setPhoneNumber,
     searchResults,
     hasSearched,
     isSearching,

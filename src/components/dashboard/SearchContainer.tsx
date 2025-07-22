@@ -14,8 +14,6 @@ interface SearchContainerProps {
   setLocation: (value: string) => void;
   linkedinUrl: string;
   setLinkedinUrl: (value: string) => void;
-  phoneNumber: string;
-  setPhoneNumber: (value: string) => void;
   validationError: string;
   setValidationError: (value: string) => void;
   isSearching: boolean;
@@ -33,8 +31,6 @@ export const SearchContainer = ({
   setLocation,
   linkedinUrl,
   setLinkedinUrl,
-  phoneNumber,
-  setPhoneNumber,
   validationError,
   setValidationError,
   isSearching,
@@ -57,8 +53,6 @@ export const SearchContainer = ({
           setLocation={setLocation}
           linkedinUrl={linkedinUrl}
           setLinkedinUrl={setLinkedinUrl}
-          phoneNumber={phoneNumber}
-          setPhoneNumber={setPhoneNumber}
           validationError={validationError}
           setValidationError={setValidationError}
           isSearching={isSearching}
