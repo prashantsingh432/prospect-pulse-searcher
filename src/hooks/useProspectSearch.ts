@@ -193,6 +193,7 @@ export const useProspectSearch = () => {
     companyName, 
     location, 
     linkedinUrl, 
+    phoneNumber,
     toast, 
     validateSearch, 
     validationError
