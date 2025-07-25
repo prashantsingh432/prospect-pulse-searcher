@@ -16,6 +16,7 @@ interface LinkedInSearchProps {
   setLinkedinUrl: (value: string) => void;
   validationError: string;
   setValidationError: (value: string) => void;
+  onSearch: () => void;
 }
 
 export const LinkedInSearch = ({
@@ -23,8 +24,15 @@ export const LinkedInSearch = ({
   setLinkedinUrl,
   validationError,
   setValidationError,
+  onSearch,
 }: LinkedInSearchProps) => {
   const [isFocused, setIsFocused] = useState(false);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      onSearch();
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -68,6 +76,7 @@ export const LinkedInSearch = ({
                 setLinkedinUrl(formatLinkedInUrl(linkedinUrl));
               }
             }}
+            onKeyDown={handleKeyDown}
             className={`w-full ${validationError && linkedinUrl ? 'border-red-500' : ''}`}
           />
           

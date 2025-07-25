@@ -68,6 +68,7 @@ export const SearchTabs = ({
           setPhoneNumber={setPhoneNumber}
           validationError={validationError}
           setValidationError={setValidationError}
+          onSearch={onSearch}
         />
       </TabsContent>
       
@@ -77,6 +78,7 @@ export const SearchTabs = ({
           setLinkedinUrl={setLinkedinUrl}
           validationError={validationError}
           setValidationError={setValidationError}
+          onSearch={onSearch}
         />
       </TabsContent>
       

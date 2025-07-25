@@ -13,6 +13,7 @@ interface ProspectInfoSearchProps {
   setPhoneNumber: (value: string) => void;
   validationError: string;
   setValidationError: (value: string) => void;
+  onSearch: () => void;
 }
 
 export const ProspectInfoSearch = ({
@@ -26,6 +27,7 @@ export const ProspectInfoSearch = ({
   setPhoneNumber,
   validationError,
   setValidationError,
+  onSearch,
 }: ProspectInfoSearchProps) => {
   const validateFields = () => {
     // Check if only phone number is provided
@@ -38,6 +40,12 @@ export const ProspectInfoSearch = ({
       setValidationError("");
     } else {
       setValidationError("Company Name is required");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      onSearch();
     }
   };
 
@@ -57,6 +65,7 @@ export const ProspectInfoSearch = ({
             validateFields();
           }}
           onBlur={validateFields}
+          onKeyDown={handleKeyDown}
           className="w-full"
         />
       </div>
@@ -74,6 +83,7 @@ export const ProspectInfoSearch = ({
             setProspectName(e.target.value);
             validateFields();
           }}
+          onKeyDown={handleKeyDown}
           className="w-full"
         />
       </div>
@@ -90,6 +100,7 @@ export const ProspectInfoSearch = ({
             setLocation(e.target.value);
             validateFields();
           }}
+          onKeyDown={handleKeyDown}
           className="w-full"
         />
       </div>
@@ -107,6 +118,7 @@ export const ProspectInfoSearch = ({
             setPhoneNumber(e.target.value);
             validateFields();
           }}
+          onKeyDown={handleKeyDown}
           className="w-full"
         />
       </div>
