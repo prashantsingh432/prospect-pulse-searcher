@@ -81,18 +81,26 @@ export const EditProspectDialog = ({
       console.log("🔍 No ID found, searching for prospect in database...");
       
       try {
-        const { data: foundProspect, error } = await supabase
+        // Try to find by multiple criteria to handle duplicates
+        let query = supabase
           .from("prospects")
           .select("id")
           .eq("full_name", prospect.name)
-          .eq("company_name", prospect.company)
-          .maybeSingle();
+          .eq("company_name", prospect.company);
+        
+        // Add phone number as additional criteria if available
+        if (prospect.phone) {
+          query = query.or(`prospect_number.eq.${prospect.phone},prospect_number2.eq.${prospect.phone},prospect_number3.eq.${prospect.phone},prospect_number4.eq.${prospect.phone}`);
+        }
+        
+        const { data: foundProspects, error } = await query;
           
         if (error) {
           console.error("❌ Error finding prospect:", error);
-        } else if (foundProspect) {
-          prospectId = foundProspect.id;
-          console.log("✅ Found prospect ID:", prospectId);
+        } else if (foundProspects && foundProspects.length > 0) {
+          // If multiple matches, take the first one
+          prospectId = foundProspects[0].id;
+          console.log(`✅ Found prospect ID: ${prospectId} (${foundProspects.length} matches found, using first)`);
         }
       } catch (error) {
         console.error("❌ Database lookup failed:", error);
