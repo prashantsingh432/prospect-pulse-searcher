@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface EditProspectDialogProps {
@@ -60,8 +60,9 @@ export const EditProspectDialog = ({
   }, [prospect]);
 
   const handleSave = async () => {
+    // Phase 1: Validation
     if (!prospect?.id) {
-      console.error("No prospect ID available for update");
+      console.error("❌ No prospect ID available for update", { prospect });
       toast({
         title: "Error",
         description: "Invalid prospect data. Please try again.",
@@ -70,13 +71,45 @@ export const EditProspectDialog = ({
       return;
     }
 
+    // Validate required fields
+    if (!formData.company?.trim() || !formData.name?.trim()) {
+      console.error("❌ Required fields missing", { company: formData.company, name: formData.name });
+      toast({
+        title: "Validation Error",
+        description: "Company name and full name are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
+    console.log("🚀 Starting prospect update process...");
 
     try {
-      console.log("Starting prospect update for ID:", prospect.id);
-      console.log("Form data to update:", formData);
+      // Phase 2: Test Supabase Connection
+      console.log("🔍 Testing Supabase connection...");
+      const { data: testData, error: testError } = await supabase
+        .from("prospects")
+        .select("id")
+        .eq("id", prospect.id)
+        .maybeSingle();
       
-      // Clean the update payload - remove empty strings and undefined values
+      if (testError) {
+        console.error("❌ Supabase connection test failed:", testError);
+        throw new Error(`Connection test failed: ${testError.message}`);
+      }
+      
+      if (!testData) {
+        console.error("❌ Prospect not found in database:", prospect.id);
+        throw new Error("Prospect not found in database");
+      }
+      
+      console.log("✅ Supabase connection successful, prospect exists");
+
+      // Phase 3: Prepare Clean Update Payload
+      console.log("📝 Preparing update payload...");
+      console.log("Current form data:", formData);
+      
       const updatePayload = {
         company_name: formData.company?.trim() || null,
         full_name: formData.name?.trim() || null,
@@ -90,27 +123,32 @@ export const EditProspectDialog = ({
         prospect_city: formData.location?.trim() || null,
       };
       
-      console.log("Clean update payload:", updatePayload);
+      console.log("📤 Clean update payload:", updatePayload);
 
+      // Phase 4: Execute Supabase Update
+      console.log("💾 Executing database update...");
       const { data, error } = await supabase
         .from("prospects")
         .update(updatePayload)
         .eq("id", prospect.id)
         .select()
-        .single();
+        .maybeSingle();
 
-      console.log("Supabase update response:", { data, error });
+      console.log("📨 Supabase update response:", { data, error });
 
       if (error) {
-        console.error("Supabase update error:", error);
-        throw error;
+        console.error("❌ Supabase update error:", error);
+        throw new Error(`Database update failed: ${error.message}`);
       }
 
       if (!data) {
-        throw new Error("No data returned from update operation");
+        console.error("❌ No data returned from update operation");
+        throw new Error("Update operation returned no data");
       }
 
-      // Convert back to Prospect format with proper null checks
+      console.log("✅ Database update successful");
+
+      // Phase 5: Convert and Validate Response
       const updatedProspect: Prospect = {
         id: data.id,
         company: data.company_name || "",
@@ -125,26 +163,31 @@ export const EditProspectDialog = ({
         location: data.prospect_city || "",
       };
 
-      console.log("Converted updated prospect:", updatedProspect);
+      console.log("✅ Converted updated prospect:", updatedProspect);
 
+      // Phase 6: Update UI State
+      console.log("🔄 Updating UI state...");
       onUpdate(updatedProspect);
       onClose();
       
+      console.log("🎉 Prospect update completed successfully!");
       toast({
         title: "Success",
         description: "Prospect updated successfully.",
       });
+
     } catch (error) {
-      console.error("Error updating prospect:", error);
+      console.error("❌ Error in handleSave:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       
       toast({
-        title: "Error",
+        title: "Update Failed",
         description: `Failed to update prospect: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
+      console.log("🏁 Update process finished");
     }
   };
 
