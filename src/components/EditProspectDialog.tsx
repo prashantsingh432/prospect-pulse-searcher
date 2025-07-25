@@ -60,12 +60,50 @@ export const EditProspectDialog = ({
   }, [prospect]);
 
   const handleSave = async () => {
-    // Phase 1: Validation
-    if (!prospect?.id) {
-      console.error("❌ No prospect ID available for update", { prospect });
+    // Phase 1: Enhanced Validation with ID Resolution
+    console.log("🔍 Prospect data received:", prospect);
+    
+    if (!prospect) {
+      console.error("❌ No prospect data available");
       toast({
         title: "Error",
-        description: "Invalid prospect data. Please try again.",
+        description: "No prospect data available. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Try to find prospect ID from multiple sources
+    let prospectId = prospect.id;
+    
+    // If no ID, try to find the prospect in the database by unique identifiers
+    if (!prospectId && (prospect.name && prospect.company)) {
+      console.log("🔍 No ID found, searching for prospect in database...");
+      
+      try {
+        const { data: foundProspect, error } = await supabase
+          .from("prospects")
+          .select("id")
+          .eq("full_name", prospect.name)
+          .eq("company_name", prospect.company)
+          .maybeSingle();
+          
+        if (error) {
+          console.error("❌ Error finding prospect:", error);
+        } else if (foundProspect) {
+          prospectId = foundProspect.id;
+          console.log("✅ Found prospect ID:", prospectId);
+        }
+      } catch (error) {
+        console.error("❌ Database lookup failed:", error);
+      }
+    }
+    
+    if (!prospectId) {
+      console.error("❌ No prospect ID available for update");
+      toast({
+        title: "Error",
+        description: "Cannot update prospect: ID not found. This prospect may not exist in the database.",
         variant: "destructive",
       });
       return;
@@ -91,7 +129,7 @@ export const EditProspectDialog = ({
       const { data: testData, error: testError } = await supabase
         .from("prospects")
         .select("id")
-        .eq("id", prospect.id)
+        .eq("id", prospectId)
         .maybeSingle();
       
       if (testError) {
@@ -100,7 +138,7 @@ export const EditProspectDialog = ({
       }
       
       if (!testData) {
-        console.error("❌ Prospect not found in database:", prospect.id);
+        console.error("❌ Prospect not found in database:", prospectId);
         throw new Error("Prospect not found in database");
       }
       
@@ -130,7 +168,7 @@ export const EditProspectDialog = ({
       const { data, error } = await supabase
         .from("prospects")
         .update(updatePayload)
-        .eq("id", prospect.id)
+        .eq("id", prospectId)
         .select()
         .maybeSingle();
 
