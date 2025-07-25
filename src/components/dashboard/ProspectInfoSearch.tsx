@@ -28,7 +28,13 @@ export const ProspectInfoSearch = ({
   setValidationError,
 }: ProspectInfoSearchProps) => {
   const validateFields = () => {
-    if (companyName.trim()) {
+    // Check if only phone number is provided
+    const hasOnlyPhoneNumber = phoneNumber.trim() && 
+      !prospectName.trim() && 
+      !companyName.trim() && 
+      !location.trim();
+    
+    if (hasOnlyPhoneNumber || companyName.trim()) {
       setValidationError("");
     } else {
       setValidationError("Company Name is required");
@@ -48,11 +54,7 @@ export const ProspectInfoSearch = ({
           value={companyName}
           onChange={(e) => {
             setCompanyName(e.target.value);
-            if (e.target.value.trim()) {
-              setValidationError("");
-            } else {
-              setValidationError("Company Name is required");
-            }
+            validateFields();
           }}
           onBlur={validateFields}
           className="w-full"
@@ -70,7 +72,7 @@ export const ProspectInfoSearch = ({
           value={prospectName}
           onChange={(e) => {
             setProspectName(e.target.value);
-            // No validation needed for prospect name as it's optional
+            validateFields();
           }}
           className="w-full"
         />
@@ -84,7 +86,10 @@ export const ProspectInfoSearch = ({
           id="location"
           placeholder="City, State or leave blank"
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          onChange={(e) => {
+            setLocation(e.target.value);
+            validateFields();
+          }}
           className="w-full"
         />
       </div>
@@ -98,7 +103,10 @@ export const ProspectInfoSearch = ({
           type="tel"
           placeholder="Search by phone..."
           value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}
+          onChange={(e) => {
+            setPhoneNumber(e.target.value);
+            validateFields();
+          }}
           className="w-full"
         />
       </div>

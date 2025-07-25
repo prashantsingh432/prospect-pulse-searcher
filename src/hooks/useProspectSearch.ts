@@ -73,10 +73,10 @@ export const useProspectSearch = () => {
 
   // Validate search form based on the active tab
   const validateSearch = useCallback(() => {
-    const validation = validateProspectSearch(activeTab, prospectName, companyName, linkedinUrl);
+    const validation = validateProspectSearch(activeTab, prospectName, companyName, linkedinUrl, location, phoneNumber);
     setValidationError(validation.errorMessage);
     return validation.isValid;
-  }, [activeTab, prospectName, companyName, linkedinUrl]);
+  }, [activeTab, prospectName, companyName, linkedinUrl, location, phoneNumber]);
 
   // Manually test connection - useful for debugging
   const testConnection = useCallback(async () => {
