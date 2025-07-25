@@ -65,25 +65,37 @@ export const EditProspectDialog = ({
     setIsLoading(true);
 
     try {
+      console.log("Starting prospect update for ID:", prospect.id);
+      console.log("Form data to update:", formData);
+      
+      const updatePayload = {
+        company_name: formData.company,
+        full_name: formData.name,
+        prospect_designation: formData.designation,
+        prospect_email: formData.email,
+        prospect_number: formData.phone,
+        prospect_number2: formData.phone2,
+        prospect_number3: formData.phone3,
+        prospect_number4: formData.phone4,
+        prospect_linkedin: formData.linkedin,
+        prospect_city: formData.location,
+      };
+      
+      console.log("Update payload:", updatePayload);
+
       const { data, error } = await supabase
         .from("prospects")
-        .update({
-          company_name: formData.company,
-          full_name: formData.name,
-          prospect_designation: formData.designation,
-          prospect_email: formData.email,
-          prospect_number: formData.phone,
-          prospect_number2: formData.phone2,
-          prospect_number3: formData.phone3,
-          prospect_number4: formData.phone4,
-          prospect_linkedin: formData.linkedin,
-          prospect_city: formData.location,
-        })
+        .update(updatePayload)
         .eq("id", prospect.id)
         .select()
         .single();
 
-      if (error) throw error;
+      console.log("Supabase update response:", { data, error });
+
+      if (error) {
+        console.error("Supabase update error:", error);
+        throw error;
+      }
 
       // Convert back to Prospect format
       const updatedProspect: Prospect = {
