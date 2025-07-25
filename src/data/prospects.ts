@@ -1,5 +1,6 @@
 
 export interface Prospect {
+  id?: number;
   name: string;
   company: string;
   designation?: string;

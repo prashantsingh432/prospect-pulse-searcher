@@ -28,6 +28,7 @@ const Dashboard = () => {
     linkedinUrl,
     setLinkedinUrl,
     searchResults,
+    setSearchResults,
     hasSearched,
     isSearching,
     validationError,
@@ -86,6 +87,11 @@ const Dashboard = () => {
     // Test connection on mount
     testConnection();
   }, [testConnection]);
+
+  // Handler to update search results in real-time
+  const handleUpdateResults = (updatedResults: Prospect[]) => {
+    setSearchResults(updatedResults);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -146,6 +152,7 @@ const Dashboard = () => {
           isLoading={isLoading}
           debugInfo={debugInfo}
           isAdmin={isAdmin}
+          onUpdateResults={handleUpdateResults}
         />
       </main>
     </div>

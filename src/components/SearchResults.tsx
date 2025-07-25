@@ -12,8 +12,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { Linkedin, User, Building2, Mail, Phone, MapPin, Briefcase, Check } from "lucide-react";
+import { Linkedin, User, Building2, Mail, Phone, MapPin, Briefcase, Check, Edit2, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditProspectDialog } from "./EditProspectDialog";
+import { DeleteProspectDialog } from "./DeleteProspectDialog";
 
 // Utility function to format LinkedIn URLs properly
 const formatLinkedInUrl = (url: string): string => {
@@ -48,6 +50,7 @@ const formatLinkedInUrl = (url: string): string => {
 
 interface SearchResultsProps {
   results: Prospect[];
+  onUpdateResults?: (updatedResults: Prospect[]) => void;
 }
 
 // Add a function to generate a color from a string (name)
@@ -188,13 +191,18 @@ const PhoneNumberCell = ({
   );
 };
 
-export const SearchResults = ({ results }: SearchResultsProps) => {
+export const SearchResults = ({ results, onUpdateResults }: SearchResultsProps) => {
   const { toast } = useToast();
   const [copiedProspect, setCopiedProspect] = useState<string | null>(null);
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [justCopied, setJustCopied] = useState<Record<string, boolean>>({});
   const [clickedEmails, setClickedEmails] = useState<Record<string, boolean>>({});
   const [copiedEmails, setCopiedEmails] = useState<Record<string, boolean>>({});
+  
+  // Edit and Delete dialog states
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
 
   const copyProspectDetails = (prospect: Prospect) => {
     const phoneNumbers = [
@@ -292,6 +300,29 @@ Location: ${prospect.location || 'N/A'}`;
     });
   };
 
+  // Edit and Delete handlers
+  const handleEditClick = (prospect: Prospect) => {
+    setSelectedProspect(prospect);
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (prospect: Prospect) => {
+    setSelectedProspect(prospect);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleProspectUpdate = (updatedProspect: Prospect) => {
+    const updatedResults = results.map(prospect =>
+      prospect.id === updatedProspect.id ? updatedProspect : prospect
+    );
+    onUpdateResults?.(updatedResults);
+  };
+
+  const handleProspectDelete = (deletedProspectId: number) => {
+    const updatedResults = results.filter(prospect => prospect.id !== deletedProspectId);
+    onUpdateResults?.(updatedResults);
+  };
+
   if (results.length === 0) {
     return (
       <Card className="p-6 text-center">
@@ -318,6 +349,7 @@ Location: ${prospect.location || 'N/A'}`;
                 <TableHead><span className="inline-flex items-center gap-1"><Linkedin size={16}/> LinkedIn</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><MapPin size={16}/> Location</span></TableHead>
                 <TableHead className="w-20">Copy</TableHead>
+                <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -417,6 +449,41 @@ Location: ${prospect.location || 'N/A'}`;
                         )}
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditClick(prospect)}
+                              className="h-8 w-8 p-0 hover:bg-blue-50"
+                            >
+                              <Edit2 size={14} className="text-blue-600" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Edit prospect</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(prospect)}
+                              className="h-8 w-8 p-0 hover:bg-red-50"
+                            >
+                              <Trash2 size={14} className="text-red-600" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Delete prospect</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -424,6 +491,28 @@ Location: ${prospect.location || 'N/A'}`;
           </Table>
         </div>
       </Card>
+      
+      {/* Edit Dialog */}
+      <EditProspectDialog
+        prospect={selectedProspect}
+        isOpen={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setSelectedProspect(null);
+        }}
+        onUpdate={handleProspectUpdate}
+      />
+      
+      {/* Delete Dialog */}
+      <DeleteProspectDialog
+        prospect={selectedProspect}
+        isOpen={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setSelectedProspect(null);
+        }}
+        onDelete={handleProspectDelete}
+      />
     </TooltipProvider>
   );
 };

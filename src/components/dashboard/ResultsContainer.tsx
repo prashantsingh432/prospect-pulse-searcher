@@ -16,6 +16,7 @@ interface ResultsContainerProps {
   isLoading?: boolean;
   debugInfo?: any;
   isAdmin?: boolean;
+  onUpdateResults?: (updatedResults: Prospect[]) => void;
 }
 
 export const ResultsContainer = ({
@@ -25,7 +26,8 @@ export const ResultsContainer = ({
   totalRecords,
   isLoading = false,
   debugInfo,
-  isAdmin = false
+  isAdmin = false,
+  onUpdateResults
 }: ResultsContainerProps) => {
   const [showDebug, setShowDebug] = useState(false);
 
@@ -74,7 +76,10 @@ export const ResultsContainer = ({
         </Card>
       )}
       
-      <SearchResults results={searchResults} />
+      <SearchResults 
+        results={searchResults} 
+        onUpdateResults={onUpdateResults}
+      />
       
       {searchResults.length > 0 && (
         <div className="mt-8">

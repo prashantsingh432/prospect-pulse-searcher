@@ -241,6 +241,7 @@ export const useProspectSearch = () => {
     linkedinUrl,
     setLinkedinUrl,
     searchResults,
+    setSearchResults,
     hasSearched,
     isSearching,
     validationError,
