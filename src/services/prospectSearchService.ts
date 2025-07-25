@@ -50,6 +50,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
     // Process and map the results to the Prospect model
     if (queryResults && queryResults.length > 0) {
       const results = queryResults.map((record, index) => ({
+        id: record.id,
         name: record.full_name,
         company: record.company_name,
         designation: record.prospect_designation || "",
