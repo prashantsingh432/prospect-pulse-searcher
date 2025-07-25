@@ -60,7 +60,15 @@ export const EditProspectDialog = ({
   }, [prospect]);
 
   const handleSave = async () => {
-    if (!prospect) return;
+    if (!prospect?.id) {
+      console.error("No prospect ID available for update");
+      toast({
+        title: "Error",
+        description: "Invalid prospect data. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsLoading(true);
 
@@ -68,20 +76,21 @@ export const EditProspectDialog = ({
       console.log("Starting prospect update for ID:", prospect.id);
       console.log("Form data to update:", formData);
       
+      // Clean the update payload - remove empty strings and undefined values
       const updatePayload = {
-        company_name: formData.company,
-        full_name: formData.name,
-        prospect_designation: formData.designation,
-        prospect_email: formData.email,
-        prospect_number: formData.phone,
-        prospect_number2: formData.phone2,
-        prospect_number3: formData.phone3,
-        prospect_number4: formData.phone4,
-        prospect_linkedin: formData.linkedin,
-        prospect_city: formData.location,
+        company_name: formData.company?.trim() || null,
+        full_name: formData.name?.trim() || null,
+        prospect_designation: formData.designation?.trim() || null,
+        prospect_email: formData.email?.trim() || null,
+        prospect_number: formData.phone?.trim() || null,
+        prospect_number2: formData.phone2?.trim() || null,
+        prospect_number3: formData.phone3?.trim() || null,
+        prospect_number4: formData.phone4?.trim() || null,
+        prospect_linkedin: formData.linkedin?.trim() || null,
+        prospect_city: formData.location?.trim() || null,
       };
       
-      console.log("Update payload:", updatePayload);
+      console.log("Clean update payload:", updatePayload);
 
       const { data, error } = await supabase
         .from("prospects")
@@ -97,20 +106,26 @@ export const EditProspectDialog = ({
         throw error;
       }
 
-      // Convert back to Prospect format
+      if (!data) {
+        throw new Error("No data returned from update operation");
+      }
+
+      // Convert back to Prospect format with proper null checks
       const updatedProspect: Prospect = {
         id: data.id,
-        company: data.company_name,
-        name: data.full_name,
-        designation: data.prospect_designation,
-        email: data.prospect_email,
-        phone: data.prospect_number,
-        phone2: data.prospect_number2,
-        phone3: data.prospect_number3,
-        phone4: data.prospect_number4,
-        linkedin: data.prospect_linkedin,
-        location: data.prospect_city,
+        company: data.company_name || "",
+        name: data.full_name || "",
+        designation: data.prospect_designation || "",
+        email: data.prospect_email || "",
+        phone: data.prospect_number || "",
+        phone2: data.prospect_number2 || "",
+        phone3: data.prospect_number3 || "",
+        phone4: data.prospect_number4 || "",
+        linkedin: data.prospect_linkedin || "",
+        location: data.prospect_city || "",
       };
+
+      console.log("Converted updated prospect:", updatedProspect);
 
       onUpdate(updatedProspect);
       onClose();
@@ -121,9 +136,11 @@ export const EditProspectDialog = ({
       });
     } catch (error) {
       console.error("Error updating prospect:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      
       toast({
         title: "Error",
-        description: "Failed to update prospect. Please try again.",
+        description: `Failed to update prospect: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
