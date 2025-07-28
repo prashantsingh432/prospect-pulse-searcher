@@ -197,6 +197,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      sync_user_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       disposition_type:
