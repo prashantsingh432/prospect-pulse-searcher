@@ -125,22 +125,6 @@ export const useProspectSearch = () => {
     }
   }, [toast]);
 
-  // Handle initial search button click - show filter modal
-  const handleSearchClick = useCallback(() => {
-    // Validate search form first
-    if (!validateSearch()) {
-      toast({
-        title: "Required fields missing",
-        description: validationError || "Please check the search requirements.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Show the filter modal
-    setShowFilterModal(true);
-  }, [validateSearch, validationError, toast]);
-
   // Handle search with filters applied
   const handleSearchWithFilters = useCallback(async (filters: SearchFilters) => {
     // Clear previous search results immediately when search is initiated
@@ -203,6 +187,66 @@ export const useProspectSearch = () => {
     toast
   ]);
 
+  // Handle search triggered by Enter key - direct search without modal
+  const handleDirectSearch = useCallback(async () => {
+    // Validate search form first
+    if (!validateSearch()) {
+      toast({
+        title: "Required fields missing",
+        description: validationError || "Please check the search requirements.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Perform direct search without filters
+    await handleSearchWithFilters({
+      emailOnly: false,
+      phoneOnly: false,
+      both: false,
+    });
+  }, [validateSearch, validationError, toast, handleSearchWithFilters]);
+
+  // Handle search button click - conditional filter modal
+  const handleSearchClick = useCallback(() => {
+    // Validate search form first
+    if (!validateSearch()) {
+      toast({
+        title: "Required fields missing",
+        description: validationError || "Please check the search requirements.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Only show filter modal for prospect-info tab with specific conditions
+    if (activeTab === "prospect-info") {
+      // Check if only phone number is provided (no modal needed)
+      const hasOnlyPhoneNumber = phoneNumber.trim() && 
+        !prospectName.trim() && 
+        !companyName.trim() && 
+        !location.trim();
+      
+      if (hasOnlyPhoneNumber) {
+        // Direct search for phone-only queries
+        handleDirectSearch();
+        return;
+      }
+      
+      // Check if at least one of Company Name, Prospect Name, or Location is used
+      const hasRelevantFields = companyName.trim() || prospectName.trim() || location.trim();
+      
+      if (hasRelevantFields) {
+        // Show filter modal for prospect info searches
+        setShowFilterModal(true);
+        return;
+      }
+    }
+    
+    // For LinkedIn URL or other cases, perform direct search
+    handleDirectSearch();
+  }, [validateSearch, validationError, toast, activeTab, phoneNumber, prospectName, companyName, location, handleDirectSearch]);
+
   // Copy all search results to clipboard
   const copyAllResults = useCallback(() => {
     if (searchResults.length === 0) {
@@ -253,6 +297,7 @@ export const useProspectSearch = () => {
     connectionStatus,
     totalRecords,
     handleSearch: handleSearchClick,
+    handleDirectSearch,
     handleSearchWithFilters,
     copyAllResults,
     testConnection,

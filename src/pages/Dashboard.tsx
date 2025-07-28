@@ -35,6 +35,7 @@ const Dashboard = () => {
     setValidationError,
     connectionStatus,
     handleSearch,
+    handleDirectSearch,
     handleSearchWithFilters,
     copyAllResults,
     testConnection,
@@ -145,6 +146,7 @@ const Dashboard = () => {
           setValidationError={setValidationError}
           isSearching={isSearching}
           onSearch={handleSearch}
+          onDirectSearch={handleDirectSearch}
           handleSearchWithFilters={handleSearchWithFilters}
           showFilterModal={showFilterModal}
           setShowFilterModal={setShowFilterModal}

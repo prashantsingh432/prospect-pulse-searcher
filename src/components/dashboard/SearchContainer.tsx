@@ -20,6 +20,7 @@ interface SearchContainerProps {
   setValidationError: (value: string) => void;
   isSearching: boolean;
   onSearch: () => void;
+  onDirectSearch: () => void;
   handleSearchWithFilters: (filters: any) => void;
   showFilterModal: boolean;
   setShowFilterModal: (show: boolean) => void;
@@ -42,6 +43,7 @@ export const SearchContainer = ({
   setValidationError,
   isSearching,
   onSearch,
+  onDirectSearch,
   handleSearchWithFilters,
   showFilterModal,
   setShowFilterModal
@@ -70,6 +72,7 @@ export const SearchContainer = ({
             setValidationError={setValidationError}
             isSearching={isSearching}
             onSearch={onSearch}
+            onDirectSearch={onDirectSearch}
           />
         </CardContent>
       </Card>

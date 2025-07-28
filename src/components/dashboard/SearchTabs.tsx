@@ -23,6 +23,7 @@ interface SearchTabsProps {
   setActiveTab: (value: string) => void;
   isSearching: boolean;
   onSearch: () => void;
+  onDirectSearch: () => void;
 }
 
 export const SearchTabs = ({
@@ -41,7 +42,8 @@ export const SearchTabs = ({
   activeTab,
   setActiveTab,
   isSearching,
-  onSearch
+  onSearch,
+  onDirectSearch
 }: SearchTabsProps) => {
   return (
     <Tabs defaultValue="prospect-info" value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -68,7 +70,7 @@ export const SearchTabs = ({
           setPhoneNumber={setPhoneNumber}
           validationError={validationError}
           setValidationError={setValidationError}
-          onSearch={onSearch}
+          onSearch={onDirectSearch}
         />
       </TabsContent>
       
@@ -78,7 +80,7 @@ export const SearchTabs = ({
           setLinkedinUrl={setLinkedinUrl}
           validationError={validationError}
           setValidationError={setValidationError}
-          onSearch={onSearch}
+          onSearch={onDirectSearch}
         />
       </TabsContent>
       
