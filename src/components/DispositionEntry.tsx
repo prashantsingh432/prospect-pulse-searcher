@@ -28,7 +28,24 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
   const [customReason, setCustomReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+
+  // Only show to admins
+  if (!isAdmin()) {
+    return (
+      <Card className="mt-4">
+        <CardContent className="p-4 text-center">
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <span>⚠️</span>
+            <div>
+              <p className="font-medium">Permission Required</p>
+              <p className="text-sm">You do not have permission to add dispositions. Please contact Admin.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const handleSubmit = async () => {
     if (!selectedDisposition) {
@@ -59,7 +76,10 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
         custom_reason: selectedDisposition === "others" ? customReason : null,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
 
       toast({
         title: "Success",
