@@ -44,7 +44,7 @@ const dispositionColors: Record<string, string> = {
   wrong_number: "bg-yellow-100 text-yellow-600 border-yellow-200",
   dnc: "bg-red-100 text-red-600 border-red-200",
   call_back_later: "bg-blue-100 text-blue-600 border-blue-200",
-  not_relevant: "bg-slate-100 text-slate-600 border-slate-200",
+  not_relevant: "bg-yellow-100 text-yellow-600 border-yellow-200",
   others: "bg-purple-100 text-purple-600 border-purple-200",
 };
 
@@ -88,13 +88,26 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
 
         if (usersError) {
           console.error("Users error:", usersError);
-          throw usersError;
+          // Don't throw here, just log and continue with empty users
         }
 
+        console.log("Users data fetched:", usersData);
+        
         const usersMap = (usersData || []).reduce((acc, user) => {
           acc[user.id] = user;
           return acc;
         }, {} as Record<string, User>);
+
+        // If no user data found, try to get current user info from auth context
+        if (Object.keys(usersMap).length === 0 && currentUser) {
+          // Add current user to the map if missing
+          usersMap[currentUser.id] = {
+            id: currentUser.id,
+            name: currentUser.fullName || null,
+            email: currentUser.email,
+            role: currentUser.role || 'caller'
+          };
+        }
 
         setUsers(usersMap);
       }
@@ -217,26 +230,24 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
             {dispositions.map((disposition) => (
               <div key={disposition.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl border transition-all hover:shadow-sm">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge className={`${dispositionColors[disposition.disposition_type]} border`}>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Badge className={`${dispositionColors[disposition.disposition_type]} border font-medium`}>
                       {dispositionLabels[disposition.disposition_type]}
                     </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      📅 {format(new Date(disposition.created_at), "dd MMM yyyy, h:mm a")}
+                    <span className="text-sm text-muted-foreground font-medium">
+                      {format(new Date(disposition.created_at), "dd MMM h:mmaaa").toLowerCase()}
                     </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>{getRoleIcon(users[disposition.user_id]?.role)}</span>
-                    <User className="h-4 w-4" />
-                    <span className="font-medium">
-                      {users[disposition.user_id]?.name || users[disposition.user_id]?.email || "Unknown Agent"}
-                    </span>
-                    {users[disposition.user_id]?.role && (
-                      <Badge variant="outline" className="text-xs">
-                        {users[disposition.user_id].role}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-1 text-sm">
+                      <span>{getRoleIcon(users[disposition.user_id]?.role)}</span>
+                      <span className="font-medium text-foreground">
+                        {users[disposition.user_id]?.name || "Unknown Agent"}
+                      </span>
+                      {users[disposition.user_id]?.role && (
+                        <span className="text-muted-foreground">
+                          ({users[disposition.user_id].role})
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {disposition.custom_reason && (
