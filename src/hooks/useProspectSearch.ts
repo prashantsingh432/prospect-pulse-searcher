@@ -275,6 +275,10 @@ export const useProspectSearch = () => {
     });
   }, [searchResults, toast]);
 
+  
+  console.log("useProspectSearch: handleSearchClick defined?", typeof handleSearchClick);
+  console.log("useProspectSearch: handleDirectSearch defined?", typeof handleDirectSearch);
+
   return {
     activeTab,
     setActiveTab,
