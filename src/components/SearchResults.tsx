@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { Linkedin, User, Building2, Mail, Phone, MapPin, Briefcase, Check, Edit2, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Linkedin, User, Building2, Mail, Phone, MapPin, Briefcase, Check, Edit2, Trash2, ChevronUp, ChevronDown, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditProspectDialog } from "./EditProspectDialog";
 import { DeleteProspectDialog } from "./DeleteProspectDialog";
@@ -342,6 +342,11 @@ Location: ${prospect.location || 'N/A'}`;
     }
   };
 
+  const clearSort = () => {
+    setSortField(null);
+    setSortDirection('asc');
+  };
+
   const getSortedResults = () => {
     if (!sortField) return results;
 
@@ -374,9 +379,25 @@ Location: ${prospect.location || 'N/A'}`;
           return 0;
       }
 
+      // Handle null/empty values - they should go to the end
+      if (!aValue && !bValue) return 0;
+      if (!aValue) return 1; // a goes to end
+      if (!bValue) return -1; // b goes to end
+
       const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
       return sortDirection === 'asc' ? comparison : -comparison;
     });
+  };
+
+  const getFieldDisplayName = (field: SortField) => {
+    switch (field) {
+      case 'company': return 'Company';
+      case 'name': return 'Name';
+      case 'designation': return 'Designation';
+      case 'email': return 'Email';
+      case 'location': return 'Location';
+      default: return '';
+    }
   };
 
   const getSortIcon = (field: SortField) => {
@@ -400,12 +421,27 @@ Location: ${prospect.location || 'N/A'}`;
 
   return (
     <TooltipProvider>
-      <Card className="overflow-hidden">
-        <div
-          className="overflow-x-auto select-none"
-          onContextMenu={e => e.preventDefault()}
-        >
-          <Table>
+      <div className="space-y-4">
+        {/* Sort Badge */}
+        {sortField && (
+          <div className="flex items-center gap-2">
+            <div 
+              className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium cursor-pointer hover:bg-primary/20 transition-colors"
+              onClick={clearSort}
+            >
+              <span>Sorted by: {getFieldDisplayName(sortField)}</span>
+              {sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              <X size={14} className="hover:bg-primary/20 rounded-full p-0.5" />
+            </div>
+          </div>
+        )}
+        
+        <Card className="overflow-hidden">
+          <div
+            className="overflow-x-auto select-none"
+            onContextMenu={e => e.preventDefault()}
+          >
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead 
@@ -596,8 +632,9 @@ Location: ${prospect.location || 'N/A'}`;
               })}
             </TableBody>
           </Table>
-        </div>
-      </Card>
+          </div>
+        </Card>
+      </div>
       
       {/* Edit Dialog */}
       <EditProspectDialog
