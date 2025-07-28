@@ -49,6 +49,44 @@ export type Database = {
           },
         ]
       }
+      dispositions: {
+        Row: {
+          created_at: string
+          custom_reason: string | null
+          disposition_type: Database["public"]["Enums"]["disposition_type"]
+          id: string
+          prospect_id: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_reason?: string | null
+          disposition_type: Database["public"]["Enums"]["disposition_type"]
+          id?: string
+          prospect_id: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_reason?: string | null
+          disposition_type?: Database["public"]["Enums"]["disposition_type"]
+          id?: string
+          prospect_id?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispositions_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exports: {
         Row: {
           format: string | null
@@ -158,7 +196,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      disposition_type:
+        | "not_interested"
+        | "wrong_number"
+        | "dnc"
+        | "call_back_later"
+        | "not_relevant"
+        | "others"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -285,6 +329,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      disposition_type: [
+        "not_interested",
+        "wrong_number",
+        "dnc",
+        "call_back_later",
+        "not_relevant",
+        "others",
+      ],
+    },
   },
 } as const

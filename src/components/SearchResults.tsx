@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Prospect } from "@/data/prospects";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,10 +12,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { Linkedin, User, Building2, Mail, Phone, MapPin, Briefcase, Check, Edit2, Trash2, ChevronUp, ChevronDown, X } from "lucide-react";
+import { Linkedin, User, Building2, Mail, Phone, MapPin, Briefcase, Check, Edit2, Trash2, ChevronUp, ChevronDown, X, MessageSquare } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditProspectDialog } from "./EditProspectDialog";
 import { DeleteProspectDialog } from "./DeleteProspectDialog";
+import { DispositionEntry } from "./DispositionEntry";
+import { DispositionHistory } from "./DispositionHistory";
 
 // Utility function to format LinkedIn URLs properly
 const formatLinkedInUrl = (url: string): string => {
@@ -210,6 +212,10 @@ export const SearchResults = ({ results, onUpdateResults }: SearchResultsProps) 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
+  
+  // Disposition states
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [dispositionRefresh, setDispositionRefresh] = useState<Record<string, number>>({});
 
   const copyProspectDetails = (prospect: Prospect) => {
     const phoneNumbers = [
@@ -492,6 +498,7 @@ Location: ${prospect.location || 'N/A'}`;
                   </span>
                 </TableHead>
                 <TableHead className="w-20">Copy</TableHead>
+                <TableHead className="w-32">Disposition</TableHead>
                 <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -499,135 +506,188 @@ Location: ${prospect.location || 'N/A'}`;
               {getSortedResults().map((prospect, index) => {
                 // Create a unique key for this prospect based on name and company
                 const prospectKey = `${prospect.name}-${prospect.company}`;
+                const isExpanded = expandedRows[`${prospect.id}`];
                 
                 return (
-                  <TableRow key={prospectKey}>
-                    <TableCell className="font-medium">{prospect.company}</TableCell>
-                    <TableCell className="flex items-center gap-2">
-                      <User size={20} style={{ color: stringToColor(prospect.name) }} />
-                      {prospect.name}
-                    </TableCell>
-                    <TableCell>{prospect.designation || <span className="text-gray-400 text-sm">N/A</span>}</TableCell>
-                    <TableCell>
-                      <EmailCell
-                        email={prospect.email}
-                        prospectKey={prospectKey}
-                        clickedEmails={clickedEmails}
-                        copiedEmails={copiedEmails}
-                        onEmailClick={handleEmailClick}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="space-y-1">
-                            <PhoneNumberCell
-                              phone={prospect.phone}
-                              prospectKey={prospectKey}
-                              phoneIndex={1}
-                              revealedPhones={revealedPhones}
-                              justCopied={justCopied}
-                              onPhoneClick={handlePhoneClick}
-                            />
-                            <PhoneNumberCell
-                              phone={prospect.phone2 || ""}
-                              prospectKey={prospectKey}
-                              phoneIndex={2}
-                              revealedPhones={revealedPhones}
-                              justCopied={justCopied}
-                              onPhoneClick={handlePhoneClick}
-                            />
-                            <PhoneNumberCell
-                              phone={prospect.phone3 || ""}
-                              prospectKey={prospectKey}
-                              phoneIndex={3}
-                              revealedPhones={revealedPhones}
-                              justCopied={justCopied}
-                              onPhoneClick={handlePhoneClick}
-                            />
-                            <PhoneNumberCell
-                              phone={prospect.phone4 || ""}
-                              prospectKey={prospectKey}
-                              phoneIndex={4}
-                              revealedPhones={revealedPhones}
-                              justCopied={justCopied}
-                              onPhoneClick={handlePhoneClick}
-                            />
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Click to reveal & copy phone numbers</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      {prospect.linkedin ? (
-                        <a
-                          href={formatLinkedInUrl(prospect.linkedin)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline inline-flex items-center"
-                        >
-                          <Linkedin size={16} className="mr-1" />
-                          Profile
-                        </a>
-                      ) : (
-                        <span className="text-gray-400 text-sm">No LinkedIn</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{prospect.location}</TableCell>
-                    <TableCell>
-                      <div className="relative">
-                        <Button
-                          onClick={() => copyProspectDetails(prospect)}
-                          className="vibrant-copy-btn bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-xs h-8 px-3 rounded-md font-semibold shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl flex items-center gap-1"
-                        >
-                          📋 Copy
-                        </Button>
-                        {copiedProspect === prospectKey && (
-                          <div className="absolute -top-8 right-0 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center gap-1 shadow-sm animate-fade-in z-10">
-                            <Check size={12} />
-                            <span>Copied!</span>
-                          </div>
+                  <React.Fragment key={prospectKey}>
+                    <TableRow>
+                      <TableCell className="font-medium">{prospect.company}</TableCell>
+                      <TableCell className="flex items-center gap-2">
+                        <User size={20} style={{ color: stringToColor(prospect.name) }} />
+                        {prospect.name}
+                      </TableCell>
+                      <TableCell>{prospect.designation || <span className="text-gray-400 text-sm">N/A</span>}</TableCell>
+                      <TableCell>
+                        <EmailCell
+                          email={prospect.email}
+                          prospectKey={prospectKey}
+                          clickedEmails={clickedEmails}
+                          copiedEmails={copiedEmails}
+                          onEmailClick={handleEmailClick}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="space-y-1">
+                              <PhoneNumberCell
+                                phone={prospect.phone}
+                                prospectKey={prospectKey}
+                                phoneIndex={1}
+                                revealedPhones={revealedPhones}
+                                justCopied={justCopied}
+                                onPhoneClick={handlePhoneClick}
+                              />
+                              <PhoneNumberCell
+                                phone={prospect.phone2 || ""}
+                                prospectKey={prospectKey}
+                                phoneIndex={2}
+                                revealedPhones={revealedPhones}
+                                justCopied={justCopied}
+                                onPhoneClick={handlePhoneClick}
+                              />
+                              <PhoneNumberCell
+                                phone={prospect.phone3 || ""}
+                                prospectKey={prospectKey}
+                                phoneIndex={3}
+                                revealedPhones={revealedPhones}
+                                justCopied={justCopied}
+                                onPhoneClick={handlePhoneClick}
+                              />
+                              <PhoneNumberCell
+                                phone={prospect.phone4 || ""}
+                                prospectKey={prospectKey}
+                                phoneIndex={4}
+                                revealedPhones={revealedPhones}
+                                justCopied={justCopied}
+                                onPhoneClick={handlePhoneClick}
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Click to reveal & copy phone numbers</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell>
+                        {prospect.linkedin ? (
+                          <a
+                            href={formatLinkedInUrl(prospect.linkedin)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline inline-flex items-center"
+                          >
+                            <Linkedin size={16} className="mr-1" />
+                            Profile
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 text-sm">No LinkedIn</span>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
+                      </TableCell>
+                      <TableCell>{prospect.location}</TableCell>
+                      <TableCell>
+                        <div className="relative">
+                          <Button
+                            onClick={() => copyProspectDetails(prospect)}
+                            className="vibrant-copy-btn bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-xs h-8 px-3 rounded-md font-semibold shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl flex items-center gap-1"
+                          >
+                            📋 Copy
+                          </Button>
+                          {copiedProspect === prospectKey && (
+                            <div className="absolute -top-8 right-0 bg-green-50 text-green-700 text-xs py-1 px-2 rounded flex items-center gap-1 shadow-sm animate-fade-in z-10">
+                              <Check size={12} />
+                              <span>Copied!</span>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEditClick(prospect)}
-                              className="h-8 w-8 p-0 hover:bg-blue-50"
+                              onClick={() => {
+                                const key = `${prospect.id}`;
+                                setExpandedRows(prev => ({
+                                  ...prev,
+                                  [key]: !prev[key]
+                                }));
+                              }}
+                              className={`h-8 w-8 p-0 transition-colors ${
+                                expandedRows[`${prospect.id}`] ? 'bg-blue-50 text-blue-600' : 'hover:bg-blue-50'
+                              }`}
                             >
-                              <Edit2 size={14} className="text-blue-600" />
+                              <MessageSquare size={14} />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Edit prospect</p>
+                            <p>Add disposition</p>
                           </TooltipContent>
                         </Tooltip>
-                        
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteClick(prospect)}
-                              className="h-8 w-8 p-0 hover:bg-red-50"
-                            >
-                              <Trash2 size={14} className="text-red-600" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Delete prospect</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditClick(prospect)}
+                                className="h-8 w-8 p-0 hover:bg-blue-50"
+                              >
+                                <Edit2 size={14} className="text-blue-600" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Edit prospect</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteClick(prospect)}
+                                className="h-8 w-8 p-0 hover:bg-red-50"
+                              >
+                                <Trash2 size={14} className="text-red-600" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Delete prospect</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    
+                    {/* Expanded Row for Disposition */}
+                    {isExpanded && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="p-0">
+                          <div className="px-6 py-4 bg-gray-50/50 border-t">
+                            <div className="max-w-4xl">
+                              <DispositionHistory 
+                                prospectId={prospect.id} 
+                                refreshTrigger={dispositionRefresh[`${prospect.id}`]} 
+                              />
+                              <DispositionEntry 
+                                prospectId={prospect.id}
+                                onDispositionAdded={() => {
+                                  setDispositionRefresh(prev => ({
+                                    ...prev,
+                                    [`${prospect.id}`]: (prev[`${prospect.id}`] || 0) + 1
+                                  }));
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </TableBody>
