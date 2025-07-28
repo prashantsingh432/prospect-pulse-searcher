@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { Linkedin, User, Building2, Mail, Phone, MapPin, Briefcase, Check, Edit2, Trash2 } from "lucide-react";
+import { Linkedin, User, Building2, Mail, Phone, MapPin, Briefcase, Check, Edit2, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditProspectDialog } from "./EditProspectDialog";
 import { DeleteProspectDialog } from "./DeleteProspectDialog";
@@ -191,6 +191,9 @@ const PhoneNumberCell = ({
   );
 };
 
+type SortField = 'company' | 'name' | 'designation' | 'email' | 'location';
+type SortDirection = 'asc' | 'desc';
+
 export const SearchResults = ({ results, onUpdateResults }: SearchResultsProps) => {
   const { toast } = useToast();
   const [copiedProspect, setCopiedProspect] = useState<string | null>(null);
@@ -198,6 +201,10 @@ export const SearchResults = ({ results, onUpdateResults }: SearchResultsProps) 
   const [justCopied, setJustCopied] = useState<Record<string, boolean>>({});
   const [clickedEmails, setClickedEmails] = useState<Record<string, boolean>>({});
   const [copiedEmails, setCopiedEmails] = useState<Record<string, boolean>>({});
+  
+  // Sorting states
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   
   // Edit and Delete dialog states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -323,6 +330,66 @@ Location: ${prospect.location || 'N/A'}`;
     onUpdateResults?.(updatedResults);
   };
 
+  // Sorting functionality
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, start with ascending
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortedResults = () => {
+    if (!sortField) return results;
+
+    return [...results].sort((a, b) => {
+      let aValue = '';
+      let bValue = '';
+
+      switch (sortField) {
+        case 'company':
+          aValue = a.company || '';
+          bValue = b.company || '';
+          break;
+        case 'name':
+          aValue = a.name || '';
+          bValue = b.name || '';
+          break;
+        case 'designation':
+          aValue = a.designation || '';
+          bValue = b.designation || '';
+          break;
+        case 'email':
+          aValue = a.email || '';
+          bValue = b.email || '';
+          break;
+        case 'location':
+          aValue = a.location || '';
+          bValue = b.location || '';
+          break;
+        default:
+          return 0;
+      }
+
+      const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? 
+      <ChevronUp size={14} className="ml-1" /> : 
+      <ChevronDown size={14} className="ml-1" />;
+  };
+
+  const getSortHeaderClass = (field: SortField) => {
+    return sortField === field ? 'font-bold text-primary' : 'font-medium';
+  };
+
   if (results.length === 0) {
     return (
       <Card className="p-6 text-center">
@@ -341,19 +408,59 @@ Location: ${prospect.location || 'N/A'}`;
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead><span className="inline-flex items-center gap-1"><Building2 size={16}/> Company</span></TableHead>
-                <TableHead><span className="inline-flex items-center gap-1"><User size={16}/> Name</span></TableHead>
-                <TableHead><span className="inline-flex items-center gap-1"><Briefcase size={16}/> Designation</span></TableHead>
-                <TableHead><span className="inline-flex items-center gap-1"><Mail size={16}/> Email</span></TableHead>
+                <TableHead 
+                  className={`cursor-pointer hover:bg-muted/50 ${getSortHeaderClass('company')}`}
+                  onClick={() => handleSort('company')}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Building2 size={16}/> Company
+                    {getSortIcon('company')}
+                  </span>
+                </TableHead>
+                <TableHead 
+                  className={`cursor-pointer hover:bg-muted/50 ${getSortHeaderClass('name')}`}
+                  onClick={() => handleSort('name')}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <User size={16}/> Name
+                    {getSortIcon('name')}
+                  </span>
+                </TableHead>
+                <TableHead 
+                  className={`cursor-pointer hover:bg-muted/50 ${getSortHeaderClass('designation')}`}
+                  onClick={() => handleSort('designation')}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Briefcase size={16}/> Designation
+                    {getSortIcon('designation')}
+                  </span>
+                </TableHead>
+                <TableHead 
+                  className={`cursor-pointer hover:bg-muted/50 ${getSortHeaderClass('email')}`}
+                  onClick={() => handleSort('email')}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Mail size={16}/> Email
+                    {getSortIcon('email')}
+                  </span>
+                </TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Phone size={16}/> Phone Numbers</span></TableHead>
                 <TableHead><span className="inline-flex items-center gap-1"><Linkedin size={16}/> LinkedIn</span></TableHead>
-                <TableHead><span className="inline-flex items-center gap-1"><MapPin size={16}/> Location</span></TableHead>
+                <TableHead 
+                  className={`cursor-pointer hover:bg-muted/50 ${getSortHeaderClass('location')}`}
+                  onClick={() => handleSort('location')}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin size={16}/> Location
+                    {getSortIcon('location')}
+                  </span>
+                </TableHead>
                 <TableHead className="w-20">Copy</TableHead>
                 <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {results.map((prospect, index) => {
+              {getSortedResults().map((prospect, index) => {
                 // Create a unique key for this prospect based on name and company
                 const prospectKey = `${prospect.name}-${prospect.company}`;
                 
