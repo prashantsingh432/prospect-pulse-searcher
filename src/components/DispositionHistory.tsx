@@ -65,6 +65,13 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
 
   const fetchDispositions = async () => {
     try {
+      // First, sync the current user profile to ensure they exist in the users table
+      try {
+        await supabase.rpc('sync_user_profile');
+      } catch (syncError) {
+        console.warn("Could not sync user profile:", syncError);
+      }
+
       const { data: dispositionsData, error: dispositionsError } = await supabase
         .from("dispositions")
         .select("*")
