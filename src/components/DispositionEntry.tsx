@@ -30,16 +30,16 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
 
-  // Only show to admins
-  if (!isAdmin()) {
+  // Allow all authenticated users to add dispositions
+  if (!user) {
     return (
       <Card className="mt-4">
         <CardContent className="p-4 text-center">
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <span>⚠️</span>
             <div>
-              <p className="font-medium">Permission Required</p>
-              <p className="text-sm">You do not have permission to add dispositions. Please contact Admin.</p>
+              <p className="font-medium">Authentication Required</p>
+              <p className="text-sm">Please log in to add dispositions.</p>
             </div>
           </div>
         </CardContent>
