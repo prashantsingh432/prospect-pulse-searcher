@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Prospect } from "@/data/prospects";
 import { testSupabaseConnection, type ConnectionTestResult } from "@/services/connectionService";
-import { searchProspects, type SearchParams } from "@/services/prospectSearchService";
+import { searchProspects, type SearchParams, type SearchFilters } from "@/services/prospectSearchService";
 import { validateProspectSearch } from "@/utils/validationUtils";
 import { formatProspectsForClipboard } from "@/utils/clipboardUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,7 @@ export const useProspectSearch = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionTestResult | null>(null);
   const [totalRecords, setTotalRecords] = useState(0);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   // Test Supabase connection on component mount
   useEffect(() => {
@@ -124,35 +125,40 @@ export const useProspectSearch = () => {
     }
   }, [toast]);
 
-  // Handle search using the prospectSearchService
-  const handleSearch = useCallback(async () => {
-    // Clear previous search results immediately when search is initiated
-    setSearchResults([]);
-    setHasSearched(true);
-    setDebugInfo(null);
-    
-    // Validate search form
+  // Handle initial search button click - show filter modal
+  const handleSearchClick = useCallback(() => {
+    // Validate search form first
     if (!validateSearch()) {
       toast({
         title: "Required fields missing",
         description: validationError || "Please check the search requirements.",
         variant: "destructive",
       });
-      // We still set isSearching to false but keep hasSearched true and searchResults empty
       return;
     }
 
+    // Show the filter modal
+    setShowFilterModal(true);
+  }, [validateSearch, validationError, toast]);
+
+  // Handle search with filters applied
+  const handleSearchWithFilters = useCallback(async (filters: SearchFilters) => {
+    // Clear previous search results immediately when search is initiated
+    setSearchResults([]);
+    setHasSearched(true);
+    setDebugInfo(null);
     setIsSearching(true);
     
     try {
-      // Prepare search parameters
+      // Prepare search parameters with filters
       const searchParams: SearchParams = {
         activeTab,
         prospectName,
         companyName,
         location,
         phoneNumber,
-        linkedinUrl
+        linkedinUrl,
+        filters
       };
       
       // Execute the search
@@ -194,9 +200,7 @@ export const useProspectSearch = () => {
     location, 
     phoneNumber,
     linkedinUrl, 
-    toast, 
-    validateSearch, 
-    validationError
+    toast
   ]);
 
   // Copy all search results to clipboard
@@ -248,9 +252,12 @@ export const useProspectSearch = () => {
     setValidationError,
     connectionStatus,
     totalRecords,
-    handleSearch,
+    handleSearch: handleSearchClick,
+    handleSearchWithFilters,
     copyAllResults,
     testConnection,
-    debugInfo
+    debugInfo,
+    showFilterModal,
+    setShowFilterModal
   };
 };

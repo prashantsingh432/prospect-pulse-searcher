@@ -35,9 +35,12 @@ const Dashboard = () => {
     setValidationError,
     connectionStatus,
     handleSearch,
+    handleSearchWithFilters,
     copyAllResults,
     testConnection,
-    debugInfo
+    debugInfo,
+    showFilterModal,
+    setShowFilterModal
   } = useProspectSearch();
 
   const isAdmin = user && user.email === "prashant@admin.com";
@@ -142,6 +145,9 @@ const Dashboard = () => {
           setValidationError={setValidationError}
           isSearching={isSearching}
           onSearch={handleSearch}
+          handleSearchWithFilters={handleSearchWithFilters}
+          showFilterModal={showFilterModal}
+          setShowFilterModal={setShowFilterModal}
         />
         
         <ResultsContainer

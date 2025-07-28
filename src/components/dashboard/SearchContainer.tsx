@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchTabs } from "./SearchTabs";
-import { useState } from "react";
+import { SearchFilterModal, SearchFilters } from "@/components/SearchFilterModal";
 
 interface SearchContainerProps {
   activeTab: string;
@@ -20,6 +20,9 @@ interface SearchContainerProps {
   setValidationError: (value: string) => void;
   isSearching: boolean;
   onSearch: () => void;
+  handleSearchWithFilters: (filters: any) => void;
+  showFilterModal: boolean;
+  setShowFilterModal: (show: boolean) => void;
 }
 
 export const SearchContainer = ({
@@ -38,33 +41,44 @@ export const SearchContainer = ({
   validationError,
   setValidationError,
   isSearching,
-  onSearch
+  onSearch,
+  handleSearchWithFilters,
+  showFilterModal,
+  setShowFilterModal
 }: SearchContainerProps) => {
   return (
-    <Card className="mb-8">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">Search Prospects</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <SearchTabs
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          prospectName={prospectName}
-          setProspectName={setProspectName}
-          companyName={companyName}
-          setCompanyName={setCompanyName}
-          location={location}
-          setLocation={setLocation}
-          phoneNumber={phoneNumber}
-          setPhoneNumber={setPhoneNumber}
-          linkedinUrl={linkedinUrl}
-          setLinkedinUrl={setLinkedinUrl}
-          validationError={validationError}
-          setValidationError={setValidationError}
-          isSearching={isSearching}
-          onSearch={onSearch}
-        />
-      </CardContent>
-    </Card>
+    <>
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold">Search Prospects</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SearchTabs
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            prospectName={prospectName}
+            setProspectName={setProspectName}
+            companyName={companyName}
+            setCompanyName={setCompanyName}
+            location={location}
+            setLocation={setLocation}
+            phoneNumber={phoneNumber}
+            setPhoneNumber={setPhoneNumber}
+            linkedinUrl={linkedinUrl}
+            setLinkedinUrl={setLinkedinUrl}
+            validationError={validationError}
+            setValidationError={setValidationError}
+            isSearching={isSearching}
+            onSearch={onSearch}
+          />
+        </CardContent>
+      </Card>
+      
+      <SearchFilterModal
+        isOpen={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        onSearch={handleSearchWithFilters}
+      />
+    </>
   );
 };

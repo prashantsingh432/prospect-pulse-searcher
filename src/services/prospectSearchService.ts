@@ -4,6 +4,12 @@ import { Prospect } from "@/data/prospects";
 import { normalizeLinkedInUrl, extractLinkedInUsername } from "@/utils/linkedInUtils";
 import { testSupabaseConnection } from "./connectionService";
 
+export interface SearchFilters {
+  emailOnly: boolean;
+  phoneOnly: boolean;
+  both: boolean;
+}
+
 export interface SearchParams {
   activeTab: string;
   prospectName: string;
@@ -11,6 +17,7 @@ export interface SearchParams {
   location: string;
   phoneNumber: string;
   linkedinUrl: string;
+  filters?: SearchFilters;
 }
 
 export interface SearchResult {
@@ -25,7 +32,7 @@ export interface SearchResult {
  * Search for prospects based on the provided parameters
  */
 export const searchProspects = async (params: SearchParams): Promise<SearchResult> => {
-  const { activeTab, prospectName, companyName, location, phoneNumber, linkedinUrl } = params;
+  const { activeTab, prospectName, companyName, location, phoneNumber, linkedinUrl, filters } = params;
   
   try {
     console.log("Starting search with parameters:", params);
@@ -41,10 +48,10 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
     
     if (activeTab === "linkedin-url") {
       // Search by LinkedIn URL
-      queryResults = await searchByLinkedInUrl(linkedinUrl);
+      queryResults = await searchByLinkedInUrl(linkedinUrl, filters);
     } else {
       // Search by prospect info
-      queryResults = await searchByProspectInfo(prospectName, companyName, location, phoneNumber);
+      queryResults = await searchByProspectInfo(prospectName, companyName, location, phoneNumber, filters);
     }
     
     // Process and map the results to the Prospect model
@@ -105,7 +112,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
 /**
  * Search for prospects by LinkedIn URL
  */
-async function searchByLinkedInUrl(linkedinUrl: string): Promise<any[]> {
+async function searchByLinkedInUrl(linkedinUrl: string, filters?: SearchFilters): Promise<any[]> {
   console.log("Searching by LinkedIn URL:", linkedinUrl);
   
   if (!linkedinUrl.trim()) {
@@ -119,23 +126,23 @@ async function searchByLinkedInUrl(linkedinUrl: string): Promise<any[]> {
   const searchPromises = [];
   
   // Strategy 1: Direct match on normalized URL (most precise)
-  searchPromises.push(
-    supabase
-      .from("prospects")
-      .select("*")
-      .ilike("prospect_linkedin", `%${normalizedLinkedInUrl}%`)
-  );
+  let query1 = supabase
+    .from("prospects")
+    .select("*")
+    .ilike("prospect_linkedin", `%${normalizedLinkedInUrl}%`);
+  query1 = applyContactFilters(query1, filters);
+  searchPromises.push(query1);
   
   // Strategy 2: Try to match just the username portion
   const username = extractLinkedInUsername(linkedinUrl);
   if (username) {
     console.log("Extracted username for search:", username);
-    searchPromises.push(
-      supabase
-        .from("prospects")
-        .select("*")
-        .ilike("prospect_linkedin", `%${username}%`)
-    );
+    let query2 = supabase
+      .from("prospects")
+      .select("*")
+      .ilike("prospect_linkedin", `%${username}%`);
+    query2 = applyContactFilters(query2, filters);
+    searchPromises.push(query2);
   }
   
   // Execute all search strategies in parallel
@@ -157,13 +164,41 @@ async function searchByLinkedInUrl(linkedinUrl: string): Promise<any[]> {
 }
 
 /**
+ * Apply contact detail filters to the query
+ */
+function applyContactFilters(query: any, filters?: SearchFilters) {
+  if (!filters) return query;
+
+  const { emailOnly, phoneOnly, both } = filters;
+
+  if (both) {
+    // Both email and phone must be present
+    query = query
+      .not('prospect_email', 'is', null)
+      .neq('prospect_email', '')
+      .not('prospect_number', 'is', null);
+  } else if (emailOnly) {
+    // Only email must be present
+    query = query
+      .not('prospect_email', 'is', null)
+      .neq('prospect_email', '');
+  } else if (phoneOnly) {
+    // Only phone must be present (any of the phone fields)
+    query = query.not('prospect_number', 'is', null);
+  }
+
+  return query;
+}
+
+/**
  * Search for prospects by name and/or company with optional location
  */
 async function searchByProspectInfo(
   prospectName: string, 
   companyName: string, 
   location: string,
-  phoneNumber: string
+  phoneNumber: string,
+  filters?: SearchFilters
 ): Promise<any[]> {
   console.log("Searching by Prospect and/or Company Name with Location filter");
   
@@ -195,6 +230,9 @@ async function searchByProspectInfo(
       console.log("Added phone number filter:", normalizedPhone);
     }
   }
+  
+  // Apply contact detail filters
+  query = applyContactFilters(query, filters);
   
   console.log("Executing search query...");
   const { data, error } = await query;
