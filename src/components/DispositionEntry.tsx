@@ -69,24 +69,36 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
     setIsSubmitting(true);
 
     try {
+      console.log("Submitting disposition:", { prospectId, userId: user?.id, selectedDisposition, customReason });
+      
       // First, sync the current user profile to ensure they exist in the users table
       try {
         await supabase.rpc('sync_user_profile');
+        console.log("User profile synced successfully");
       } catch (syncError) {
         console.warn("Could not sync user profile:", syncError);
       }
 
-      const { error } = await supabase.from("dispositions").insert({
+      const dispositionData = {
         prospect_id: prospectId,
         user_id: user?.id,
         disposition_type: selectedDisposition as "not_interested" | "wrong_number" | "dnc" | "call_back_later" | "not_relevant" | "others",
-        custom_reason: selectedDisposition === "others" ? customReason : null,
-      });
+        custom_reason: selectedDisposition === "others" ? customReason.trim() : null,
+      };
+
+      console.log("Inserting disposition data:", dispositionData);
+
+      const { data, error } = await supabase
+        .from("dispositions")
+        .insert(dispositionData)
+        .select();
 
       if (error) {
         console.error("Supabase error:", error);
         throw error;
       }
+
+      console.log("Disposition saved successfully:", data);
 
       toast({
         title: "Success",

@@ -76,6 +76,9 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
 
   const fetchDispositions = async () => {
     try {
+      setLoading(true);
+      console.log("Fetching dispositions for prospect:", prospectId);
+      
       // First, sync the current user profile to ensure they exist in the users table
       try {
         await supabase.rpc('sync_user_profile');
@@ -104,7 +107,7 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
         throw dispositionsError;
       }
 
-      console.log("Dispositions with users data:", dispositionsData);
+      console.log("Fetched dispositions with users data:", dispositionsData);
       
       // Process the data to extract users info and clean dispositions
       const cleanDispositions: Disposition[] = [];
@@ -186,9 +189,9 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
   useEffect(() => {
     fetchDispositions();
 
-    // Set up real-time subscription
+    // Set up real-time subscription for dispositions
     const channel = supabase
-      .channel('dispositions_changes')
+      .channel(`dispositions_changes_${prospectId}`)
       .on(
         'postgres_changes',
         {
@@ -197,11 +200,14 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
           table: 'dispositions',
           filter: `prospect_id=eq.${prospectId}`
         },
-        () => {
+        (payload) => {
+          console.log("Real-time disposition change received:", payload);
           fetchDispositions();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Disposition subscription status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
