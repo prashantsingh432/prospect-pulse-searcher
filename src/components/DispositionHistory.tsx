@@ -86,19 +86,10 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
         console.warn("Could not sync user profile:", syncError);
       }
 
-      // Use JOIN to get dispositions with user information in one query
+      // Fetch dispositions first
       const { data: dispositionsData, error: dispositionsError } = await supabase
         .from("dispositions")
-        .select(`
-          *,
-          users:user_id (
-            id,
-            name,
-            email,
-            role,
-            project_name
-          )
-        `)
+        .select("*")
         .eq("prospect_id", prospectId)
         .order("created_at", { ascending: false });
 
@@ -107,36 +98,49 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
         throw dispositionsError;
       }
 
-      console.log("Fetched dispositions with users data:", dispositionsData);
-      
-      // Process the data to extract users info and clean dispositions
-      const cleanDispositions: Disposition[] = [];
+      console.log("Fetched dispositions:", dispositionsData);
+
+      if (!dispositionsData || dispositionsData.length === 0) {
+        setDispositions([]);
+        setUsers({});
+        return;
+      }
+
+      // Get unique user IDs from dispositions
+      const userIds = [...new Set(dispositionsData.map(d => d.user_id))];
+      console.log("User IDs to fetch:", userIds);
+
+      // Fetch user data separately
+      const { data: usersData, error: usersError } = await supabase
+        .from("users")
+        .select("id, name, email, role, project_name")
+        .in("id", userIds);
+
+      if (usersError) {
+        console.warn("Users fetch error:", usersError);
+        // Continue without user data rather than failing completely
+      }
+
+      console.log("Fetched users:", usersData);
+
+      // Create users map
       const usersMap: Record<string, User> = {};
-      
-      dispositionsData?.forEach((item: any) => {
-        // Extract user data if available
-        if (item.users && typeof item.users === 'object' && !('error' in item.users)) {
-          usersMap[item.user_id] = item.users;
-        }
-        
-        // Create clean disposition object without the users property
-        const { users: _, ...disposition } = item;
-        cleanDispositions.push(disposition);
+      usersData?.forEach((user: any) => {
+        usersMap[user.id] = user;
       });
 
-      setDispositions(cleanDispositions);
-
-      // If no user data found, try to get current user info from auth context
-      if (Object.keys(usersMap).length === 0 && currentUser) {
+      // Add current user info from auth context if not found
+      if (currentUser && !usersMap[currentUser.id]) {
         usersMap[currentUser.id] = {
           id: currentUser.id,
           name: currentUser.fullName || null,
           email: currentUser.email,
           role: currentUser.role || 'caller',
-          project_name: currentUser.projectName
+          project_name: currentUser.projectName || 'SIS 2.0'
         };
       }
 
+      setDispositions(dispositionsData);
       setUsers(usersMap);
     } catch (error) {
       console.error("Error fetching dispositions:", error);
