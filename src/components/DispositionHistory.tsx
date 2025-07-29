@@ -110,35 +110,51 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
       const userIds = [...new Set(dispositionsData.map(d => d.user_id))];
       console.log("User IDs to fetch:", userIds);
 
-      // Fetch user data separately
-      const { data: usersData, error: usersError } = await supabase
-        .from("users")
-        .select("id, name, email, role, project_name")
-        .in("id", userIds);
+      // Fetch user data separately - with better error handling
+      let usersData: any[] = [];
+      try {
+        const { data, error: usersError } = await supabase
+          .from("users")
+          .select("id, name, email, role, project_name")
+          .in("id", userIds);
 
-      if (usersError) {
-        console.warn("Users fetch error:", usersError);
-        // Continue without user data rather than failing completely
+        if (usersError) {
+          console.error("Users fetch error:", usersError);
+        } else {
+          usersData = data || [];
+        }
+      } catch (fetchError) {
+        console.error("Error fetching users:", fetchError);
       }
 
       console.log("Fetched users:", usersData);
 
       // Create users map
       const usersMap: Record<string, User> = {};
-      usersData?.forEach((user: any) => {
+      usersData.forEach((user: any) => {
         usersMap[user.id] = user;
       });
 
       // Add current user info from auth context if not found
       if (currentUser && !usersMap[currentUser.id]) {
+        console.log("Adding current user to users map:", currentUser);
         usersMap[currentUser.id] = {
           id: currentUser.id,
-          name: currentUser.fullName || null,
+          name: currentUser.fullName || currentUser.email.split('@')[0],
           email: currentUser.email,
           role: currentUser.role || 'caller',
           project_name: currentUser.projectName || 'SIS 2.0'
         };
       }
+
+      // Log final users map for debugging
+      console.log("Final users map:", usersMap);
+      console.log("Dispositions with user mapping:", dispositionsData.map(d => ({
+        id: d.id,
+        user_id: d.user_id,
+        user_found: !!usersMap[d.user_id],
+        user_name: usersMap[d.user_id]?.name
+      })));
 
       setDispositions(dispositionsData);
       setUsers(usersMap);
