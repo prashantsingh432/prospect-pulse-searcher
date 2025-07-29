@@ -16,6 +16,7 @@ interface Disposition {
   custom_reason: string | null;
   created_at: string;
   user_id: string;
+  users?: User | null;
 }
 
 interface User {
@@ -82,9 +83,19 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
         console.warn("Could not sync user profile:", syncError);
       }
 
+      // Use JOIN to get dispositions with user information in one query
       const { data: dispositionsData, error: dispositionsError } = await supabase
         .from("dispositions")
-        .select("*")
+        .select(`
+          *,
+          users:user_id (
+            id,
+            name,
+            email,
+            role,
+            project_name
+          )
+        `)
         .eq("prospect_id", prospectId)
         .order("created_at", { ascending: false });
 
@@ -93,42 +104,37 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
         throw dispositionsError;
       }
 
-      setDispositions(dispositionsData || []);
-
-      // Fetch user details for each disposition
-      const userIds = [...new Set(dispositionsData?.map(d => d.user_id) || [])];
-      if (userIds.length > 0) {
-        const { data: usersData, error: usersError } = await supabase
-          .from("users")
-          .select("id, name, email, role, project_name")
-          .in("id", userIds);
-
-        if (usersError) {
-          console.error("Users error:", usersError);
-          // Don't throw here, just log and continue with empty users
+      console.log("Dispositions with users data:", dispositionsData);
+      
+      // Process the data to extract users info and clean dispositions
+      const cleanDispositions: Disposition[] = [];
+      const usersMap: Record<string, User> = {};
+      
+      dispositionsData?.forEach((item: any) => {
+        // Extract user data if available
+        if (item.users && typeof item.users === 'object' && !('error' in item.users)) {
+          usersMap[item.user_id] = item.users;
         }
-
-        console.log("Users data fetched:", usersData);
         
-        const usersMap = (usersData || []).reduce((acc, user) => {
-          acc[user.id] = user;
-          return acc;
-        }, {} as Record<string, User>);
+        // Create clean disposition object without the users property
+        const { users: _, ...disposition } = item;
+        cleanDispositions.push(disposition);
+      });
 
-        // If no user data found, try to get current user info from auth context
-        if (Object.keys(usersMap).length === 0 && currentUser) {
-          // Add current user to the map if missing
-          usersMap[currentUser.id] = {
-            id: currentUser.id,
-            name: currentUser.fullName || null,
-            email: currentUser.email,
-            role: currentUser.role || 'caller',
-            project_name: currentUser.projectName
-          };
-        }
+      setDispositions(cleanDispositions);
 
-        setUsers(usersMap);
+      // If no user data found, try to get current user info from auth context
+      if (Object.keys(usersMap).length === 0 && currentUser) {
+        usersMap[currentUser.id] = {
+          id: currentUser.id,
+          name: currentUser.fullName || null,
+          email: currentUser.email,
+          role: currentUser.role || 'caller',
+          project_name: currentUser.projectName
+        };
       }
+
+      setUsers(usersMap);
     } catch (error) {
       console.error("Error fetching dispositions:", error);
       toast({
