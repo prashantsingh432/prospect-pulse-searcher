@@ -167,6 +167,7 @@ export type Database = {
           id: string
           last_active: string | null
           name: string | null
+          project_name: string | null
           role: string
           status: string | null
         }
@@ -175,6 +176,7 @@ export type Database = {
           id?: string
           last_active?: string | null
           name?: string | null
+          project_name?: string | null
           role?: string
           status?: string | null
         }
@@ -183,6 +185,7 @@ export type Database = {
           id?: string
           last_active?: string | null
           name?: string | null
+          project_name?: string | null
           role?: string
           status?: string | null
         }

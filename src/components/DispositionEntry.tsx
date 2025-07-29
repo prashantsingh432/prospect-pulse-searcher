@@ -69,6 +69,13 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
     setIsSubmitting(true);
 
     try {
+      // First, sync the current user profile to ensure they exist in the users table
+      try {
+        await supabase.rpc('sync_user_profile');
+      } catch (syncError) {
+        console.warn("Could not sync user profile:", syncError);
+      }
+
       const { error } = await supabase.from("dispositions").insert({
         prospect_id: prospectId,
         user_id: user?.id,

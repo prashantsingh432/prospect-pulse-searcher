@@ -23,6 +23,7 @@ interface User {
   name: string | null;
   email: string;
   role?: string;
+  project_name?: string;
 }
 
 interface DispositionHistoryProps {
@@ -54,6 +55,15 @@ const getRoleIcon = (role?: string) => {
     case 'caller': return '👤';
     default: return '👤';
   }
+};
+
+const formatUserDisplay = (user?: User) => {
+  if (!user) return "Unknown Agent (Unknown Project)";
+  
+  const name = user.name || "Unknown Agent";
+  const project = user.project_name || (user.role === 'admin' ? 'Admin' : 'Unknown Project');
+  
+  return `${name} (${project})`;
 };
 
 export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHistoryProps) {
@@ -90,7 +100,7 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
       if (userIds.length > 0) {
         const { data: usersData, error: usersError } = await supabase
           .from("users")
-          .select("id, name, email, role")
+          .select("id, name, email, role, project_name")
           .in("id", userIds);
 
         if (usersError) {
@@ -112,7 +122,8 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
             id: currentUser.id,
             name: currentUser.fullName || null,
             email: currentUser.email,
-            role: currentUser.role || 'caller'
+            role: currentUser.role || 'caller',
+            project_name: currentUser.projectName
           };
         }
 
@@ -247,13 +258,8 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
                     <div className="flex items-center gap-1 text-sm">
                       <span>{getRoleIcon(users[disposition.user_id]?.role)}</span>
                       <span className="font-medium text-foreground">
-                        {users[disposition.user_id]?.name || "Unknown Agent"}
+                        {formatUserDisplay(users[disposition.user_id])}
                       </span>
-                      {users[disposition.user_id]?.role && (
-                        <span className="text-muted-foreground">
-                          ({users[disposition.user_id].role})
-                        </span>
-                      )}
                     </div>
                   </div>
 
