@@ -59,12 +59,12 @@ const getRoleIcon = (role?: string) => {
 };
 
 const formatUserDisplay = (user?: User) => {
-  if (!user) return "Unknown Agent (Unknown Project)";
+  if (!user) return "Unknown Agent (Project: N/A)";
   
-  const name = user.name || "Unknown Agent";
-  const project = user.project_name || (user.role === 'admin' ? 'Admin' : 'Unknown Project');
+  const name = user.name || user.email?.split('@')[0] || "Unknown Agent";
+  const project = user.project_name || (user.role === 'admin' ? 'Admin' : 'N/A');
   
-  return `${name} (${project})`;
+  return `${name} (Project: ${project})`;
 };
 
 export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHistoryProps) {
