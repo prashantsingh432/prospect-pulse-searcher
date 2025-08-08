@@ -49,6 +49,96 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_table: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credits_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          master_prospect_id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          master_prospect_id: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          master_prospect_id?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credits_log_master_prospect_id_fkey"
+            columns: ["master_prospect_id"]
+            isOneToOne: false
+            referencedRelation: "master_prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credits_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credits_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispositions: {
         Row: {
           created_at: string
@@ -94,6 +184,47 @@ export type Database = {
           },
         ]
       }
+      enrichment_jobs: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          master_prospect_id: string
+          provider: string | null
+          result: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          master_prospect_id: string
+          provider?: string | null
+          result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          master_prospect_id?: string
+          provider?: string | null
+          result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrichment_jobs_master_prospect_id_fkey"
+            columns: ["master_prospect_id"]
+            isOneToOne: false
+            referencedRelation: "master_prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exports: {
         Row: {
           format: string | null
@@ -120,6 +251,235 @@ export type Database = {
           {
             foreignKeyName: "exports_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      master_prospects: {
+        Row: {
+          canonical_url: string
+          company_name: string | null
+          created_at: string
+          created_by: string | null
+          full_name: string | null
+          id: string
+          linkedin_id: string
+          prospect_city: string | null
+          prospect_designation: string | null
+          prospect_email: string | null
+          prospect_number: string | null
+          prospect_number2: string | null
+          prospect_number3: string | null
+          prospect_number4: string | null
+          updated_at: string
+          verified: boolean
+        }
+        Insert: {
+          canonical_url: string
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          full_name?: string | null
+          id?: string
+          linkedin_id: string
+          prospect_city?: string | null
+          prospect_designation?: string | null
+          prospect_email?: string | null
+          prospect_number?: string | null
+          prospect_number2?: string | null
+          prospect_number3?: string | null
+          prospect_number4?: string | null
+          updated_at?: string
+          verified?: boolean
+        }
+        Update: {
+          canonical_url?: string
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          full_name?: string | null
+          id?: string
+          linkedin_id?: string
+          prospect_city?: string | null
+          prospect_designation?: string | null
+          prospect_email?: string | null
+          prospect_number?: string | null
+          prospect_number2?: string | null
+          prospect_number3?: string | null
+          prospect_number4?: string | null
+          updated_at?: string
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_prospects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json | null
+          read: boolean
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          read?: boolean
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          read?: boolean
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_prospects: {
+        Row: {
+          added_by: string
+          created_at: string
+          credit_allocated: boolean
+          credited_at: string | null
+          id: string
+          master_prospect_id: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          added_by: string
+          created_at?: string
+          credit_allocated?: boolean
+          credited_at?: string | null
+          id?: string
+          master_prospect_id: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          credit_allocated?: boolean
+          credited_at?: string | null
+          id?: string
+          master_prospect_id?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_prospects_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_prospects_master_prospect_id_fkey"
+            columns: ["master_prospect_id"]
+            isOneToOne: false
+            referencedRelation: "master_prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_prospects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_users: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_users_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_owner_id_fkey"
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]

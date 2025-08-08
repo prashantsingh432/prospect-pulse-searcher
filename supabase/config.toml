@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.delete-user]
 verify_jwt = false
+
+[functions.rtne-check-or-create]
+verify_jwt = true
+
+[functions.rtne-process-enrichment]
+verify_jwt = true
+
+[functions.rtne-admin-override]
+verify_jwt = true
