@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import Rtne from "./pages/Rtne";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/rtne" 
+              element={
+                <ProtectedRoute>
+                  <Rtne />
                 </ProtectedRoute>
               } 
             />

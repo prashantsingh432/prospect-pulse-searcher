@@ -1,10 +1,8 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchTabs } from "./SearchTabs";
-import { SearchFilterModal, SearchFilters } from "@/components/SearchFilterModal";
+import { SearchFilterModal } from "@/components/SearchFilterModal";
 import { Button } from "@/components/ui/button";
-import { RtneModal } from "./RtneModal";
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface SearchContainerProps {
   activeTab: string;
@@ -51,13 +49,13 @@ export const SearchContainer = ({
   showFilterModal,
   setShowFilterModal
 }: SearchContainerProps) => {
-  const [rtneOpen, setRtneOpen] = useState(false);
+  const navigate = useNavigate();
   return (
     <>
       <Card className="mb-8">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-xl font-semibold">Search Prospects</CardTitle>
-          <Button variant="secondary" onClick={() => setRtneOpen(true)}>RTNE</Button>
+          <Button variant="secondary" onClick={() => navigate("/rtne")}>RTNE</Button>
         </CardHeader>
         <CardContent>
           <SearchTabs
@@ -87,7 +85,6 @@ export const SearchContainer = ({
         onClose={() => setShowFilterModal(false)}
         onSearch={handleSearchWithFilters}
       />
-      <RtneModal open={rtneOpen} onOpenChange={setRtneOpen} />
     </>
   );
 };
