@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
@@ -54,8 +54,28 @@ const Rtne: React.FC = () => {
   const [newRowsCount, setNewRowsCount] = useState("100");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingRowsCount, setPendingRowsCount] = useState(0);
+  
+  // Cell selection and navigation state
+  const [selectedCell, setSelectedCell] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
+  const [isDragging, setIsDragging] = useState(false);
 
   const projectName = user?.projectName || "Unknown Project";
+
+  // Define field order for navigation
+  const fieldOrder: (keyof RtneRow)[] = [
+    'prospect_linkedin',
+    'full_name', 
+    'prospect_city',
+    'prospect_designation',
+    'company_name',
+    'prospect_email',
+    'prospect_number',
+    'prospect_number2',
+    'prospect_number3',
+    'prospect_number4'
+  ];
 
   useEffect(() => {
     // Basic SEO for the page
@@ -212,6 +232,178 @@ const Rtne: React.FC = () => {
         return null;
     }
   };
+
+  // Navigation functions
+  const moveSelection = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
+    if (!selectedCell) return;
+
+    const { rowId, field } = selectedCell;
+    const currentRowIndex = rows.findIndex(row => row.id === rowId);
+    const currentFieldIndex = fieldOrder.indexOf(field);
+
+    let newRowId = rowId;
+    let newField = field;
+
+    switch (direction) {
+      case 'up':
+        if (currentRowIndex > 0) {
+          newRowId = rows[currentRowIndex - 1].id;
+        }
+        break;
+      case 'down':
+        if (currentRowIndex < rows.length - 1) {
+          newRowId = rows[currentRowIndex + 1].id;
+        }
+        break;
+      case 'left':
+        if (currentFieldIndex > 0) {
+          newField = fieldOrder[currentFieldIndex - 1];
+        }
+        break;
+      case 'right':
+        if (currentFieldIndex < fieldOrder.length - 1) {
+          newField = fieldOrder[currentFieldIndex + 1];
+        }
+        break;
+    }
+
+    if (newRowId !== rowId || newField !== field) {
+      setSelectedCell({ rowId: newRowId, field: newField });
+      setIsEditing(false);
+      
+      // Focus the cell
+      setTimeout(() => {
+        const cellInput = document.querySelector(`[data-cell="${newRowId}-${newField}"]`) as HTMLInputElement;
+        if (cellInput) {
+          cellInput.focus();
+        }
+      }, 0);
+    }
+  }, [selectedCell, rows, fieldOrder]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!selectedCell) return;
+
+    // Handle navigation keys when not editing
+    if (!isEditing) {
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          moveSelection('up');
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          moveSelection('down');
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          moveSelection('left');
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          moveSelection('right');
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (e.shiftKey) {
+            moveSelection('up');
+          } else {
+            moveSelection('down');
+          }
+          break;
+        case 'Tab':
+          e.preventDefault();
+          if (e.shiftKey) {
+            moveSelection('left');
+          } else {
+            moveSelection('right');
+          }
+          break;
+        case 'F2':
+          e.preventDefault();
+          setIsEditing(true);
+          break;
+        case 'Delete':
+        case 'Backspace':
+          e.preventDefault();
+          deleteSelectedCells();
+          break;
+      }
+    } else {
+      // Handle keys when editing
+      switch (e.key) {
+        case 'Enter':
+          e.preventDefault();
+          setIsEditing(false);
+          if (e.shiftKey) {
+            moveSelection('up');
+          } else {
+            moveSelection('down');
+          }
+          break;
+        case 'Tab':
+          e.preventDefault();
+          setIsEditing(false);
+          if (e.shiftKey) {
+            moveSelection('left');
+          } else {
+            moveSelection('right');
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setIsEditing(false);
+          break;
+      }
+    }
+  }, [selectedCell, isEditing, moveSelection]);
+
+  const deleteSelectedCells = useCallback(() => {
+    if (selectedCells.size > 0) {
+      // Multi-cell delete
+      const updatedRows = rows.map(row => {
+        const updatedRow = { ...row };
+        fieldOrder.forEach(field => {
+          const cellKey = `${row.id}-${field}`;
+          if (selectedCells.has(cellKey)) {
+            (updatedRow as any)[field] = '';
+          }
+        });
+        return updatedRow;
+      });
+      setRows(updatedRows);
+    } else if (selectedCell) {
+      // Single cell delete
+      handleChange(selectedCell.rowId, selectedCell.field, '');
+    }
+  }, [selectedCells, selectedCell, rows, fieldOrder, handleChange]);
+
+  const handleCellClick = useCallback((rowId: number, field: keyof RtneRow) => {
+    setSelectedCell({ rowId, field });
+    setIsEditing(false);
+    setSelectedCells(new Set());
+  }, []);
+
+  const handleCellDoubleClick = useCallback((rowId: number, field: keyof RtneRow) => {
+    setSelectedCell({ rowId, field });
+    setIsEditing(true);
+    setSelectedCells(new Set());
+  }, []);
+
+  const getCellId = (rowId: number, field: keyof RtneRow) => `${rowId}-${field}`;
+
+  const isCellSelected = (rowId: number, field: keyof RtneRow) => {
+    const cellId = getCellId(rowId, field);
+    return selectedCell?.rowId === rowId && selectedCell?.field === field || selectedCells.has(cellId);
+  };
+
+  // Keyboard event listener
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
 
   return (
     <div className="min-h-screen bg-[#F3F2EF]">
@@ -388,86 +580,60 @@ const Rtne: React.FC = () => {
                   <td className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10">
                     {row.id}
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="text"
-                      value={row.prospect_linkedin}
-                      onChange={(e) => handleChange(row.id, 'prospect_linkedin', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="text"
-                      value={row.full_name}
-                      onChange={(e) => handleChange(row.id, 'full_name', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="text"
-                      value={row.prospect_city}
-                      onChange={(e) => handleChange(row.id, 'prospect_city', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="text"
-                      value={row.prospect_designation}
-                      onChange={(e) => handleChange(row.id, 'prospect_designation', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="text"
-                      value={row.company_name}
-                      onChange={(e) => handleChange(row.id, 'company_name', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="email"
-                      value={row.prospect_email}
-                      onChange={(e) => handleChange(row.id, 'prospect_email', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="text"
-                      value={row.prospect_number}
-                      onChange={(e) => handleChange(row.id, 'prospect_number', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="text"
-                      value={row.prospect_number2}
-                      onChange={(e) => handleChange(row.id, 'prospect_number2', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="text"
-                      value={row.prospect_number3}
-                      onChange={(e) => handleChange(row.id, 'prospect_number3', e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
-                    <input
-                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                      type="text"
-                      value={row.prospect_number4}
-                      onChange={(e) => handleChange(row.id, 'prospect_number4', e.target.value)}
-                    />
-                  </td>
+                  {fieldOrder.map((field) => {
+                    const cellValue = row[field] as string || '';
+                    const isSelected = isCellSelected(row.id, field);
+                    const isCurrentlyEditing = isSelected && isEditing;
+                    
+                    return (
+                      <td 
+                        key={field}
+                        className={`px-3 py-2 border-b border-r border-gray-300 text-sm cursor-pointer ${
+                          isSelected 
+                            ? 'outline outline-2 outline-blue-500 bg-blue-50' 
+                            : 'hover:outline hover:outline-2 hover:outline-blue-500'
+                        }`}
+                        onClick={() => handleCellClick(row.id, field)}
+                        onDoubleClick={() => handleCellDoubleClick(row.id, field)}
+                      >
+                        <input
+                          data-cell={`${row.id}-${field}`}
+                          className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
+                          type={field === 'prospect_email' ? 'email' : 'text'}
+                          value={cellValue}
+                          onChange={(e) => handleChange(row.id, field, e.target.value)}
+                          readOnly={!isCurrentlyEditing}
+                          onFocus={() => {
+                            setSelectedCell({ rowId: row.id, field });
+                            setIsEditing(true);
+                          }}
+                          onBlur={() => setIsEditing(false)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              setIsEditing(false);
+                              if (e.shiftKey) {
+                                moveSelection('up');
+                              } else {
+                                moveSelection('down');
+                              }
+                            } else if (e.key === 'Tab') {
+                              e.preventDefault();
+                              setIsEditing(false);
+                              if (e.shiftKey) {
+                                moveSelection('left');
+                              } else {
+                                moveSelection('right');
+                              }
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              setIsEditing(false);
+                            }
+                          }}
+                        />
+                      </td>
+                    );
+                  })}
                   <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
                     {getStatusDisplay(row.status)}
                   </td>
