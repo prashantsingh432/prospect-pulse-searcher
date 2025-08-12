@@ -1,17 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Navbar } from "@/components/Navbar";
+import React, { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
-import { Info, AlertTriangle, Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle, Star, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, RotateCcw, RotateCw, Printer, Bold, Italic, Underline, Link, MessageSquare, Play, Share, ArrowLeft, HourglassIcon } from "lucide-react";
 
 interface RtneRow {
+  id: number;
   prospect_linkedin: string;
   full_name?: string;
   company_name?: string;
@@ -22,28 +17,35 @@ interface RtneRow {
   prospect_number3?: string;
   prospect_number4?: string;
   prospect_designation?: string;
+  status?: 'ready' | 'pending' | 'processing' | 'completed' | 'failed';
 }
 
 const Rtne: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [row, setRow] = useState<RtneRow>({ prospect_linkedin: "" });
+  const [rows, setRows] = useState<RtneRow[]>([
+    { id: 1, prospect_linkedin: "linkedin.com/in/john-doe-110a02b0", full_name: "John Doe", prospect_city: "New York", prospect_designation: "Software Engineer", company_name: "ABC Corp", prospect_email: "john@company.com", prospect_number: "+1 (555) 123-4567", prospect_number2: "+1 (555) 123-4568", prospect_number3: "+1 (555) 123-4569", prospect_number4: "+1 (555) 123-4570", status: 'ready' },
+    { id: 2, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "", status: 'pending' },
+    { id: 3, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
+    { id: 4, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
+    { id: 5, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
+    { id: 6, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
+    { id: 7, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
+    { id: 8, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
+  ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [errorDetails, setErrorDetails] = useState<any>(null);
-  const [result, setResult] = useState<any>(null);
 
   const projectName = user?.projectName || "Unknown Project";
 
   useEffect(() => {
     // Basic SEO for the page
-    const title = "RTNE | Real-Time Email & Number";
+    const title = "LinkedIn Prospects | RTNE";
     document.title = title;
 
     const meta = document.querySelector('meta[name="description"]') || document.createElement('meta');
     meta.setAttribute('name', 'description');
-    meta.setAttribute('content', 'Run Real-Time Email & Number (RTNE) enrichment for a LinkedIn prospect profile.');
+    meta.setAttribute('content', 'Run Real-Time Email & Number (RTNE) enrichment for LinkedIn prospect profiles.');
     document.head.appendChild(meta);
 
     const link = document.querySelector('link[rel="canonical"]') || document.createElement('link');
@@ -52,329 +54,347 @@ const Rtne: React.FC = () => {
     document.head.appendChild(link);
   }, []);
 
-  const handleChange = (field: keyof RtneRow, value: string) => {
-    setRow((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (rowId: number, field: keyof RtneRow, value: string) => {
+    setRows(prev => prev.map(row => 
+      row.id === rowId ? { ...row, [field]: value } : row
+    ));
   };
 
-  const canSubmit = useMemo(() => {
-    return !!row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin);
-  }, [row.prospect_linkedin]);
-
   const handleSubmit = async () => {
-    setError(null);
-    setErrorDetails(null);
-    setResult(null);
-
-    if (!validateLinkedInUrl(row.prospect_linkedin || "")) {
-      setError("Invalid LinkedIn URL. Please enter a valid profile link.");
-      return;
-    }
-
     setIsSubmitting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("rtne-check-or-create", {
-        body: { projectName, row },
-      });
+    // Process rows with LinkedIn URLs
+    const validRows = rows.filter(row => row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin));
+    
+    for (const row of validRows) {
+      try {
+        const { data, error } = await supabase.functions.invoke("rtne-check-or-create", {
+          body: { projectName, row },
+        });
 
-      if (error) {
-        throw error;
+        if (error) {
+          throw error;
+        }
+
+        // Update row status to completed
+        setRows(prev => prev.map(r => 
+          r.id === row.id ? { ...r, status: 'completed' } : r
+        ));
+      } catch (e: any) {
+        console.error("RTNE error:", e);
+        // Update row status to failed
+        setRows(prev => prev.map(r => 
+          r.id === row.id ? { ...r, status: 'failed' } : r
+        ));
       }
+    }
+    setIsSubmitting(false);
+  };
 
-      setResult(data);
-    } catch (e: any) {
-      console.error("RTNE error:", e);
-      setError(e?.message || "Failed to send a request to the Edge Function");
-      setErrorDetails(e);
-    } finally {
-      setIsSubmitting(false);
+  const getStatusDisplay = (status?: string) => {
+    switch (status) {
+      case 'ready':
+        return (
+          <div className="flex items-center space-x-2 text-green-700">
+            <CheckCircle className="h-4 w-4" />
+            <span className="text-sm font-medium">Ready</span>
+          </div>
+        );
+      case 'pending':
+        return (
+          <div className="flex items-center space-x-2 text-gray-400">
+            <HourglassIcon className="h-4 w-4" />
+            <span className="text-sm">Pending</span>
+          </div>
+        );
+      case 'processing':
+        return (
+          <div className="flex items-center space-x-2 text-blue-600">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Processing</span>
+          </div>
+        );
+      case 'completed':
+        return (
+          <div className="flex items-center space-x-2 text-green-600">
+            <CheckCircle className="h-4 w-4" />
+            <span className="text-sm font-medium">Completed</span>
+          </div>
+        );
+      case 'failed':
+        return (
+          <div className="flex items-center space-x-2 text-red-600">
+            <span className="material-icons text-base">error</span>
+            <span className="text-sm">Failed</span>
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <Navbar />
-      <main className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Enhanced Header */}
-        <header className="mb-8 text-center">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-              <Info className="h-8 w-8 text-primary" />
+    <div className="min-h-screen bg-[#F3F2EF]">
+      {/* LinkedIn-style Header */}
+      <header className="bg-white shadow-sm z-20 sticky top-0">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <div className="text-4xl text-[#0A66C2]">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                </svg>
+              </div>
+              <nav className="hidden md:flex items-center text-sm font-medium space-x-2 text-gray-600">
+                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">File</a>
+                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Edit</a>
+                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">View</a>
+                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Insert</a>
+                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Format</a>
+                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Data</a>
+                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Tools</a>
+                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Extensions</a>
+                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Help</a>
+              </nav>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                Real-Time Email & Number (RTNE)
-              </h1>
-              <p className="text-muted-foreground mt-1">Enrich LinkedIn profiles with verified contact information</p>
+            <div className="flex items-center space-x-4">
+              <button className="flex items-center space-x-2 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-[#0A66C2] hover:bg-blue-800">
+                <Share className="h-4 w-4" />
+                <span>Share</span>
+              </button>
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-bold border border-blue-200">
+                  {user?.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
+              </div>
             </div>
           </div>
-        </header>
-
-        {/* Enhanced Project Banner */}
-        <section className="mb-8">
-          <Card className="border-primary/20 shadow-lg bg-gradient-to-r from-card to-card/50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <CheckCircle2 className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Active Project</p>
-                    <p className="text-xl font-semibold">{projectName}</p>
-                  </div>
-                </div>
-                <Button variant="outline" onClick={() => navigate("/")} className="gap-2">
-                  ← Back to Dashboard
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        {/* Error state */}
-        {error && (
-          <div className="mb-6">
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>RTNE failed</AlertTitle>
-              <AlertDescription>
-                <div className="space-y-2">
-                  <p>{error}</p>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>Retry</Button>
-                    <Button size="sm" variant="secondary" onClick={() => setErrorDetails((prev: any) => prev ? null : errorDetails)}>
-                      {errorDetails ? "Hide details" : "View details"}
-                    </Button>
-                  </div>
-                  {errorDetails && (
-                    <pre className="bg-muted p-3 rounded text-xs overflow-x-auto max-h-64">
-                      {typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              </AlertDescription>
-            </Alert>
+          <div className="flex items-center justify-between h-12 border-t border-gray-200">
+            <div className="flex items-center text-sm">
+              <h1 className="font-semibold text-lg text-gray-800 pr-3">LinkedIn Prospects</h1>
+              <Star className="h-5 w-5 text-gray-500 hover:text-yellow-500 cursor-pointer" />
+            </div>
+            <div className="flex items-center space-x-1 text-gray-700">
+              <button className="p-2 rounded-full hover:bg-gray-200" onClick={() => navigate("/")}>
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-gray-200">
+                <RotateCcw className="h-4 w-4" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-gray-200">
+                <RotateCw className="h-4 w-4" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-gray-200">
+                <Printer className="h-4 w-4" />
+              </button>
+              <div className="h-6 border-l border-gray-300 mx-2"></div>
+              <button className="p-2 rounded-full hover:bg-gray-200">
+                <Bold className="h-4 w-4" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-gray-200">
+                <Italic className="h-4 w-4" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-gray-200">
+                <Underline className="h-4 w-4" />
+              </button>
+              <div className="h-6 border-l border-gray-300 mx-2"></div>
+              <button className="p-2 rounded-full hover:bg-gray-200">
+                <Link className="h-4 w-4" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-gray-200">
+                <MessageSquare className="h-4 w-4" />
+              </button>
+              <div className="h-6 border-l border-gray-300 mx-2"></div>
+              <button 
+                className="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+              >
+                <Play className="h-4 w-4 text-[#0A66C2]" />
+                <span>{isSubmitting ? 'Processing...' : 'Run RTNE'}</span>
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      </header>
 
-        {/* Success state */}
-        {result && (
-          <div className="mb-6">
-            <Alert>
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertTitle>Processed</AlertTitle>
-              <AlertDescription>
-                <div className="space-y-2">
-                  <p>{result?.message || "RTNE completed successfully."}</p>
-                  <details className="text-sm">
-                    <summary className="cursor-pointer select-none">View result details</summary>
-                    <pre className="bg-muted p-3 rounded text-xs overflow-x-auto mt-2 max-h-64">
-                      {JSON.stringify(result, null, 2)}
-                    </pre>
-                  </details>
-                </div>
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
-
-        {/* Enhanced Form */}
-        <section aria-labelledby="prospect-form">
-          <Card className="border-2 border-primary/10 shadow-xl bg-gradient-to-b from-card to-card/50">
-            <CardHeader className="pb-6 border-b border-border/50">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Info className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <CardTitle id="prospect-form" className="text-xl font-semibold">Prospect Details</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">Fill in LinkedIn URL and any known information</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              {/* Primary Field - LinkedIn URL */}
-              <div className="mb-8">
-                <label className="block text-sm font-medium mb-3 text-foreground">
-                  LinkedIn Profile URL <span className="text-destructive">*</span>
-                </label>
-                <div className="relative">
-                  <Input
-                    placeholder="https://www.linkedin.com/in/example-profile"
-                    value={row.prospect_linkedin || ""}
-                    onChange={(e) => handleChange("prospect_linkedin", e.target.value)}
-                    className={`h-12 text-base transition-all duration-200 ${
-                      row.prospect_linkedin && !validateLinkedInUrl(row.prospect_linkedin) 
-                        ? 'border-destructive focus:border-destructive' 
-                        : 'focus:border-primary'
-                    }`}
-                  />
-                  {row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin) && (
-                    <CheckCircle2 className="absolute right-3 top-3 h-6 w-6 text-green-500" />
-                  )}
-                </div>
-                {row.prospect_linkedin && !validateLinkedInUrl(row.prospect_linkedin) && (
-                  <p className="text-sm text-destructive mt-2">Please enter a valid LinkedIn profile URL</p>
-                )}
-              </div>
-
-              {/* Secondary Fields Grid */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-medium border-b border-border/50 pb-2">Additional Information</h3>
-                <p className="text-sm text-muted-foreground -mt-4 mb-6">Optional fields to enhance enrichment accuracy</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Personal Information */}
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-foreground flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary"></div>
-                      Personal Details
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Full Name</label>
-                        <Input 
-                          placeholder="John Doe"
-                          value={row.full_name || ""} 
-                          onChange={(e) => handleChange("full_name", e.target.value)}
-                          className="transition-all duration-200 focus:border-primary"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-muted-foreground mb-1">City</label>
-                        <Input 
-                          placeholder="New York"
-                          value={row.prospect_city || ""} 
-                          onChange={(e) => handleChange("prospect_city", e.target.value)}
-                          className="transition-all duration-200 focus:border-primary"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Job Title</label>
-                        <Input 
-                          placeholder="Software Engineer"
-                          value={row.prospect_designation || ""} 
-                          onChange={(e) => handleChange("prospect_designation", e.target.value)}
-                          className="transition-all duration-200 focus:border-primary"
-                        />
-                      </div>
-                    </div>
+      {/* Spreadsheet Table */}
+      <main className="max-w-full mx-auto p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-gray-300">
+            <thead className="bg-gray-200">
+              <tr>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 w-12 sticky left-0 z-10 text-gray-500">#</th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[300px]">
+                  <div className="flex items-center">
+                    <svg className="w-4 h-4 mr-2 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                    </svg>
+                    LinkedIn Profile URL
                   </div>
-
-                  {/* Company Information */}
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-foreground flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary"></div>
-                      Company Details
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Company Name</label>
-                        <Input 
-                          placeholder="ABC Corp"
-                          value={row.company_name || ""} 
-                          onChange={(e) => handleChange("company_name", e.target.value)}
-                          className="transition-all duration-200 focus:border-primary"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Email Address</label>
-                        <Input 
-                          placeholder="john@company.com"
-                          type="email"
-                          value={row.prospect_email || ""} 
-                          onChange={(e) => handleChange("prospect_email", e.target.value)}
-                          className="transition-all duration-200 focus:border-primary"
-                        />
-                      </div>
-                    </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <User className="h-4 w-4 mr-2 text-gray-600" />
+                    Full Name
                   </div>
-                </div>
-
-                {/* Phone Numbers Section */}
-                <div className="space-y-4 pt-4 border-t border-border/50">
-                  <h4 className="font-medium text-foreground flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-primary"></div>
-                    Phone Numbers
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-sm text-muted-foreground mb-1">Primary Phone</label>
-                      <Input 
-                        placeholder="+1 (555) 123-4567"
-                        value={row.prospect_number || ""} 
-                        onChange={(e) => handleChange("prospect_number", e.target.value)}
-                        className="transition-all duration-200 focus:border-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-muted-foreground mb-1">Phone 2</label>
-                      <Input 
-                        placeholder="+1 (555) 123-4568"
-                        value={row.prospect_number2 || ""} 
-                        onChange={(e) => handleChange("prospect_number2", e.target.value)}
-                        className="transition-all duration-200 focus:border-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-muted-foreground mb-1">Phone 3</label>
-                      <Input 
-                        placeholder="+1 (555) 123-4569"
-                        value={row.prospect_number3 || ""} 
-                        onChange={(e) => handleChange("prospect_number3", e.target.value)}
-                        className="transition-all duration-200 focus:border-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-muted-foreground mb-1">Phone 4</label>
-                      <Input 
-                        placeholder="+1 (555) 123-4570"
-                        value={row.prospect_number4 || ""} 
-                        onChange={(e) => handleChange("prospect_number4", e.target.value)}
-                        className="transition-all duration-200 focus:border-primary"
-                      />
-                    </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-2 text-gray-600" />
+                    City
                   </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 pt-6 border-t border-border/50">
-                <div className="text-sm text-muted-foreground">
-                  {canSubmit ? (
-                    <span className="flex items-center gap-2 text-green-600">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Ready to process
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      LinkedIn URL required
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate("/")} 
-                    disabled={isSubmitting}
-                    className="px-6"
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleSubmit} 
-                    disabled={isSubmitting || !canSubmit}
-                    className="px-8 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg"
-                  >
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isSubmitting ? "Processing RTNE..." : "Run RTNE Enrichment"}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <Briefcase className="h-4 w-4 mr-2 text-gray-600" />
+                    Job Title
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <Building className="h-4 w-4 mr-2 text-gray-600" />
+                    Company Name
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
+                  <div className="flex items-center">
+                    <Mail className="h-4 w-4 mr-2 text-gray-600" />
+                    Email Address
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <Phone className="h-4 w-4 mr-2 text-gray-600" />
+                    Primary Phone
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                    Phone 2
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                    Phone 3
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                    Phone 4
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-4 w-4 mr-2 text-gray-600" />
+                    Status
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="group hover:bg-blue-50/50">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10">
+                    {row.id}
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="text"
+                      value={row.prospect_linkedin}
+                      onChange={(e) => handleChange(row.id, 'prospect_linkedin', e.target.value)}
+                      placeholder={row.id === 1 ? "" : "linkedin.com/in/..."}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="text"
+                      value={row.full_name}
+                      onChange={(e) => handleChange(row.id, 'full_name', e.target.value)}
+                      placeholder={row.id === 1 ? "" : "e.g. Jane Smith"}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="text"
+                      value={row.prospect_city}
+                      onChange={(e) => handleChange(row.id, 'prospect_city', e.target.value)}
+                      placeholder={row.id === 1 ? "" : "e.g. San Francisco"}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="text"
+                      value={row.prospect_designation}
+                      onChange={(e) => handleChange(row.id, 'prospect_designation', e.target.value)}
+                      placeholder={row.id === 1 ? "" : "e.g. Product Manager"}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="text"
+                      value={row.company_name}
+                      onChange={(e) => handleChange(row.id, 'company_name', e.target.value)}
+                      placeholder={row.id === 1 ? "" : "e.g. XYZ Inc."}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="email"
+                      value={row.prospect_email}
+                      onChange={(e) => handleChange(row.id, 'prospect_email', e.target.value)}
+                      placeholder={row.id === 1 ? "" : "e.g. jane@example.com"}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="text"
+                      value={row.prospect_number}
+                      onChange={(e) => handleChange(row.id, 'prospect_number', e.target.value)}
+                      placeholder={row.id === 1 ? "" : "+1 (555) 987-6543"}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="text"
+                      value={row.prospect_number2}
+                      onChange={(e) => handleChange(row.id, 'prospect_number2', e.target.value)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="text"
+                      value={row.prospect_number3}
+                      onChange={(e) => handleChange(row.id, 'prospect_number3', e.target.value)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    <input
+                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      type="text"
+                      value={row.prospect_number4}
+                      onChange={(e) => handleChange(row.id, 'prospect_number4', e.target.value)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                    {getStatusDisplay(row.status)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </main>
     </div>
   );
