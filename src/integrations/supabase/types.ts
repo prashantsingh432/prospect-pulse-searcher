@@ -567,6 +567,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_user_role_safe: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       sync_user_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
