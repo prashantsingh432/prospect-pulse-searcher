@@ -60,6 +60,8 @@ const Rtne: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
+  const [selectionStart, setSelectionStart] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
+  const [isShiftHeld, setIsShiftHeld] = useState(false);
 
   const projectName = user?.projectName || "Unknown Project";
 
@@ -234,7 +236,7 @@ const Rtne: React.FC = () => {
   };
 
   // Navigation functions
-  const moveSelection = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
+  const moveSelection = useCallback((direction: 'up' | 'down' | 'left' | 'right', extendSelection = false) => {
     if (!selectedCell) return;
 
     const { rowId, field } = selectedCell;
@@ -268,40 +270,71 @@ const Rtne: React.FC = () => {
     }
 
     if (newRowId !== rowId || newField !== field) {
-      setSelectedCell({ rowId: newRowId, field: newField });
+      const newSelectedCell = { rowId: newRowId, field: newField };
+      setSelectedCell(newSelectedCell);
       setIsEditing(false);
       
-      // Focus the cell
+      // Handle multi-cell selection with shift
+      if (extendSelection && selectionStart) {
+        const newSelectedCells = new Set<string>();
+        const startRowIndex = rows.findIndex(row => row.id === selectionStart.rowId);
+        const endRowIndex = rows.findIndex(row => row.id === newRowId);
+        const startFieldIndex = fieldOrder.indexOf(selectionStart.field);
+        const endFieldIndex = fieldOrder.indexOf(newField);
+
+        const minRowIndex = Math.min(startRowIndex, endRowIndex);
+        const maxRowIndex = Math.max(startRowIndex, endRowIndex);
+        const minFieldIndex = Math.min(startFieldIndex, endFieldIndex);
+        const maxFieldIndex = Math.max(startFieldIndex, endFieldIndex);
+
+        for (let r = minRowIndex; r <= maxRowIndex; r++) {
+          for (let f = minFieldIndex; f <= maxFieldIndex; f++) {
+            const cellKey = `${rows[r].id}-${fieldOrder[f]}`;
+            newSelectedCells.add(cellKey);
+          }
+        }
+        setSelectedCells(newSelectedCells);
+      } else {
+        setSelectedCells(new Set());
+        setSelectionStart(newSelectedCell);
+      }
+      
+      // Scroll to the new cell
       setTimeout(() => {
-        const cellInput = document.querySelector(`[data-cell="${newRowId}-${newField}"]`) as HTMLInputElement;
-        if (cellInput) {
-          cellInput.focus();
+        const cellElement = document.querySelector(`[data-cell="${newRowId}-${newField}"]`) as HTMLElement;
+        if (cellElement) {
+          cellElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
         }
       }, 0);
     }
-  }, [selectedCell, rows, fieldOrder]);
+  }, [selectedCell, rows, fieldOrder, selectionStart]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!selectedCell) return;
+
+    // Track shift state for multi-cell selection
+    if (e.key === 'Shift') {
+      setIsShiftHeld(true);
+    }
 
     // Handle navigation keys when not editing
     if (!isEditing) {
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
-          moveSelection('up');
+          moveSelection('up', e.shiftKey);
           break;
         case 'ArrowDown':
           e.preventDefault();
-          moveSelection('down');
+          moveSelection('down', e.shiftKey);
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          moveSelection('left');
+          moveSelection('left', e.shiftKey);
           break;
         case 'ArrowRight':
           e.preventDefault();
-          moveSelection('right');
+          moveSelection('right', e.shiftKey);
           break;
         case 'Enter':
           e.preventDefault();
@@ -330,7 +363,7 @@ const Rtne: React.FC = () => {
           break;
       }
     } else {
-      // Handle keys when editing
+      // Handle keys when editing - don't allow arrow navigation
       switch (e.key) {
         case 'Enter':
           e.preventDefault();
@@ -358,6 +391,12 @@ const Rtne: React.FC = () => {
     }
   }, [selectedCell, isEditing, moveSelection]);
 
+  const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Shift') {
+      setIsShiftHeld(false);
+    }
+  }, []);
+
   const deleteSelectedCells = useCallback(() => {
     if (selectedCells.size > 0) {
       // Multi-cell delete
@@ -378,16 +417,42 @@ const Rtne: React.FC = () => {
     }
   }, [selectedCells, selectedCell, rows, fieldOrder, handleChange]);
 
-  const handleCellClick = useCallback((rowId: number, field: keyof RtneRow) => {
-    setSelectedCell({ rowId, field });
+  const handleCellClick = useCallback((e: React.MouseEvent, rowId: number, field: keyof RtneRow) => {
+    const newSelectedCell = { rowId, field };
+    setSelectedCell(newSelectedCell);
     setIsEditing(false);
-    setSelectedCells(new Set());
-  }, []);
+    
+    if (e.shiftKey && selectionStart) {
+      // Extend selection
+      const newSelectedCells = new Set<string>();
+      const startRowIndex = rows.findIndex(row => row.id === selectionStart.rowId);
+      const endRowIndex = rows.findIndex(row => row.id === rowId);
+      const startFieldIndex = fieldOrder.indexOf(selectionStart.field);
+      const endFieldIndex = fieldOrder.indexOf(field);
+
+      const minRowIndex = Math.min(startRowIndex, endRowIndex);
+      const maxRowIndex = Math.max(startRowIndex, endRowIndex);
+      const minFieldIndex = Math.min(startFieldIndex, endFieldIndex);
+      const maxFieldIndex = Math.max(startFieldIndex, endFieldIndex);
+
+      for (let r = minRowIndex; r <= maxRowIndex; r++) {
+        for (let f = minFieldIndex; f <= maxFieldIndex; f++) {
+          const cellKey = `${rows[r].id}-${fieldOrder[f]}`;
+          newSelectedCells.add(cellKey);
+        }
+      }
+      setSelectedCells(newSelectedCells);
+    } else {
+      setSelectedCells(new Set());
+      setSelectionStart(newSelectedCell);
+    }
+  }, [rows, fieldOrder, selectionStart]);
 
   const handleCellDoubleClick = useCallback((rowId: number, field: keyof RtneRow) => {
     setSelectedCell({ rowId, field });
     setIsEditing(true);
     setSelectedCells(new Set());
+    setSelectionStart({ rowId, field });
   }, []);
 
   const getCellId = (rowId: number, field: keyof RtneRow) => `${rowId}-${field}`;
@@ -397,13 +462,15 @@ const Rtne: React.FC = () => {
     return selectedCell?.rowId === rowId && selectedCell?.field === field || selectedCells.has(cellId);
   };
 
-  // Keyboard event listener
+  // Keyboard event listeners
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleKeyDown]);
+  }, [handleKeyDown, handleKeyUp]);
 
   return (
     <div className="min-h-screen bg-[#F3F2EF]">
@@ -593,7 +660,7 @@ const Rtne: React.FC = () => {
                             ? 'outline outline-2 outline-blue-500 bg-blue-50' 
                             : 'hover:outline hover:outline-2 hover:outline-blue-500'
                         }`}
-                        onClick={() => handleCellClick(row.id, field)}
+                        onClick={(e) => handleCellClick(e, row.id, field)}
                         onDoubleClick={() => handleCellDoubleClick(row.id, field)}
                       >
                         <input
@@ -604,27 +671,43 @@ const Rtne: React.FC = () => {
                           onChange={(e) => handleChange(row.id, field, e.target.value)}
                           readOnly={!isCurrentlyEditing}
                           onFocus={() => {
-                            setSelectedCell({ rowId: row.id, field });
-                            setIsEditing(true);
+                            if (!isCurrentlyEditing) {
+                              setSelectedCell({ rowId: row.id, field });
+                              setSelectionStart({ rowId: row.id, field });
+                              setIsEditing(true);
+                            }
                           }}
-                          onBlur={() => setIsEditing(false)}
+                          onBlur={(e) => {
+                            // Only blur if not moving to another input
+                            const relatedTarget = e.relatedTarget as HTMLElement;
+                            if (!relatedTarget || !relatedTarget.hasAttribute('data-cell')) {
+                              setIsEditing(false);
+                            }
+                          }}
                           onKeyDown={(e) => {
+                            // Stop propagation to prevent global handler from interfering
+                            e.stopPropagation();
+                            
                             if (e.key === 'Enter') {
                               e.preventDefault();
                               setIsEditing(false);
-                              if (e.shiftKey) {
-                                moveSelection('up');
-                              } else {
-                                moveSelection('down');
-                              }
+                              setTimeout(() => {
+                                if (e.shiftKey) {
+                                  moveSelection('up');
+                                } else {
+                                  moveSelection('down');
+                                }
+                              }, 0);
                             } else if (e.key === 'Tab') {
                               e.preventDefault();
                               setIsEditing(false);
-                              if (e.shiftKey) {
-                                moveSelection('left');
-                              } else {
-                                moveSelection('right');
-                              }
+                              setTimeout(() => {
+                                if (e.shiftKey) {
+                                  moveSelection('left');
+                                } else {
+                                  moveSelection('right');
+                                }
+                              }, 0);
                             } else if (e.key === 'Escape') {
                               e.preventDefault();
                               setIsEditing(false);
