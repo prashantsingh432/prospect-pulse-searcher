@@ -11,9 +11,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw } from "lucide-react";
-import type { Tables } from "@/integrations/supabase/types";
 
-type UserData = Tables<'users'>;
+type UserData = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  status: string | null;
+  last_active: string | null;
+  project_name: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
 
 type UserStats = {
   totalUsers: number;
@@ -62,16 +71,15 @@ export const UserCreator = () => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, email, name, role, status, last_active, project_name');
 
       if (error) {
         throw error;
       }
 
       const userData = data || [];
-      setUsers(userData);
-      calculateStats(userData);
+      setUsers(userData as UserData[]);
+      calculateStats(userData as UserData[]);
 
       toast({
         title: "Success",
