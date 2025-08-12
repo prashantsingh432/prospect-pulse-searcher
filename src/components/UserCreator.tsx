@@ -15,12 +15,12 @@ import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, Refre
 type UserData = {
   id: string;
   email: string;
-  name: string | null;
+  name: string;
   role: string;
-  status: string | null;
+  status: string;
   last_active: string | null;
-  project_name: string | null;
-  created_at?: string;
+  project_name: string;
+  created_at: string;
   updated_at?: string;
 };
 
@@ -43,14 +43,15 @@ export const UserCreator = () => {
   // Add user form state
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState("caller");
-  const [newUserStatus, setNewUserStatus] = useState("active");
+  const [newUserProjectName, setNewUserProjectName] = useState("");
 
   // Edit user form state
   const [editUserName, setEditUserName] = useState("");
   const [editUserEmail, setEditUserEmail] = useState("");
   const [editUserRole, setEditUserRole] = useState("caller");
-  const [editUserStatus, setEditUserStatus] = useState("active");
+  const [editUserProjectName, setEditUserProjectName] = useState("");
 
   const { toast } = useToast();
 
@@ -65,21 +66,41 @@ export const UserCreator = () => {
     return stats;
   };
 
-  // Fetch users from Supabase users table
+  // Call the edge function to manage auth users
+  const callAuthFunction = async (action: string, data?: any) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('No active session');
+    }
+
+    const url = new URL(`https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/manage-auth-users`);
+    url.searchParams.set('action', action);
+
+    const response = await fetch(url.toString(), {
+      method: action === 'list' ? 'GET' : 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: action === 'list' ? undefined : JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Request failed');
+    }
+
+    return response.json();
+  };
+
+  // Fetch users from auth.users via edge function
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, email, name, role, status, last_active, project_name');
-
-      if (error) {
-        throw error;
-      }
-
-      const userData = data || [];
-      setUsers(userData as UserData[]);
-      calculateStats(userData as UserData[]);
+      const result = await callAuthFunction('list');
+      const userData = result.users || [];
+      setUsers(userData);
+      calculateStats(userData);
 
       toast({
         title: "Success",
@@ -98,12 +119,12 @@ export const UserCreator = () => {
     }
   };
 
-  // Add new user to Supabase users table
+  // Add new auth user via edge function
   const addUser = async () => {
-    if (!newUserName || !newUserEmail) {
+    if (!newUserName || !newUserEmail || !newUserPassword) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields including password",
         variant: "destructive",
       });
       return;
@@ -111,33 +132,29 @@ export const UserCreator = () => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          name: newUserName,
-          email: newUserEmail,
-          role: newUserRole,
-          status: newUserStatus,
-          last_active: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
+      await callAuthFunction('create', {
+        email: newUserEmail,
+        password: newUserPassword,
+        fullName: newUserName,
+        projectName: newUserRole === 'admin' ? 'ADMIN' : newUserProjectName,
+        role: newUserRole
+      });
 
       toast({
         title: "Success",
-        description: `User ${newUserEmail} created successfully`,
+        description: `User ${newUserEmail} created with login credentials`,
       });
 
       // Reset form
       setNewUserName("");
       setNewUserEmail("");
+      setNewUserPassword("");
       setNewUserRole("caller");
-      setNewUserStatus("active");
+      setNewUserProjectName("");
       setIsAddModalOpen(false);
+
+      // Refresh the list
+      fetchUsers();
 
     } catch (error: any) {
       console.error("Create user error:", error);
@@ -151,7 +168,7 @@ export const UserCreator = () => {
     }
   };
 
-  // Update existing user
+  // Update existing auth user via edge function
   const updateUser = async () => {
     if (!selectedUserToEdit || !editUserName || !editUserEmail) {
       toast({
@@ -164,19 +181,13 @@ export const UserCreator = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          name: editUserName,
-          email: editUserEmail,
-          role: editUserRole,
-          status: editUserStatus,
-        })
-        .eq('id', selectedUserToEdit.id);
-
-      if (error) {
-        throw error;
-      }
+      await callAuthFunction('update', {
+        userId: selectedUserToEdit.id,
+        email: editUserEmail,
+        fullName: editUserName,
+        projectName: editUserRole === 'admin' ? 'ADMIN' : editUserProjectName,
+        role: editUserRole
+      });
 
       toast({
         title: "Success",
@@ -185,6 +196,9 @@ export const UserCreator = () => {
 
       setIsEditModalOpen(false);
       setSelectedUserToEdit(null);
+
+      // Refresh the list
+      fetchUsers();
 
     } catch (error: any) {
       console.error("Update user error:", error);
@@ -198,7 +212,7 @@ export const UserCreator = () => {
     }
   };
 
-  // Remove user from Supabase users table
+  // Remove auth user via edge function
   const removeUser = async () => {
     if (!selectedUserToDelete) {
       toast({
@@ -211,22 +225,20 @@ export const UserCreator = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', selectedUserToDelete);
-
-      if (error) {
-        throw error;
-      }
+      await callAuthFunction('delete', {
+        userId: selectedUserToDelete
+      });
 
       toast({
         title: "Success",
-        description: "User deleted successfully",
+        description: "User deleted successfully - login access revoked",
       });
 
       setSelectedUserToDelete("");
       setIsRemoveModalOpen(false);
+
+      // Refresh the list
+      fetchUsers();
 
     } catch (error: any) {
       console.error("Delete user error:", error);
@@ -246,7 +258,7 @@ export const UserCreator = () => {
     setEditUserName(user.name || "");
     setEditUserEmail(user.email);
     setEditUserRole(user.role);
-    setEditUserStatus(user.status || "active");
+    setEditUserProjectName(user.project_name || "");
     setIsEditModalOpen(true);
   };
 
@@ -255,7 +267,7 @@ export const UserCreator = () => {
     // Initial fetch
     fetchUsers();
 
-    // Set up real-time subscription
+    // Set up real-time subscription to public.users table for sync
     const channel = supabase
       .channel('public:users')
       .on(
@@ -267,43 +279,8 @@ export const UserCreator = () => {
         },
         (payload) => {
           console.log('Real-time change:', payload);
-          
-          if (payload.eventType === 'INSERT') {
-            const newUser = payload.new as UserData;
-            setUsers(prev => {
-              const updated = [newUser, ...prev];
-              calculateStats(updated);
-              return updated;
-            });
-            toast({
-              title: "User Added",
-              description: `${newUser.email} was added to the system`,
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedUser = payload.new as UserData;
-            setUsers(prev => {
-              const updated = prev.map(user => 
-                user.id === updatedUser.id ? updatedUser : user
-              );
-              calculateStats(updated);
-              return updated;
-            });
-            toast({
-              title: "User Updated",
-              description: `${updatedUser.email} was updated`,
-            });
-          } else if (payload.eventType === 'DELETE') {
-            const deletedUser = payload.old as UserData;
-            setUsers(prev => {
-              const updated = prev.filter(user => user.id !== deletedUser.id);
-              calculateStats(updated);
-              return updated;
-            });
-            toast({
-              title: "User Removed",
-              description: `${deletedUser.email} was removed from the system`,
-            });
-          }
+          // Refresh the list when changes occur
+          fetchUsers();
         }
       )
       .subscribe();
@@ -322,7 +299,7 @@ export const UserCreator = () => {
           {/* Header */}
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">User Management</h2>
-            <p className="text-sm text-gray-600">Manage users and their roles</p>
+            <p className="text-sm text-gray-600">Manage user accounts with login credentials</p>
           </div>
 
           {/* Stats Cards */}
@@ -334,7 +311,7 @@ export const UserCreator = () => {
                   <div className="ml-3">
                     <p className="text-sm font-medium text-blue-900">Total Users</p>
                     <p className="text-2xl font-bold text-blue-600">{userStats.totalUsers}</p>
-                    <p className="text-xs text-blue-700">registered users</p>
+                    <p className="text-xs text-blue-700">with login access</p>
                   </div>
                 </div>
               </CardContent>
@@ -390,16 +367,16 @@ export const UserCreator = () => {
                 <DialogHeader>
                   <DialogTitle>Add New User</DialogTitle>
                   <DialogDescription>
-                    Create a new user account with their details.
+                    Create a new user account with login credentials.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="name">Name</Label>
+                    <Label htmlFor="name">Full Name</Label>
                     <Input
                       id="name"
                       type="text"
-                      placeholder="Full Name"
+                      placeholder="John Doe"
                       value={newUserName}
                       onChange={(e) => setNewUserName(e.target.value)}
                     />
@@ -415,6 +392,16 @@ export const UserCreator = () => {
                     />
                   </div>
                   <div>
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Password for login"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                    />
+                  </div>
+                  <div>
                     <Label htmlFor="role">Role</Label>
                     <Select value={newUserRole} onValueChange={setNewUserRole}>
                       <SelectTrigger>
@@ -426,18 +413,18 @@ export const UserCreator = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="status">Status</Label>
-                    <Select value={newUserStatus} onValueChange={setNewUserStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {newUserRole !== 'admin' && (
+                    <div>
+                      <Label htmlFor="projectName">Project Name</Label>
+                      <Input
+                        id="projectName"
+                        type="text"
+                        placeholder="Project name"
+                        value={newUserProjectName}
+                        onChange={(e) => setNewUserProjectName(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button
@@ -468,11 +455,11 @@ export const UserCreator = () => {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="editName">Name</Label>
+                    <Label htmlFor="editName">Full Name</Label>
                     <Input
                       id="editName"
                       type="text"
-                      placeholder="Full Name"
+                      placeholder="John Doe"
                       value={editUserName}
                       onChange={(e) => setEditUserName(e.target.value)}
                     />
@@ -499,18 +486,18 @@ export const UserCreator = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="editStatus">Status</Label>
-                    <Select value={editUserStatus} onValueChange={setEditUserStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {editUserRole !== 'admin' && (
+                    <div>
+                      <Label htmlFor="editProjectName">Project Name</Label>
+                      <Input
+                        id="editProjectName"
+                        type="text"
+                        placeholder="Project name"
+                        value={editUserProjectName}
+                        onChange={(e) => setEditUserProjectName(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button
@@ -542,7 +529,7 @@ export const UserCreator = () => {
                 <DialogHeader>
                   <DialogTitle>Remove User</DialogTitle>
                   <DialogDescription>
-                    Select a user to permanently delete from the system.
+                    Select a user to permanently delete and revoke login access.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -591,10 +578,10 @@ export const UserCreator = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                User List
+                User Accounts with Login Access
               </CardTitle>
               <CardDescription>
-                Showing all registered users in the system (Live sync enabled)
+                Manage user accounts that can log in to the system (Real-time sync enabled)
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -606,7 +593,7 @@ export const UserCreator = () => {
               ) : users.length === 0 ? (
                 <Alert className="bg-blue-50 border-blue-200">
                   <AlertDescription className="text-blue-800">
-                    No users found in the system. Create your first user using the "Add New User" button.
+                    No user accounts found. Create your first user with login credentials using the "Add New User" button.
                   </AlertDescription>
                 </Alert>
               ) : (
@@ -615,8 +602,8 @@ export const UserCreator = () => {
                     <TableRow>
                       <TableHead>USER</TableHead>
                       <TableHead>ROLE</TableHead>
-                      <TableHead>STATUS</TableHead>
-                      <TableHead>LAST ACTIVE</TableHead>
+                      <TableHead>PROJECT</TableHead>
+                      <TableHead>LAST LOGIN</TableHead>
                       <TableHead>ACTIONS</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -647,12 +634,9 @@ export const UserCreator = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={user.status === 'active' ? "default" : "secondary"}
-                            className={user.status === 'active' ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
-                          >
-                            {user.status || 'Active'}
-                          </Badge>
+                          <span className="text-sm text-gray-600">
+                            {user.project_name || 'N/A'}
+                          </span>
                         </TableCell>
                         <TableCell>
                           <p className="text-sm text-gray-500">
