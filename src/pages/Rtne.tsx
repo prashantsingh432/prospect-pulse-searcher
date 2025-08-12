@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle, Star, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, RotateCcw, RotateCw, Printer, Bold, Italic, Underline, Link, MessageSquare, Play, Share, ArrowLeft, HourglassIcon } from "lucide-react";
+import { Loader2, CheckCircle, Star, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, RotateCcw, RotateCw, Printer, Bold, Italic, Underline, Link, MessageSquare, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle } from "lucide-react";
 
 interface RtneRow {
   id: number;
@@ -23,18 +23,40 @@ interface RtneRow {
 const Rtne: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const nextIdRef = useRef(101); // Start from 101 for new rows
+  const tableRef = useRef<HTMLDivElement>(null);
 
-  const [rows, setRows] = useState<RtneRow[]>([
-    { id: 1, prospect_linkedin: "linkedin.com/in/john-doe-110a02b0", full_name: "John Doe", prospect_city: "New York", prospect_designation: "Software Engineer", company_name: "ABC Corp", prospect_email: "john@company.com", prospect_number: "+1 (555) 123-4567", prospect_number2: "+1 (555) 123-4568", prospect_number3: "+1 (555) 123-4569", prospect_number4: "+1 (555) 123-4570", status: 'ready' },
-    { id: 2, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "", status: 'pending' },
-    { id: 3, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
-    { id: 4, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
-    { id: 5, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
-    { id: 6, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
-    { id: 7, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
-    { id: 8, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "" },
-  ]);
+  // Generate 100 initial rows
+  const generateInitialRows = (): RtneRow[] => {
+    const initialRows: RtneRow[] = [
+      { id: 1, prospect_linkedin: "linkedin.com/in/john-doe-110a02b0", full_name: "John Doe", prospect_city: "New York", prospect_designation: "Software Engineer", company_name: "ABC Corp", prospect_email: "john@company.com", prospect_number: "+1 (555) 123-4567", prospect_number2: "+1 (555) 123-4568", prospect_number3: "+1 (555) 123-4569", prospect_number4: "+1 (555) 123-4570", status: 'ready' },
+      { id: 2, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "", status: 'pending' },
+    ];
+    
+    // Add 98 more empty rows to make 100 total
+    for (let i = 3; i <= 100; i++) {
+      initialRows.push({
+        id: i,
+        prospect_linkedin: "",
+        full_name: "",
+        prospect_city: "",
+        prospect_designation: "",
+        company_name: "",
+        prospect_email: "",
+        prospect_number: "",
+        prospect_number2: "",
+        prospect_number3: "",
+        prospect_number4: ""
+      });
+    }
+    return initialRows;
+  };
+
+  const [rows, setRows] = useState<RtneRow[]>(generateInitialRows());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newRowsCount, setNewRowsCount] = useState("100");
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pendingRowsCount, setPendingRowsCount] = useState(0);
 
   const projectName = user?.projectName || "Unknown Project";
 
@@ -88,6 +110,68 @@ const Rtne: React.FC = () => {
       }
     }
     setIsSubmitting(false);
+  };
+
+  // Helper function to create empty row
+  const makeEmptyRow = (id: number): RtneRow => ({
+    id,
+    prospect_linkedin: "",
+    full_name: "",
+    prospect_city: "",
+    prospect_designation: "",
+    company_name: "",
+    prospect_email: "",
+    prospect_number: "",
+    prospect_number2: "",
+    prospect_number3: "",
+    prospect_number4: ""
+  });
+
+  // Add rows function
+  const addRows = (count: number) => {
+    if (count > 100000) {
+      alert("Cannot add more than 100,000 rows at once");
+      return;
+    }
+    
+    if (count > 10000) {
+      setPendingRowsCount(count);
+      setShowConfirmation(true);
+      return;
+    }
+    
+    executeAddRows(count);
+  };
+
+  const executeAddRows = (count: number) => {
+    const newRows: RtneRow[] = [];
+    for (let i = 0; i < count; i++) {
+      newRows.push(makeEmptyRow(nextIdRef.current++));
+    }
+    
+    const firstNewRowId = newRows[0]?.id;
+    setRows(prev => [...prev, ...newRows]);
+    
+    // Scroll to first new row after state update
+    setTimeout(() => {
+      const firstNewRowElement = document.querySelector(`[data-row-id="${firstNewRowId}"]`);
+      if (firstNewRowElement) {
+        firstNewRowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
+
+  const handleQuickAdd = (count: number) => {
+    addRows(count);
+  };
+
+  const handleCustomAdd = () => {
+    const count = parseInt(newRowsCount);
+    if (isNaN(count) || count <= 0) {
+      alert("Please enter a valid number");
+      return;
+    }
+    addRows(count);
   };
 
   const getStatusDisplay = (status?: string) => {
@@ -303,7 +387,7 @@ const Rtne: React.FC = () => {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="group hover:bg-blue-50/50">
+                <tr key={row.id} className="group hover:bg-blue-50/50" data-row-id={row.id}>
                   <td className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10">
                     {row.id}
                   </td>
@@ -402,7 +486,95 @@ const Rtne: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Row Management Controls */}
+        <div className="bg-white border-t border-gray-300 p-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600 font-medium">
+              Rows: {rows.length}
+            </span>
+            {rows.length > 2000 && (
+              <div className="flex items-center space-x-2 text-yellow-600 bg-yellow-50 px-3 py-1 rounded-md">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm">Performance warning: Consider enabling virtualization for better performance</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <input
+              type="number"
+              value={newRowsCount}
+              onChange={(e) => setNewRowsCount(e.target.value)}
+              className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+              placeholder="100"
+              min="1"
+              aria-label="Number of rows to add"
+            />
+            <button
+              onClick={handleCustomAdd}
+              className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              aria-label="Add custom number of rows"
+            >
+              <Plus className="h-3 w-3" />
+              <span>Add rows</span>
+            </button>
+            
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handleQuickAdd(100)}
+                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
+                aria-label="Add 100 rows"
+              >
+                +100
+              </button>
+              <button
+                onClick={() => handleQuickAdd(1000)}
+                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
+                aria-label="Add 1000 rows"
+              >
+                +1000
+              </button>
+            </div>
+          </div>
+        </div>
       </main>
+
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <AlertTriangle className="h-6 w-6 text-orange-500" />
+              <h3 className="text-lg font-semibold">Large Row Addition</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              You're about to add {pendingRowsCount.toLocaleString()} rows. This may impact performance. Are you sure you want to continue?
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowConfirmation(false);
+                  setPendingRowsCount(0);
+                }}
+                className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  executeAddRows(pendingRowsCount);
+                  setShowConfirmation(false);
+                  setPendingRowsCount(0);
+                }}
+                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
+              >
+                Add Rows
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
