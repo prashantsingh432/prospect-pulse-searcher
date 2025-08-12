@@ -157,6 +157,13 @@ const Rtne: React.FC = () => {
               </nav>
             </div>
             <div className="flex items-center space-x-4">
+              <button 
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                onClick={() => navigate("/")}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Dashboard</span>
+              </button>
               <button className="flex items-center space-x-2 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-[#0A66C2] hover:bg-blue-800">
                 <Share className="h-4 w-4" />
                 <span>Share</span>
