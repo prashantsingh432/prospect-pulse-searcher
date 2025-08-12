@@ -28,13 +28,10 @@ const Rtne: React.FC = () => {
 
   // Generate 100 initial rows
   const generateInitialRows = (): RtneRow[] => {
-    const initialRows: RtneRow[] = [
-      { id: 1, prospect_linkedin: "linkedin.com/in/john-doe-110a02b0", full_name: "John Doe", prospect_city: "New York", prospect_designation: "Software Engineer", company_name: "ABC Corp", prospect_email: "john@company.com", prospect_number: "+1 (555) 123-4567", prospect_number2: "+1 (555) 123-4568", prospect_number3: "+1 (555) 123-4569", prospect_number4: "+1 (555) 123-4570", status: 'ready' },
-      { id: 2, prospect_linkedin: "", full_name: "", prospect_city: "", prospect_designation: "", company_name: "", prospect_email: "", prospect_number: "", prospect_number2: "", prospect_number3: "", prospect_number4: "", status: 'pending' },
-    ];
+    const initialRows: RtneRow[] = [];
     
-    // Add 98 more empty rows to make 100 total
-    for (let i = 3; i <= 100; i++) {
+    // Add 100 empty rows
+    for (let i = 1; i <= 100; i++) {
       initialRows.push({
         id: i,
         prospect_linkedin: "",
@@ -391,88 +388,81 @@ const Rtne: React.FC = () => {
                   <td className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10">
                     {row.id}
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="text"
                       value={row.prospect_linkedin}
                       onChange={(e) => handleChange(row.id, 'prospect_linkedin', e.target.value)}
-                      placeholder={row.id === 1 ? "" : "linkedin.com/in/..."}
                     />
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="text"
                       value={row.full_name}
                       onChange={(e) => handleChange(row.id, 'full_name', e.target.value)}
-                      placeholder={row.id === 1 ? "" : "e.g. Jane Smith"}
                     />
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="text"
                       value={row.prospect_city}
                       onChange={(e) => handleChange(row.id, 'prospect_city', e.target.value)}
-                      placeholder={row.id === 1 ? "" : "e.g. San Francisco"}
                     />
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="text"
                       value={row.prospect_designation}
                       onChange={(e) => handleChange(row.id, 'prospect_designation', e.target.value)}
-                      placeholder={row.id === 1 ? "" : "e.g. Product Manager"}
                     />
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="text"
                       value={row.company_name}
                       onChange={(e) => handleChange(row.id, 'company_name', e.target.value)}
-                      placeholder={row.id === 1 ? "" : "e.g. XYZ Inc."}
                     />
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="email"
                       value={row.prospect_email}
                       onChange={(e) => handleChange(row.id, 'prospect_email', e.target.value)}
-                      placeholder={row.id === 1 ? "" : "e.g. jane@example.com"}
                     />
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="text"
                       value={row.prospect_number}
                       onChange={(e) => handleChange(row.id, 'prospect_number', e.target.value)}
-                      placeholder={row.id === 1 ? "" : "+1 (555) 987-6543"}
                     />
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="text"
                       value={row.prospect_number2}
                       onChange={(e) => handleChange(row.id, 'prospect_number2', e.target.value)}
                     />
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="text"
                       value={row.prospect_number3}
                       onChange={(e) => handleChange(row.id, 'prospect_number3', e.target.value)}
                     />
                   </td>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm hover:outline hover:outline-2 hover:outline-blue-500 focus-within:outline focus-within:outline-2 focus-within:outline-blue-500">
                     <input
-                      className="w-full border-none focus:ring-0 p-0 bg-transparent placeholder-gray-400 text-sm"
+                      className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
                       type="text"
                       value={row.prospect_number4}
                       onChange={(e) => handleChange(row.id, 'prospect_number4', e.target.value)}
