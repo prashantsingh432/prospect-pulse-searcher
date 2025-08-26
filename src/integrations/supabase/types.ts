@@ -146,8 +146,10 @@ export type Database = {
           disposition_type: Database["public"]["Enums"]["disposition_type"]
           id: string
           prospect_id: number
+          project_name: string | null
           updated_at: string
           user_id: string
+          user_name: string | null
         }
         Insert: {
           created_at?: string
@@ -155,8 +157,10 @@ export type Database = {
           disposition_type: Database["public"]["Enums"]["disposition_type"]
           id?: string
           prospect_id: number
+          project_name?: string | null
           updated_at?: string
           user_id: string
+          user_name?: string | null
         }
         Update: {
           created_at?: string
@@ -164,8 +168,10 @@ export type Database = {
           disposition_type?: Database["public"]["Enums"]["disposition_type"]
           id?: string
           prospect_id?: number
+          project_name?: string | null
           updated_at?: string
           user_id?: string
+          user_name?: string | null
         }
         Relationships: [
           {

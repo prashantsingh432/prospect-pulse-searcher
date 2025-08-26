@@ -84,6 +84,8 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
         user_id: user?.id,
         disposition_type: selectedDisposition as "not_interested" | "wrong_number" | "dnc" | "call_back_later" | "not_relevant" | "others",
         custom_reason: selectedDisposition === "others" ? customReason.trim() : null,
+        user_name: user?.fullName || user?.email?.split('@')[0] || null,
+        project_name: user?.projectName || null,
       };
 
       console.log("Inserting disposition data:", dispositionData);

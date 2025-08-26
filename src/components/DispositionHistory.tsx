@@ -16,6 +16,8 @@ interface Disposition {
   custom_reason: string | null;
   created_at: string;
   user_id: string;
+  user_name?: string | null;
+  project_name?: string | null;
   users?: User | null;
 }
 
@@ -58,12 +60,21 @@ const getRoleIcon = (role?: string) => {
   }
 };
 
-const formatUserDisplay = (user?: User) => {
-  if (!user) return "Unknown Agent (Project: N/A)";
-  
-  const name = user.name || user.email?.split('@')[0] || "Unknown Agent";
-  const project = user.project_name || (user.role === 'admin' ? 'Admin' : 'N/A');
-  
+const formatUserDisplay = (user?: User, disposition?: Disposition) => {
+  const fallback = "Unknown Agent (Project: N/A)";
+  if (!user && !disposition) return fallback;
+
+  const name =
+    disposition?.user_name ||
+    user?.name ||
+    (user as any)?.email?.split?.('@')?.[0] ||
+    "Unknown Agent";
+  // Never infer project from role; prefer explicit values only
+  const project =
+    disposition?.project_name ||
+    user?.project_name ||
+    'N/A';
+
   return `${name} (Project: ${project})`;
 };
 
@@ -290,7 +301,7 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
                     <div className="flex items-center gap-1 text-sm">
                       <span>{getRoleIcon(users[disposition.user_id]?.role)}</span>
                       <span className="font-medium text-foreground">
-                        {formatUserDisplay(users[disposition.user_id])}
+                        {formatUserDisplay(users[disposition.user_id], disposition)}
                       </span>
                     </div>
                   </div>
