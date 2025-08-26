@@ -70,37 +70,39 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
 
     try {
       console.log("Submitting disposition:", { prospectId, userId: user?.id, selectedDisposition, customReason });
-      
-      // First, sync the current user profile to ensure they exist in the users table
-      try {
-        await supabase.rpc('sync_user_profile');
-        console.log("User profile synced successfully");
-      } catch (syncError) {
-        console.warn("Could not sync user profile:", syncError);
+
+      // Get current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session');
       }
 
-      const dispositionData = {
+      // Prepare request data
+      const requestData = {
         prospect_id: prospectId,
-        user_id: user?.id,
         disposition_type: selectedDisposition as "not_interested" | "wrong_number" | "dnc" | "call_back_later" | "not_relevant" | "others",
         custom_reason: selectedDisposition === "others" ? customReason.trim() : null,
-        user_name: user?.fullName || user?.email?.split('@')[0] || null,
-        project_name: user?.projectName || null,
       };
 
-      console.log("Inserting disposition data:", dispositionData);
+      console.log("Calling edge function with data:", requestData);
 
-      const { data, error } = await supabase
-        .from("dispositions")
-        .insert(dispositionData)
-        .select();
+      // Call the edge function to create disposition with proper user data
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-disposition`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
 
-      if (error) {
-        console.error("Supabase error:", error);
-        throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create disposition');
       }
 
-      console.log("Disposition saved successfully:", data);
+      const result = await response.json();
+      console.log("Disposition created successfully:", result);
 
       toast({
         title: "Success",
@@ -115,7 +117,7 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
       console.error("Error saving disposition:", error);
       toast({
         title: "Error",
-        description: "Failed to save disposition",
+        description: error instanceof Error ? error.message : "Failed to save disposition",
         variant: "destructive",
       });
     } finally {

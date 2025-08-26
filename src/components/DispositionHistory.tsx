@@ -61,19 +61,30 @@ const getRoleIcon = (role?: string) => {
 };
 
 const formatUserDisplay = (user?: User, disposition?: Disposition) => {
-  const fallback = "Unknown Agent (Project: N/A)";
-  if (!user && !disposition) return fallback;
+  // Priority order:
+  // 1. disposition.user_name/project_name (stored in DB)
+  // 2. user.name/project_name (from JOIN query)
+  // 3. fallback values
 
-  const name =
-    disposition?.user_name ||
-    user?.name ||
-    (user as any)?.email?.split?.('@')?.[0] ||
-    "Unknown Agent";
-  // Never infer project from role; prefer explicit values only
-  const project =
-    disposition?.project_name ||
-    user?.project_name ||
-    'N/A';
+  const name = disposition?.user_name ||
+               user?.name ||
+               (user as any)?.email?.split?.('@')?.[0] ||
+               "Unknown Agent";
+
+  const project = disposition?.project_name ||
+                  user?.project_name ||
+                  'N/A';
+
+  // Debug logging to help troubleshoot
+  if (name === "Unknown Agent" || project === 'N/A') {
+    console.warn('Missing user data:', {
+      disposition_user_name: disposition?.user_name,
+      disposition_project_name: disposition?.project_name,
+      user_name: user?.name,
+      user_project_name: user?.project_name,
+      user_id: disposition?.user_id
+    });
+  }
 
   return `${name} (Project: ${project})`;
 };
@@ -89,7 +100,7 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
     try {
       setLoading(true);
       console.log("Fetching dispositions for prospect:", prospectId);
-      
+
       // First, sync the current user profile to ensure they exist in the users table
       try {
         await supabase.rpc('sync_user_profile');
@@ -97,19 +108,46 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
         console.warn("Could not sync user profile:", syncError);
       }
 
-      // Fetch dispositions first
+      // Fetch dispositions with user data in a single query using LEFT JOIN
+      console.log("Attempting to fetch dispositions with user data...");
       const { data: dispositionsData, error: dispositionsError } = await supabase
         .from("dispositions")
-        .select("*")
+        .select(`
+          *,
+          users:user_id (
+            id,
+            name,
+            email,
+            role,
+            project_name
+          )
+        `)
         .eq("prospect_id", prospectId)
         .order("created_at", { ascending: false });
 
       if (dispositionsError) {
         console.error("Dispositions error:", dispositionsError);
-        throw dispositionsError;
+        console.error("This might be due to RLS policies blocking user data access");
+
+        // Fallback: fetch dispositions without user data
+        console.log("Attempting fallback query without user JOIN...");
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("dispositions")
+          .select("*")
+          .eq("prospect_id", prospectId)
+          .order("created_at", { ascending: false });
+
+        if (fallbackError) {
+          throw fallbackError;
+        }
+
+        console.log("Fallback query successful, but user data may be missing");
+        setDispositions(fallbackData || []);
+        setUsers({});
+        return;
       }
 
-      console.log("Fetched dispositions:", dispositionsData);
+      console.log("Fetched dispositions with user data:", dispositionsData);
 
       if (!dispositionsData || dispositionsData.length === 0) {
         setDispositions([]);
@@ -117,34 +155,15 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
         return;
       }
 
-      // Get unique user IDs from dispositions
-      const userIds = [...new Set(dispositionsData.map(d => d.user_id))];
-      console.log("User IDs to fetch:", userIds);
-
-      // Fetch user data separately - with better error handling
-      let usersData: any[] = [];
-      try {
-        const { data, error: usersError } = await supabase
-          .from("users")
-          .select("id, name, email, role, project_name")
-          .in("id", userIds);
-
-        if (usersError) {
-          console.error("Users fetch error:", usersError);
-        } else {
-          usersData = data || [];
-        }
-      } catch (fetchError) {
-        console.error("Error fetching users:", fetchError);
-      }
-
-      console.log("Fetched users:", usersData);
-
-      // Create users map
+      // Create users map from the joined data
       const usersMap: Record<string, User> = {};
-      usersData.forEach((user: any) => {
-        usersMap[user.id] = user;
+      dispositionsData.forEach((disposition: any) => {
+        if (disposition.users && disposition.user_id) {
+          usersMap[disposition.user_id] = disposition.users;
+        }
       });
+
+      console.log("Users map from joined query:", usersMap);
 
       // Add current user info from auth context if not found
       if (currentUser && !usersMap[currentUser.id]) {
@@ -154,7 +173,7 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
           name: currentUser.fullName || currentUser.email.split('@')[0],
           email: currentUser.email,
           role: currentUser.role || 'caller',
-          project_name: currentUser.projectName || 'SIS 2.0'
+          project_name: currentUser.projectName || 'Unknown Project'
         };
       }
 
@@ -164,7 +183,9 @@ export function DispositionHistory({ prospectId, refreshTrigger }: DispositionHi
         id: d.id,
         user_id: d.user_id,
         user_found: !!usersMap[d.user_id],
-        user_name: usersMap[d.user_id]?.name
+        user_name: d.user_name || usersMap[d.user_id]?.name,
+        project_name: d.project_name || usersMap[d.user_id]?.project_name,
+        disposition_has_user_data: !!(d.user_name && d.project_name)
       })));
 
       setDispositions(dispositionsData);
