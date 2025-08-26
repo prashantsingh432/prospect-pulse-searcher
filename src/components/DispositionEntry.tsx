@@ -15,10 +15,45 @@ interface DispositionEntryProps {
 }
 
 const dispositionOptions = [
+  // Negative/Rejection Dispositions
   { value: "not_interested", label: "Not Interested" },
-  { value: "wrong_number", label: "Wrong Number" },
-  { value: "dnc", label: "DNC (Do Not Call)" },
+  { value: "not_connected", label: "Not Connected" },
+  { value: "duplicate_prospect", label: "Duplicate Prospect" },
+  { value: "irrelevant_company", label: "Irrelevant Company" },
+  { value: "contact_details_irrelevant", label: "Contact Details Irrelevant" },
+  { value: "not_interested_in_company", label: "Not Interested in Company" },
+  { value: "reception_call_with_receptionist", label: "Reception Call with Receptionist" },
+  { value: "irrelevant_designation", label: "Irrelevant Designation" },
+  { value: "irrelevant_location", label: "Irrelevant Location" },
+  { value: "person_irrelevant", label: "Person Irrelevant" },
+
+  // Do Not Call Dispositions
+  { value: "do_not_call", label: "Do Not Call" },
+  { value: "dnc", label: "DNC" },
+
+  // Hold/Wait Dispositions
+  { value: "hold_for_now", label: "Hold For Now" },
+  { value: "contract_renewal_year", label: "Contract Renewal – Year" },
+  { value: "long_term_contract", label: "Long Term Contract" },
+  { value: "no_requirements", label: "No Requirements" },
+
+  // Follow-up Dispositions
+  { value: "call_back", label: "Call Back" },
   { value: "call_back_later", label: "Call Back Later" },
+  { value: "follow_up", label: "Follow Up" },
+  { value: "mail_sent", label: "Mail Sent" },
+
+  // Meeting Dispositions
+  { value: "meeting_scheduled", label: "Meeting Scheduled" },
+  { value: "meeting_successful", label: "Meeting Successful" },
+  { value: "meeting_cancel", label: "Meeting Cancel" },
+
+  // Service-related Dispositions
+  { value: "using_dtss_services", label: "Using DTSS Services" },
+  { value: "already_in_touch_with_project", label: "Already in Touch with my project" },
+
+  // Legacy/Other
+  { value: "wrong_number", label: "Wrong Number" },
   { value: "not_relevant", label: "Not Relevant" },
   { value: "others", label: "Others" },
 ];
@@ -80,7 +115,7 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
       // Prepare request data
       const requestData = {
         prospect_id: prospectId,
-        disposition_type: selectedDisposition as "not_interested" | "wrong_number" | "dnc" | "call_back_later" | "not_relevant" | "others",
+        disposition_type: selectedDisposition,
         custom_reason: selectedDisposition === "others" ? customReason.trim() : null,
       };
 

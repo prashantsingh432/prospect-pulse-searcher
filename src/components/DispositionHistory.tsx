@@ -35,19 +35,89 @@ interface DispositionHistoryProps {
 }
 
 const dispositionLabels: Record<string, string> = {
+  // Negative/Rejection Dispositions
   not_interested: "Not Interested",
-  wrong_number: "Wrong Number",
-  dnc: "DNC (Do Not Call)",
+  not_connected: "Not Connected",
+  duplicate_prospect: "Duplicate Prospect",
+  irrelevant_company: "Irrelevant Company",
+  contact_details_irrelevant: "Contact Details Irrelevant",
+  not_interested_in_company: "Not Interested in Company",
+  reception_call_with_receptionist: "Reception Call with Receptionist",
+  irrelevant_designation: "Irrelevant Designation",
+  irrelevant_location: "Irrelevant Location",
+  person_irrelevant: "Person Irrelevant",
+
+  // Do Not Call Dispositions
+  do_not_call: "Do Not Call",
+  dnc: "DNC",
+
+  // Hold/Wait Dispositions
+  hold_for_now: "Hold For Now",
+  contract_renewal_year: "Contract Renewal – Year",
+  long_term_contract: "Long Term Contract",
+  no_requirements: "No Requirements",
+
+  // Follow-up Dispositions
+  call_back: "Call Back",
   call_back_later: "Call Back Later",
+  follow_up: "Follow Up",
+  mail_sent: "Mail Sent",
+
+  // Meeting Dispositions
+  meeting_scheduled: "Meeting Scheduled",
+  meeting_successful: "Meeting Successful",
+  meeting_cancel: "Meeting Cancel",
+
+  // Service-related Dispositions
+  using_dtss_services: "Using DTSS Services",
+  already_in_touch_with_project: "Already in Touch with my project",
+
+  // Legacy/Other
+  wrong_number: "Wrong Number",
   not_relevant: "Not Relevant",
   others: "Others",
 };
 
 const dispositionColors: Record<string, string> = {
+  // Negative/Rejection Dispositions - Red variants
   not_interested: "bg-red-100 text-red-600 border-red-200",
-  wrong_number: "bg-yellow-100 text-yellow-600 border-yellow-200",
+  not_connected: "bg-red-100 text-red-600 border-red-200",
+  duplicate_prospect: "bg-orange-100 text-orange-600 border-orange-200",
+  irrelevant_company: "bg-red-100 text-red-600 border-red-200",
+  contact_details_irrelevant: "bg-orange-100 text-orange-600 border-orange-200",
+  not_interested_in_company: "bg-red-100 text-red-600 border-red-200",
+  reception_call_with_receptionist: "bg-yellow-100 text-yellow-600 border-yellow-200",
+  irrelevant_designation: "bg-orange-100 text-orange-600 border-orange-200",
+  irrelevant_location: "bg-orange-100 text-orange-600 border-orange-200",
+  person_irrelevant: "bg-red-100 text-red-600 border-red-200",
+
+  // Do Not Call Dispositions - Dark red
+  do_not_call: "bg-red-100 text-red-600 border-red-200",
   dnc: "bg-red-100 text-red-600 border-red-200",
+
+  // Hold/Wait Dispositions - Blue variants
+  hold_for_now: "bg-blue-100 text-blue-600 border-blue-200",
+  contract_renewal_year: "bg-indigo-100 text-indigo-600 border-indigo-200",
+  long_term_contract: "bg-indigo-100 text-indigo-600 border-indigo-200",
+  no_requirements: "bg-slate-100 text-slate-600 border-slate-200",
+
+  // Follow-up Dispositions - Green variants
+  call_back: "bg-green-100 text-green-600 border-green-200",
   call_back_later: "bg-blue-100 text-blue-600 border-blue-200",
+  follow_up: "bg-green-100 text-green-600 border-green-200",
+  mail_sent: "bg-cyan-100 text-cyan-600 border-cyan-200",
+
+  // Meeting Dispositions - Emerald/Success variants
+  meeting_scheduled: "bg-emerald-100 text-emerald-600 border-emerald-200",
+  meeting_successful: "bg-green-100 text-green-600 border-green-200",
+  meeting_cancel: "bg-red-100 text-red-600 border-red-200",
+
+  // Service-related Dispositions - Purple variants
+  using_dtss_services: "bg-purple-100 text-purple-600 border-purple-200",
+  already_in_touch_with_project: "bg-violet-100 text-violet-600 border-violet-200",
+
+  // Legacy/Other
+  wrong_number: "bg-yellow-100 text-yellow-600 border-yellow-200",
   not_relevant: "bg-yellow-100 text-yellow-600 border-yellow-200",
   others: "bg-purple-100 text-purple-600 border-purple-200",
 };

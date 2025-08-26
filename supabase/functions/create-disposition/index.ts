@@ -7,7 +7,13 @@ const corsHeaders = {
 
 interface DispositionRequest {
   prospect_id: number;
-  disposition_type: 'not_interested' | 'wrong_number' | 'dnc' | 'call_back_later' | 'not_relevant' | 'others';
+  disposition_type: 'not_interested' | 'not_connected' | 'duplicate_prospect' | 'irrelevant_company' |
+                   'contact_details_irrelevant' | 'not_interested_in_company' | 'reception_call_with_receptionist' |
+                   'hold_for_now' | 'irrelevant_designation' | 'irrelevant_location' | 'do_not_call' |
+                   'contract_renewal_year' | 'long_term_contract' | 'no_requirements' | 'call_back' |
+                   'follow_up' | 'mail_sent' | 'meeting_scheduled' | 'meeting_successful' | 'meeting_cancel' |
+                   'using_dtss_services' | 'already_in_touch_with_project' | 'person_irrelevant' |
+                   'wrong_number' | 'dnc' | 'call_back_later' | 'not_relevant' | 'others';
   custom_reason?: string | null;
 }
 
