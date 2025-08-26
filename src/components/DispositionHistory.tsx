@@ -69,8 +69,8 @@ const dispositionLabels: Record<string, string> = {
   meeting_cancel: "Meeting Cancel",
 
   // Service-related Dispositions
-  using_dtss_services: "Using DTSS Services",
-  already_in_touch_with_project: "Already in Touch with my project",
+  using_our_services: "Already Working with Our Project",
+  already_in_touch_with_team: "Already in Touch with Our Team",
 
   // Legacy/Other
   wrong_number: "Wrong Number",
@@ -113,8 +113,8 @@ const dispositionColors: Record<string, string> = {
   meeting_cancel: "bg-red-100 text-red-600 border-red-200",
 
   // Service-related Dispositions - Purple variants
-  using_dtss_services: "bg-purple-100 text-purple-600 border-purple-200",
-  already_in_touch_with_project: "bg-violet-100 text-violet-600 border-violet-200",
+  using_our_services: "bg-purple-100 text-purple-600 border-purple-200",
+  already_in_touch_with_team: "bg-violet-100 text-violet-600 border-violet-200",
 
   // Legacy/Other
   wrong_number: "bg-yellow-100 text-yellow-600 border-yellow-200",

@@ -49,8 +49,8 @@ const dispositionOptions = [
   { value: "meeting_cancel", label: "Meeting Cancel" },
 
   // Service-related Dispositions
-  { value: "using_dtss_services", label: "Using DTSS Services" },
-  { value: "already_in_touch_with_project", label: "Already in Touch with my project" },
+  { value: "using_our_services", label: "Already Working with Our Project" },
+  { value: "already_in_touch_with_team", label: "Already in Touch with Our Team" },
 
   // Legacy/Other
   { value: "wrong_number", label: "Wrong Number" },

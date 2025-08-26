@@ -22,8 +22,8 @@ ALTER TYPE public.disposition_type ADD VALUE IF NOT EXISTS 'mail_sent';
 ALTER TYPE public.disposition_type ADD VALUE IF NOT EXISTS 'meeting_scheduled';
 ALTER TYPE public.disposition_type ADD VALUE IF NOT EXISTS 'meeting_successful';
 ALTER TYPE public.disposition_type ADD VALUE IF NOT EXISTS 'meeting_cancel';
-ALTER TYPE public.disposition_type ADD VALUE IF NOT EXISTS 'using_dtss_services';
-ALTER TYPE public.disposition_type ADD VALUE IF NOT EXISTS 'already_in_touch_with_project';
+ALTER TYPE public.disposition_type ADD VALUE IF NOT EXISTS 'using_our_services';
+ALTER TYPE public.disposition_type ADD VALUE IF NOT EXISTS 'already_in_touch_with_team';
 ALTER TYPE public.disposition_type ADD VALUE IF NOT EXISTS 'person_irrelevant';
 
 -- Note: PostgreSQL doesn't allow removing enum values easily, so we keep the old ones
