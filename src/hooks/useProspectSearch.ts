@@ -1,6 +1,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useDisposition } from "@/contexts/DispositionContext";
 import { Prospect } from "@/data/prospects";
 import { testSupabaseConnection, type ConnectionTestResult } from "@/services/connectionService";
 import { searchProspects, type SearchParams, type SearchFilters } from "@/services/prospectSearchService";
@@ -10,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const useProspectSearch = () => {
   const { toast } = useToast();
+  const { canPerformSearch, getPendingDispositionMessage } = useDisposition();
   
   const [activeTab, setActiveTab] = useState("prospect-info");
   const [prospectName, setProspectName] = useState("");
@@ -127,12 +129,22 @@ export const useProspectSearch = () => {
 
   // Handle search with filters applied
   const handleSearchWithFilters = useCallback(async (filters: SearchFilters) => {
+    // Check if user can perform search (no pending dispositions)
+    if (!canPerformSearch()) {
+      toast({
+        title: "Disposition Required",
+        description: getPendingDispositionMessage(),
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Clear previous search results immediately when search is initiated
     setSearchResults([]);
     setHasSearched(true);
     setDebugInfo(null);
     setIsSearching(true);
-    
+
     try {
       // Prepare search parameters with filters
       const searchParams: SearchParams = {
@@ -178,17 +190,29 @@ export const useProspectSearch = () => {
       setIsSearching(false);
     }
   }, [
-    activeTab, 
-    prospectName, 
-    companyName, 
-    location, 
+    activeTab,
+    prospectName,
+    companyName,
+    location,
     phoneNumber,
-    linkedinUrl, 
-    toast
+    linkedinUrl,
+    toast,
+    canPerformSearch,
+    getPendingDispositionMessage
   ]);
 
   // Handle search triggered by Enter key - direct search without modal
   const handleDirectSearch = useCallback(async () => {
+    // Check if user can perform search (no pending dispositions)
+    if (!canPerformSearch()) {
+      toast({
+        title: "Disposition Required",
+        description: getPendingDispositionMessage(),
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate search form first
     if (!validateSearch()) {
       toast({
@@ -205,10 +229,20 @@ export const useProspectSearch = () => {
       phoneOnly: false,
       both: false,
     });
-  }, [validateSearch, validationError, toast, handleSearchWithFilters]);
+  }, [validateSearch, validationError, toast, handleSearchWithFilters, canPerformSearch, getPendingDispositionMessage]);
 
   // Handle search button click - conditional filter modal
   const handleSearchClick = useCallback(() => {
+    // Check if user can perform search (no pending dispositions)
+    if (!canPerformSearch()) {
+      toast({
+        title: "Disposition Required",
+        description: getPendingDispositionMessage(),
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate search form first
     if (!validateSearch()) {
       toast({
@@ -245,7 +279,7 @@ export const useProspectSearch = () => {
     
     // For LinkedIn URL or other cases, perform direct search
     handleDirectSearch();
-  }, [validateSearch, validationError, toast, activeTab, phoneNumber, prospectName, companyName, location, handleDirectSearch]);
+  }, [validateSearch, validationError, toast, activeTab, phoneNumber, prospectName, companyName, location, handleDirectSearch, canPerformSearch, getPendingDispositionMessage]);
 
   // Copy all search results to clipboard
   const copyAllResults = useCallback(() => {

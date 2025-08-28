@@ -7,6 +7,7 @@ import { Prospect } from "@/data/prospects";
 import { useProspectSearch } from "@/hooks/useProspectSearch";
 import { SearchContainer } from "@/components/dashboard/SearchContainer";
 import { ResultsContainer } from "@/components/dashboard/ResultsContainer";
+import { DispositionWarning } from "@/components/DispositionWarning";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Info } from "lucide-react";
 import { useEffect } from "react";
@@ -128,7 +129,9 @@ const Dashboard = () => {
             </AlertDescription>
           </Alert>
         )}
-        
+
+        <DispositionWarning />
+
         <SearchContainer
           activeTab={activeTab}
           setActiveTab={setActiveTab}

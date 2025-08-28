@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Prospect } from "@/data/prospects";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { useDisposition } from "@/contexts/DispositionContext";
 import {
   Table,
   TableBody,
@@ -142,6 +143,7 @@ const EmailCell = ({
 const PhoneNumberCell = ({
   phone,
   prospectKey,
+  prospectId,
   phoneIndex,
   revealedPhones,
   justCopied,
@@ -149,19 +151,20 @@ const PhoneNumberCell = ({
 }: {
   phone: string;
   prospectKey: string;
+  prospectId: number;
   phoneIndex: number;
   revealedPhones: Record<string, boolean>;
   justCopied: Record<string, boolean>;
-  onPhoneClick: (prospectKey: string, phoneIndex: number, phone: string) => void;
+  onPhoneClick: (prospectKey: string, prospectId: number, phoneIndex: number, phone: string) => void;
 }) => {
   if (!phone) return null;
-  
+
   const phoneKey = `${prospectKey}-${phoneIndex}`;
-  
+
   return (
     <div className="relative mb-1">
       <button
-        onClick={() => onPhoneClick(prospectKey, phoneIndex, phone)}
+        onClick={() => onPhoneClick(prospectKey, prospectId, phoneIndex, phone)}
         className={`text-left font-mono text-sm transition-colors ${revealedPhones[phoneKey] ? 'text-blue-800' : 'text-blue-600 hover:text-blue-800 cursor-pointer underline decoration-dashed underline-offset-4'}`}
       >
         {(() => {
@@ -198,6 +201,7 @@ type SortDirection = 'asc' | 'desc';
 
 export const SearchResults = ({ results, onUpdateResults }: SearchResultsProps) => {
   const { toast } = useToast();
+  const { addRevealedPhone } = useDisposition();
   const [copiedProspect, setCopiedProspect] = useState<string | null>(null);
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [justCopied, setJustCopied] = useState<Record<string, boolean>>({});
@@ -280,7 +284,7 @@ Location: ${prospect.location || 'N/A'}`;
     });
   };
 
-  const handlePhoneClick = (prospectKey: string, phoneIndex: number, phone: string) => {
+  const handlePhoneClick = (prospectKey: string, prospectId: number, phoneIndex: number, phone: string) => {
     const phoneKey = `${prospectKey}-${phoneIndex}`;
 
     // Reveal phone number
@@ -288,6 +292,10 @@ Location: ${prospect.location || 'N/A'}`;
       ...prev,
       [phoneKey]: true
     }));
+
+    // Track revealed phone for disposition requirement
+    console.log('Tracking revealed phone:', { prospectId, phone });
+    addRevealedPhone(prospectId, phone);
 
     // Copy to clipboard and show notification
     navigator.clipboard.writeText(phone).then(() => {
@@ -533,6 +541,7 @@ Location: ${prospect.location || 'N/A'}`;
                               <PhoneNumberCell
                                 phone={prospect.phone}
                                 prospectKey={prospectKey}
+                                prospectId={prospect.id}
                                 phoneIndex={1}
                                 revealedPhones={revealedPhones}
                                 justCopied={justCopied}
@@ -541,6 +550,7 @@ Location: ${prospect.location || 'N/A'}`;
                               <PhoneNumberCell
                                 phone={prospect.phone2 || ""}
                                 prospectKey={prospectKey}
+                                prospectId={prospect.id}
                                 phoneIndex={2}
                                 revealedPhones={revealedPhones}
                                 justCopied={justCopied}
@@ -549,6 +559,7 @@ Location: ${prospect.location || 'N/A'}`;
                               <PhoneNumberCell
                                 phone={prospect.phone3 || ""}
                                 prospectKey={prospectKey}
+                                prospectId={prospect.id}
                                 phoneIndex={3}
                                 revealedPhones={revealedPhones}
                                 justCopied={justCopied}
@@ -557,6 +568,7 @@ Location: ${prospect.location || 'N/A'}`;
                               <PhoneNumberCell
                                 phone={prospect.phone4 || ""}
                                 prospectKey={prospectKey}
+                                prospectId={prospect.id}
                                 phoneIndex={4}
                                 revealedPhones={revealedPhones}
                                 justCopied={justCopied}

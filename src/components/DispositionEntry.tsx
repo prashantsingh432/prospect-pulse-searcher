@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDisposition } from "@/contexts/DispositionContext";
 import { Loader2 } from "lucide-react";
 
 interface DispositionEntryProps {
@@ -64,6 +65,7 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
+  const { markDispositionComplete } = useDisposition();
 
   // Allow all authenticated users to add dispositions
   if (!user) {
@@ -143,6 +145,10 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
         title: "Success",
         description: "Disposition saved successfully",
       });
+
+      // Mark disposition as complete for this prospect
+      console.log('Marking disposition complete for prospect:', prospectId);
+      markDispositionComplete(prospectId);
 
       // Reset form
       setSelectedDisposition("");
