@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { Checkbox } from "@/components/ui/checkbox";
+
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw } from "lucide-react";
@@ -37,8 +39,11 @@ export const UserCreator = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
-  const [selectedUserToDelete, setSelectedUserToDelete] = useState<string>("");
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<UserData | null>(null);
+
+  // Multi-select state
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
 
   // Add user form state
   const [newUserName, setNewUserName] = useState("");
@@ -66,6 +71,52 @@ export const UserCreator = () => {
     return stats;
   };
 
+  // Multi-select helpers
+  const isAllSelected = users.length > 0 && selectedUserIds.size === users.length;
+  const isIndeterminate = selectedUserIds.size > 0 && selectedUserIds.size < users.length;
+
+  const handleToggleAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedUserIds(new Set(users.map((u) => u.id)));
+    } else {
+      setSelectedUserIds(new Set());
+    }
+  };
+
+  const handleRowSelection = (
+    e: React.MouseEvent | React.KeyboardEvent,
+    index: number,
+    id: string
+  ) => {
+    const add = (s: Set<string>, ids: string[]) => new Set([...s, ...ids]);
+    const remove = (s: Set<string>, ids: string[]) => {
+      const next = new Set(s);
+      ids.forEach((i) => next.delete(i));
+      return next;
+    };
+
+    const isMeta = ("metaKey" in e && e.metaKey) || ("ctrlKey" in e && e.ctrlKey);
+    const isShift = "shiftKey" in e && e.shiftKey;
+
+    if (isShift && lastSelectedIndex !== null) {
+      // Range selection
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      const idsInRange = users.slice(start, end + 1).map((u) => u.id);
+      setSelectedUserIds((prev) => add(prev, idsInRange));
+    } else if (isMeta) {
+      // Toggle without clearing
+      setSelectedUserIds((prev) =>
+        prev.has(id) ? remove(prev, [id]) : add(prev, [id])
+      );
+      setLastSelectedIndex(index);
+    } else {
+      // Single selection
+      setSelectedUserIds((prev) => (prev.has(id) && prev.size === 1 ? new Set() : new Set([id])));
+      setLastSelectedIndex(index);
+    }
+  };
+
   // Call the edge function to manage auth users
   const callAuthFunction = async (action: string, data?: any) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -76,13 +127,21 @@ export const UserCreator = () => {
     const url = new URL(`https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/manage-auth-users`);
     url.searchParams.set('action', action);
 
+    // Use HTTP methods that match the Edge Function's expectations
+    const method =
+      action === 'list' ? 'GET' :
+      action === 'create' ? 'POST' :
+      action === 'update' ? 'PUT' :
+      action === 'delete' ? 'DELETE' :
+      'POST';
+
     const response = await fetch(url.toString(), {
-      method: action === 'list' ? 'GET' : 'POST',
+      method,
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: action === 'list' ? undefined : JSON.stringify(data),
+      body: method === 'GET' ? undefined : JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -212,12 +271,12 @@ export const UserCreator = () => {
     }
   };
 
-  // Remove auth user via edge function
-  const removeUser = async () => {
-    if (!selectedUserToDelete) {
+  // Remove auth users via edge function (bulk)
+  const removeUsers = async (ids: string[]) => {
+    if (!ids.length) {
       toast({
         title: "Error",
-        description: "Please select a user to delete",
+        description: "Please select at least one user to delete",
         variant: "destructive",
       });
       return;
@@ -225,26 +284,27 @@ export const UserCreator = () => {
 
     setIsLoading(true);
     try {
-      await callAuthFunction('delete', {
-        userId: selectedUserToDelete
-      });
+      // Delete sequentially to keep service role usage simple and predictable
+      for (const id of ids) {
+        await callAuthFunction('delete', { userId: id });
+      }
 
       toast({
         title: "Success",
-        description: "User deleted successfully - login access revoked",
+        description: `${ids.length} user${ids.length > 1 ? 's' : ''} deleted successfully`,
       });
 
-      setSelectedUserToDelete("");
+      setSelectedUserIds(new Set());
       setIsRemoveModalOpen(false);
 
       // Refresh the list
       fetchUsers();
 
     } catch (error: any) {
-      console.error("Delete user error:", error);
+      console.error("Bulk delete users error:", error);
       toast({
-        title: "Error Deleting User",
-        description: error.message || "Failed to delete user",
+        title: "Error Deleting Users",
+        description: error.message || "Failed to delete one or more users",
         variant: "destructive",
       });
     } finally {
@@ -346,10 +406,10 @@ export const UserCreator = () => {
 
           {/* Action Buttons */}
           <div className="space-y-3">
-            <Button 
+            <Button
               onClick={fetchUsers}
               disabled={isLoading}
-              className="w-full bg-gray-600 hover:bg-gray-700" 
+              className="w-full bg-gray-600 hover:bg-gray-700"
               size="lg"
             >
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -520,39 +580,22 @@ export const UserCreator = () => {
 
             <Dialog open={isRemoveModalOpen} onOpenChange={setIsRemoveModalOpen}>
               <DialogTrigger asChild>
-                <Button variant="destructive" className="w-full" size="lg">
+                <Button variant="destructive" className="w-full" size="lg" disabled={selectedUserIds.size === 0}>
                   <UserMinus className="mr-2 h-4 w-4" />
-                  Remove User
+                  Remove Selected ({selectedUserIds.size})
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Remove User</DialogTitle>
+                  <DialogTitle>Confirm Delete</DialogTitle>
                   <DialogDescription>
-                    Select a user to permanently delete and revoke login access.
+                    Are you sure you want to permanently delete {selectedUserIds.size} user{selectedUserIds.size !== 1 ? 's' : ''}? This action cannot be undone.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="userSelect">Select User</Label>
-                    <Select value={selectedUserToDelete} onValueChange={setSelectedUserToDelete}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a user to delete" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.email} ({user.role})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
                 <DialogFooter>
                   <Button
-                    onClick={removeUser}
-                    disabled={isLoading || !selectedUserToDelete}
+                    onClick={() => removeUsers(Array.from(selectedUserIds))}
+                    disabled={isLoading || selectedUserIds.size === 0}
                     variant="destructive"
                   >
                     {isLoading ? (
@@ -561,7 +604,7 @@ export const UserCreator = () => {
                         Deleting...
                       </>
                     ) : (
-                      "Delete User"
+                      `Delete ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}`
                     )}
                   </Button>
                 </DialogFooter>
@@ -600,6 +643,14 @@ export const UserCreator = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          aria-label="Select all users"
+                          checked={isAllSelected}
+                          onCheckedChange={(v) => handleToggleAll(Boolean(v))}
+                          data-state={isIndeterminate ? 'indeterminate' : isAllSelected ? 'checked' : 'unchecked'}
+                        />
+                      </TableHead>
                       <TableHead>USER</TableHead>
                       <TableHead>ROLE</TableHead>
                       <TableHead>PROJECT</TableHead>
@@ -608,68 +659,94 @@ export const UserCreator = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-medium text-gray-600">
-                                {(user.name || user.email).charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">
-                                {user.name || user.email.split('@')[0]}
-                              </p>
-                              <p className="text-sm text-gray-500">{user.email}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={user.role === 'admin' ? "default" : "secondary"}
-                            className={user.role === 'admin' ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}
-                          >
-                            {user.role === 'admin' ? 'Admin' : 'Caller'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-gray-600">
-                            {user.project_name || 'N/A'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <p className="text-sm text-gray-500">
-                            {user.last_active ? new Date(user.last_active).toLocaleDateString() : 'Never'}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-blue-600 hover:text-blue-800"
-                              onClick={() => openEditModal(user)}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:text-red-800"
-                              onClick={() => {
-                                setSelectedUserToDelete(user.id);
-                                setIsRemoveModalOpen(true);
+                    {users.map((user, index) => {
+                      const selected = selectedUserIds.has(user.id);
+                      return (
+                        <TableRow
+                          key={user.id}
+                          className={selected ? 'bg-blue-50' : ''}
+                          aria-selected={selected}
+                          tabIndex={0}
+                          onClick={(e) => handleRowSelection(e, index, user.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ' || e.key === 'Enter') {
+                              e.preventDefault();
+                              handleRowSelection(e, index, user.id);
+                            }
+                          }}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              aria-label={`Select ${user.email}`}
+                              checked={selected}
+                              onCheckedChange={() => {
+                                // emulate ctrl-toggle behavior for checkbox
+                                const synthetic = { ctrlKey: true, shiftKey: false } as any;
+                                handleRowSelection(synthetic, index, user.id);
                               }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                <span className="text-sm font-medium text-gray-600">
+                                  {(user.name || user.email).charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  {user.name || user.email.split('@')[0]}
+                                </p>
+                                <p className="text-sm text-gray-500">{user.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={user.role === 'admin' ? "default" : "secondary"}
+                              className={user.role === 'admin' ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}
                             >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              {user.role === 'admin' ? 'Admin' : 'Caller'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm text-gray-600">
+                              {user.project_name || 'N/A'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm text-gray-500">
+                              {user.last_active ? new Date(user.last_active).toLocaleDateString() : 'Never'}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-800"
+                                onClick={() => openEditModal(user)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-800"
+                                onClick={() => {
+                                  setSelectedUserIds(new Set([user.id]));
+                                  setIsRemoveModalOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
