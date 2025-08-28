@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw } from "lucide-react";
+import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 type UserData = {
   id: string;
@@ -44,6 +44,10 @@ export const UserCreator = () => {
   // Multi-select state
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+
+  // Sorting state
+  const [sortField, setSortField] = useState<'name' | 'email' | 'created_at'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Add user form state
   const [newUserName, setNewUserName] = useState("");
@@ -88,6 +92,9 @@ export const UserCreator = () => {
     index: number,
     id: string
   ) => {
+    // Prevent event bubbling to avoid conflicts
+    e.stopPropagation();
+
     const add = (s: Set<string>, ids: string[]) => new Set([...s, ...ids]);
     const remove = (s: Set<string>, ids: string[]) => {
       const next = new Set(s);
@@ -111,10 +118,26 @@ export const UserCreator = () => {
       );
       setLastSelectedIndex(index);
     } else {
-      // Single selection
-      setSelectedUserIds((prev) => (prev.has(id) && prev.size === 1 ? new Set() : new Set([id])));
+      // Single selection - always toggle the clicked item
+      setSelectedUserIds((prev) =>
+        prev.has(id) ? new Set() : new Set([id])
+      );
       setLastSelectedIndex(index);
     }
+  };
+
+  // Simple toggle function for checkboxes
+  const handleCheckboxToggle = (id: string, index: number) => {
+    setSelectedUserIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+    setLastSelectedIndex(index);
   };
 
   // Call the edge function to manage auth users
@@ -321,6 +344,43 @@ export const UserCreator = () => {
     setEditUserProjectName(user.project_name || "");
     setIsEditModalOpen(true);
   };
+
+  // Sorting function
+  const handleSort = (field: 'name' | 'email' | 'created_at') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort users based on current sort field and direction
+  const sortedUsers = [...users].sort((a, b) => {
+    let aValue: string | Date;
+    let bValue: string | Date;
+
+    switch (sortField) {
+      case 'name':
+        aValue = (a.name || '').toLowerCase();
+        bValue = (b.name || '').toLowerCase();
+        break;
+      case 'email':
+        aValue = a.email.toLowerCase();
+        bValue = b.email.toLowerCase();
+        break;
+      case 'created_at':
+        aValue = new Date(a.created_at);
+        bValue = new Date(b.created_at);
+        break;
+      default:
+        return 0;
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   // Set up real-time subscription and initial data fetch
   useEffect(() => {
@@ -578,11 +638,44 @@ export const UserCreator = () => {
               </DialogContent>
             </Dialog>
 
+            {/* Selection Summary */}
+            {selectedUserIds.size > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>{selectedUserIds.size}</strong> user{selectedUserIds.size !== 1 ? 's' : ''} selected
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedUserIds(new Set())}
+                  >
+                    Clear Selection
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedUserIds(new Set(users.map(u => u.id)))}
+                  >
+                    Select All
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <Dialog open={isRemoveModalOpen} onOpenChange={setIsRemoveModalOpen}>
               <DialogTrigger asChild>
-                <Button variant="destructive" className="w-full" size="lg" disabled={selectedUserIds.size === 0}>
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  size="lg"
+                  disabled={selectedUserIds.size === 0}
+                >
                   <UserMinus className="mr-2 h-4 w-4" />
-                  Remove Selected ({selectedUserIds.size})
+                  {selectedUserIds.size === 0
+                    ? "Select users to delete"
+                    : `Delete Selected (${selectedUserIds.size})`
+                  }
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
@@ -624,7 +717,7 @@ export const UserCreator = () => {
                 User Accounts with Login Access
               </CardTitle>
               <CardDescription>
-                Manage user accounts that can log in to the system (Real-time sync enabled)
+                Manage user accounts that can log in to the system. Use checkboxes to select multiple users for bulk operations. (Real-time sync enabled)
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -651,23 +744,52 @@ export const UserCreator = () => {
                           data-state={isIndeterminate ? 'indeterminate' : isAllSelected ? 'checked' : 'unchecked'}
                         />
                       </TableHead>
-                      <TableHead>USER</TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center gap-1">
+                          USER
+                          {sortField === 'name' && (
+                            sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                          )}
+                          {sortField !== 'name' && <ArrowUpDown className="h-4 w-4 opacity-50" />}
+                        </div>
+                      </TableHead>
                       <TableHead>ROLE</TableHead>
                       <TableHead>PROJECT</TableHead>
-                      <TableHead>LAST LOGIN</TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('created_at')}
+                      >
+                        <div className="flex items-center gap-1">
+                          CREATED DATE
+                          {sortField === 'created_at' && (
+                            sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                          )}
+                          {sortField !== 'created_at' && <ArrowUpDown className="h-4 w-4 opacity-50" />}
+                        </div>
+                      </TableHead>
                       <TableHead>ACTIONS</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user, index) => {
+                    {sortedUsers.map((user, index) => {
                       const selected = selectedUserIds.has(user.id);
                       return (
                         <TableRow
                           key={user.id}
-                          className={selected ? 'bg-blue-50' : ''}
+                          className={selected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}
                           aria-selected={selected}
                           tabIndex={0}
-                          onClick={(e) => handleRowSelection(e, index, user.id)}
+                          style={{ cursor: 'pointer' }}
+                          onClick={(e) => {
+                            // Only handle row clicks if not clicking on buttons or checkboxes
+                            const target = e.target as HTMLElement;
+                            if (!target.closest('button') && !target.closest('[role="checkbox"]')) {
+                              handleRowSelection(e, index, user.id);
+                            }
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === ' ' || e.key === 'Enter') {
                               e.preventDefault();
@@ -679,11 +801,7 @@ export const UserCreator = () => {
                             <Checkbox
                               aria-label={`Select ${user.email}`}
                               checked={selected}
-                              onCheckedChange={() => {
-                                // emulate ctrl-toggle behavior for checkbox
-                                const synthetic = { ctrlKey: true, shiftKey: false } as any;
-                                handleRowSelection(synthetic, index, user.id);
-                              }}
+                              onCheckedChange={() => handleCheckboxToggle(user.id, index)}
                             />
                           </TableCell>
                           <TableCell>
@@ -716,7 +834,7 @@ export const UserCreator = () => {
                           </TableCell>
                           <TableCell>
                             <p className="text-sm text-gray-500">
-                              {user.last_active ? new Date(user.last_active).toLocaleDateString() : 'Never'}
+                              {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                             </p>
                           </TableCell>
                           <TableCell>

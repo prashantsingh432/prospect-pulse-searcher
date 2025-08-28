@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
+import DataManagement from "./pages/DataManagement";
 import NotFound from "./pages/NotFound";
 import Rtne from "./pages/Rtne";
 
@@ -78,13 +79,21 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
-            <Route 
-              path="/admin" 
+            <Route
+              path="/admin"
               element={
                 <AdminRoute>
                   <Admin />
                 </AdminRoute>
-              } 
+              }
+            />
+            <Route
+              path="/data-management"
+              element={
+                <AdminRoute>
+                  <DataManagement />
+                </AdminRoute>
+              }
             />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
+import { Database, Settings } from "lucide-react";
 export const Navbar = () => {
   const {
     logout,
@@ -30,9 +31,22 @@ export const Navbar = () => {
         </div>
         
         <div className="flex items-center gap-4">
-          {isAdmin() && <Button variant="outline" asChild>
-              <Link to="/admin">Admin</Link>
-            </Button>}
+          {isAdmin() && (
+            <>
+              <Button variant="outline" asChild>
+                <Link to="/admin" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Admin Panel
+                </Link>
+              </Button>
+              <Button variant="default" asChild className="bg-blue-600 hover:bg-blue-700">
+                <Link to="/data-management" className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  Data Management
+                </Link>
+              </Button>
+            </>
+          )}
           
           {/* User Name Display */}
           {user?.fullName && <div className="flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full">
