@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -24,12 +25,20 @@ serve(async (req) => {
       }
     )
 
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     const token = authHeader.replace('Bearer ', '')
     
     // Verify the user is authenticated and is admin
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
     if (authError || !user) {
+      console.error('Auth error:', authError)
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -41,6 +50,7 @@ serve(async (req) => {
     const isAdmin = userMetadata.project_name === 'ADMIN'
     
     if (!isAdmin) {
+      console.error('User is not admin:', user.email, 'metadata:', userMetadata)
       return new Response(JSON.stringify({ error: 'Admin access required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -51,11 +61,14 @@ serve(async (req) => {
     const url = new URL(req.url)
     const action = url.searchParams.get('action')
 
+    console.log(`Processing ${method} request with action: ${action}`)
+
     if (method === 'GET' && action === 'list') {
       // List all auth users
       const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers()
       
       if (error) {
+        console.error('Error listing users:', error)
         throw error
       }
 
@@ -78,7 +91,10 @@ serve(async (req) => {
 
     if (method === 'POST' && action === 'create') {
       // Create new auth user
-      const { email, password, fullName, projectName, role } = await req.json()
+      const body = await req.json()
+      const { email, password, fullName, projectName, role } = body
+
+      console.log('Creating user with:', { email, fullName, role, projectName })
 
       const cleanEmail = (email || '').toString().trim().toLowerCase()
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -94,6 +110,12 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
+      if (!fullName || fullName.trim().length === 0) {
+        return new Response(JSON.stringify({ error: 'Full name is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
 
       const effectiveProjectName = role === 'admin' ? 'ADMIN' : projectName
 
@@ -103,16 +125,19 @@ serve(async (req) => {
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
-          project_name: role === 'admin' ? 'ADMIN' : effectiveProjectName
+          project_name: effectiveProjectName
         }
       })
 
       if (error) {
+        console.error('Error creating user:', error)
         return new Response(JSON.stringify({ error: error.message || 'Failed to create user' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
+
+      console.log('User created successfully:', data.user.email)
 
       // Also insert into public.users table
       const { error: insertError } = await supabaseAdmin
@@ -122,12 +147,13 @@ serve(async (req) => {
           email: data.user.email,
           name: fullName,
           role: role === 'admin' ? 'admin' : 'caller',
-          project_name: role === 'admin' ? 'ADMIN' : effectiveProjectName,
+          project_name: effectiveProjectName,
           status: 'active'
         })
 
       if (insertError) {
         console.error('Error inserting into public.users:', insertError)
+        // Don't fail the request if this fails, the auth user was created successfully
       }
 
       return new Response(JSON.stringify({ 
@@ -137,7 +163,7 @@ serve(async (req) => {
           email: data.user.email,
           name: fullName,
           role: role === 'admin' ? 'admin' : 'caller',
-          project_name: role === 'admin' ? 'ADMIN' : effectiveProjectName
+          project_name: effectiveProjectName
         }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -146,19 +172,37 @@ serve(async (req) => {
 
     if (method === 'PUT' && action === 'update') {
       // Update auth user
-      const { userId, email, fullName, projectName, role } = await req.json()
+      const body = await req.json()
+      const { userId, email, fullName, projectName, role } = body
       
+      console.log('Updating user:', userId, { email, fullName, role, projectName })
+
+      if (!userId || !email || !fullName) {
+        return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      const effectiveProjectName = role === 'admin' ? 'ADMIN' : projectName
+
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
         email,
         user_metadata: {
           full_name: fullName,
-          project_name: role === 'admin' ? 'ADMIN' : projectName
+          project_name: effectiveProjectName
         }
       })
 
       if (error) {
-        throw error
+        console.error('Error updating user:', error)
+        return new Response(JSON.stringify({ error: error.message || 'Failed to update user' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
       }
+
+      console.log('User updated successfully:', data.user.email)
 
       // Also update public.users table
       const { error: updateError } = await supabaseAdmin
@@ -167,7 +211,7 @@ serve(async (req) => {
           email,
           name: fullName,
           role: role === 'admin' ? 'admin' : 'caller',
-          project_name: role === 'admin' ? 'ADMIN' : projectName
+          project_name: effectiveProjectName
         })
         .eq('id', userId)
 
@@ -188,7 +232,7 @@ serve(async (req) => {
           const body = await req.json()
           userId = body?.userId ?? null
         } catch (_) {
-          // ignore parse errors
+          // ignore parse errors for DELETE requests
         }
       }
 
@@ -199,23 +243,30 @@ serve(async (req) => {
         })
       }
 
+      console.log('Deleting user:', userId)
+
+      // First delete from public.users table
+      const { error: deletePublicError } = await supabaseAdmin
+        .from('users')
+        .delete()
+        .eq('id', userId)
+
+      if (deletePublicError) {
+        console.error('Error deleting from public.users:', deletePublicError)
+        // Continue with auth deletion even if this fails
+      }
+
+      // Then delete from auth.users
       const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
       if (error) {
+        console.error('Error deleting auth user:', error)
         return new Response(JSON.stringify({ error: error.message || 'Failed to delete user' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
 
-      // Also delete from public.users table
-      const { error: deleteError } = await supabaseAdmin
-        .from('users')
-        .delete()
-        .eq('id', userId)
-
-      if (deleteError) {
-        console.error('Error deleting from public.users:', deleteError)
-      }
+      console.log('User deleted successfully:', userId)
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -228,8 +279,8 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('Error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Unexpected error:', error)
+    return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })

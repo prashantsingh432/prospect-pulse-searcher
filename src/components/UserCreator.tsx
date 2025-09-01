@@ -163,18 +163,33 @@ export const UserCreator = () => {
       action === 'delete' ? 'DELETE' :
       'POST';
 
-    const response = await fetch(url.toString(), {
+    console.log(`Calling auth function: ${method} ${url.toString()}`, data);
+
+    const requestOptions: RequestInit = {
       method,
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: method === 'GET' || (method === 'DELETE' && url.searchParams.get('userId')) ? undefined : JSON.stringify(data),
-    });
+    };
+
+    // Only add body for non-GET requests and when we have data
+    if (method !== 'GET' && data) {
+      requestOptions.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(url.toString(), requestOptions);
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Request failed');
+      let errorMessage = 'Request failed';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+      } catch (e) {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      console.error('Auth function error:', errorMessage);
+      throw new Error(errorMessage);
     }
 
     return response.json();
@@ -209,32 +224,64 @@ export const UserCreator = () => {
   // Add new auth user via edge function
   const addUser = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!newUserName || !newUserEmail || !newUserPassword || (newUserRole !== 'admin' && !newUserProjectName)) {
+    
+    // Validation
+    if (!newUserName?.trim()) {
       toast({
-        title: "Missing information",
-        description: "Name, valid email, password and project (for callers) are required",
+        title: "Missing Information",
+        description: "Full name is required",
         variant: "destructive",
       });
       return;
     }
-    if (!emailRegex.test(newUserEmail)) {
-      toast({ title: "Invalid email", description: "Please enter a valid email address", variant: "destructive" });
+
+    if (!newUserEmail?.trim() || !emailRegex.test(newUserEmail.trim())) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newUserPassword || newUserPassword.length < 6) {
+      toast({
+        title: "Invalid Password", 
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newUserRole !== 'admin' && (!newUserProjectName?.trim())) {
+      toast({
+        title: "Missing Project Name",
+        description: "Project name is required for caller users",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsLoading(true);
     try {
+      console.log('Creating user with data:', {
+        email: newUserEmail.trim(),
+        fullName: newUserName.trim(),
+        projectName: newUserProjectName?.trim(),
+        role: newUserRole
+      });
+
       await callAuthFunction('create', {
-        email: newUserEmail,
+        email: newUserEmail.trim(),
         password: newUserPassword,
-        fullName: newUserName,
-        projectName: newUserRole === 'admin' ? 'ADMIN' : newUserProjectName,
+        fullName: newUserName.trim(),
+        projectName: newUserRole === 'admin' ? 'ADMIN' : newUserProjectName?.trim(),
         role: newUserRole
       });
 
       toast({
         title: "Success",
-        description: `User ${newUserEmail} created with login credentials`,
+        description: `User ${newUserEmail} created successfully`,
       });
 
       // Reset form
@@ -319,6 +366,7 @@ export const UserCreator = () => {
     try {
       // Delete sequentially to keep service role usage simple and predictable
       for (const id of ids) {
+        console.log('Deleting user:', id);
         await callAuthFunction('delete', { userId: id });
       }
 
