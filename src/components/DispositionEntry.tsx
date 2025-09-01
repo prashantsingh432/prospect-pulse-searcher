@@ -124,21 +124,14 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
       console.log("Calling edge function with data:", requestData);
 
       // Call the edge function to create disposition with proper user data
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-disposition`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
+      const { data: result, error: fnError } = await supabase.functions.invoke('create-disposition', {
+        body: requestData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create disposition');
+      if (fnError) {
+        throw new Error(fnError.message || 'Failed to create disposition');
       }
 
-      const result = await response.json();
       console.log("Disposition created successfully:", result);
 
       toast({

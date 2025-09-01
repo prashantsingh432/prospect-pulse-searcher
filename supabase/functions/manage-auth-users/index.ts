@@ -79,19 +79,39 @@ serve(async (req) => {
     if (method === 'POST' && action === 'create') {
       // Create new auth user
       const { email, password, fullName, projectName, role } = await req.json()
-      
+
+      const cleanEmail = (email || '').toString().trim().toLowerCase()
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(cleanEmail)) {
+        return new Response(JSON.stringify({ error: 'Invalid email format' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      if (!password || password.length < 6) {
+        return new Response(JSON.stringify({ error: 'Password must be at least 6 characters' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      const effectiveProjectName = role === 'admin' ? 'ADMIN' : projectName
+
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email,
+        email: cleanEmail,
         password,
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
-          project_name: role === 'admin' ? 'ADMIN' : projectName
+          project_name: role === 'admin' ? 'ADMIN' : effectiveProjectName
         }
       })
 
       if (error) {
-        throw error
+        return new Response(JSON.stringify({ error: error.message || 'Failed to create user' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
       }
 
       // Also insert into public.users table
@@ -102,7 +122,7 @@ serve(async (req) => {
           email: data.user.email,
           name: fullName,
           role: role === 'admin' ? 'admin' : 'caller',
-          project_name: role === 'admin' ? 'ADMIN' : projectName,
+          project_name: role === 'admin' ? 'ADMIN' : effectiveProjectName,
           status: 'active'
         })
 
@@ -117,7 +137,7 @@ serve(async (req) => {
           email: data.user.email,
           name: fullName,
           role: role === 'admin' ? 'admin' : 'caller',
-          project_name: role === 'admin' ? 'ADMIN' : projectName
+          project_name: role === 'admin' ? 'ADMIN' : effectiveProjectName
         }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -161,13 +181,30 @@ serve(async (req) => {
     }
 
     if (method === 'DELETE' && action === 'delete') {
-      // Delete auth user
-      const { userId } = await req.json()
-      
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      // Delete auth user - accept userId via body or query param
+      let userId: string | null = url.searchParams.get('userId')
+      if (!userId) {
+        try {
+          const body = await req.json()
+          userId = body?.userId ?? null
+        } catch (_) {
+          // ignore parse errors
+        }
+      }
 
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Missing userId' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
       if (error) {
-        throw error
+        return new Response(JSON.stringify({ error: error.message || 'Failed to delete user' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
       }
 
       // Also delete from public.users table

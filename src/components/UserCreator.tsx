@@ -150,6 +150,11 @@ export const UserCreator = () => {
     const url = new URL(`https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/manage-auth-users`);
     url.searchParams.set('action', action);
 
+    // If deleting, also pass userId via query param to avoid DELETE body issues
+    if (action === 'delete' && data?.userId) {
+      url.searchParams.set('userId', data.userId);
+    }
+
     // Use HTTP methods that match the Edge Function's expectations
     const method =
       action === 'list' ? 'GET' :
@@ -164,7 +169,7 @@ export const UserCreator = () => {
         'Authorization': `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: method === 'GET' ? undefined : JSON.stringify(data),
+      body: method === 'GET' || (method === 'DELETE' && url.searchParams.get('userId')) ? undefined : JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -203,12 +208,17 @@ export const UserCreator = () => {
 
   // Add new auth user via edge function
   const addUser = async () => {
-    if (!newUserName || !newUserEmail || !newUserPassword) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!newUserName || !newUserEmail || !newUserPassword || (newUserRole !== 'admin' && !newUserProjectName)) {
       toast({
-        title: "Error",
-        description: "Please fill in all required fields including password",
+        title: "Missing information",
+        description: "Name, valid email, password and project (for callers) are required",
         variant: "destructive",
       });
+      return;
+    }
+    if (!emailRegex.test(newUserEmail)) {
+      toast({ title: "Invalid email", description: "Please enter a valid email address", variant: "destructive" });
       return;
     }
 
