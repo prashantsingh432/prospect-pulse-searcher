@@ -124,9 +124,41 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
       console.log("Calling edge function with data:", requestData);
 
       // Call the edge function to create disposition with proper user data
-      const { data: result, error: fnError } = await supabase.functions.invoke('create-disposition', {
-        body: requestData,
-      });
+      let result: any | null = null;
+      let fnError: any | null = null;
+
+      try {
+        const invokeRes = await supabase.functions.invoke('create-disposition', {
+          body: requestData,
+          headers: {
+            // Explicitly pass auth in case the client doesn't attach it
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        result = invokeRes.data;
+        fnError = invokeRes.error;
+      } catch (e: any) {
+        fnError = e;
+      }
+
+      // Fallback: direct fetch if invoke fails to send the request (CORS/misrouting)
+      if (fnError && /Failed to send a request to the Edge Function/i.test(String(fnError?.message))) {
+        console.warn('Invoke failed, attempting direct fetch fallback for create-disposition');
+        const resp = await fetch('https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/create-disposition', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(requestData),
+        });
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(`Edge function error (${resp.status}): ${text || resp.statusText}`);
+        }
+        result = await resp.json();
+        fnError = null;
+      }
 
       if (fnError) {
         throw new Error(fnError.message || 'Failed to create disposition');
