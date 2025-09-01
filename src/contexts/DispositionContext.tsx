@@ -14,6 +14,7 @@ interface DispositionContextType {
   addRevealedPhone: (prospectId: number, phoneNumber: string) => void;
   markDispositionComplete: (prospectId: number) => void;
   canPerformSearch: () => boolean;
+  canSearchSpecificProspect: (prospectId: number) => boolean;
   getPendingDispositionMessage: () => string;
   clearAllPendingDispositions: () => void;
 }
@@ -147,6 +148,25 @@ export const DispositionProvider = ({ children }: { children: React.ReactNode })
     return !hasPendingDisposition;
   };
 
+  const canSearchSpecificProspect = (prospectId: number) => {
+    // Admin users can always search
+    if (isAdmin()) {
+      return true;
+    }
+    
+    // Non-admin users can search if no pending dispositions OR if searching for the prospect with pending disposition
+    if (!hasPendingDisposition) {
+      return true;
+    }
+    
+    // Check if this specific prospect has a pending disposition (they can search for it)
+    const hasPendingForThisProspect = revealedPhones.some(
+      phone => phone.prospectId === prospectId && phone.dispositionRequired
+    );
+    
+    return hasPendingForThisProspect;
+  };
+
   const getPendingDispositionMessage = () => {
     const pendingCount = revealedPhones.filter(phone => phone.dispositionRequired).length;
     if (pendingCount === 0) {
@@ -166,6 +186,7 @@ export const DispositionProvider = ({ children }: { children: React.ReactNode })
     addRevealedPhone,
     markDispositionComplete,
     canPerformSearch,
+    canSearchSpecificProspect,
     getPendingDispositionMessage,
     clearAllPendingDispositions
   };
