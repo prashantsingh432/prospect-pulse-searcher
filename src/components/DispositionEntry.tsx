@@ -84,10 +84,7 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
     );
   }
 
-  // Only admins can add dispositions via this component
-  if (!isAdmin()) {
-    return null;
-  }
+  // All users can add dispositions
 
   const handleSubmit = async () => {
     if (!selectedDisposition) {

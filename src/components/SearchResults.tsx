@@ -19,7 +19,7 @@ import { EditProspectDialog } from "./EditProspectDialog";
 import { DeleteProspectDialog } from "./DeleteProspectDialog";
 import { DispositionEntry } from "./DispositionEntry";
 import { DispositionHistory } from "./DispositionHistory";
-import { AdminDispositionManager } from "./AdminDispositionManager";
+
 
 // Utility function to format LinkedIn URLs properly
 const formatLinkedInUrl = (url: string): string => {
@@ -682,28 +682,19 @@ Location: ${prospect.location || 'N/A'}`;
                         <TableCell colSpan={9} className="p-0">
                           <div className="px-6 py-4 bg-gray-50/50 border-t">
                             <div className="max-w-4xl">
-                              <DispositionHistory 
-                                prospectId={prospect.id} 
-                                refreshTrigger={dispositionRefresh[`${prospect.id}`]} 
-                              />
-                              <AdminDispositionManager 
-                                prospectId={prospect.id}
-                                onDispositionChange={() => {
-                                  setDispositionRefresh(prev => ({
-                                    ...prev,
-                                    [`${prospect.id}`]: (prev[`${prospect.id}`] || 0) + 1
-                                  }));
-                                }}
-                              />
-                              <DispositionEntry 
-                                prospectId={prospect.id}
-                                onDispositionAdded={() => {
-                                  setDispositionRefresh(prev => ({
-                                    ...prev,
-                                    [`${prospect.id}`]: (prev[`${prospect.id}`] || 0) + 1
-                                  }));
-                                }}
-                              />
+                               <DispositionHistory 
+                                 prospectId={prospect.id} 
+                                 refreshTrigger={dispositionRefresh[`${prospect.id}`]} 
+                               />
+                               <DispositionEntry 
+                                 prospectId={prospect.id}
+                                 onDispositionAdded={() => {
+                                   setDispositionRefresh(prev => ({
+                                     ...prev,
+                                     [`${prospect.id}`]: (prev[`${prospect.id}`] || 0) + 1
+                                   }));
+                                 }}
+                               />
                             </div>
                           </div>
                         </TableCell>
