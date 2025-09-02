@@ -67,7 +67,7 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
   const { user, isAdmin } = useAuth();
   const { markDispositionComplete } = useDisposition();
 
-  // Allow all authenticated users to add dispositions
+  // Only allow admin users to add dispositions
   if (!user) {
     return (
       <Card className="mt-4">
@@ -82,6 +82,11 @@ export function DispositionEntry({ prospectId, onDispositionAdded }: Disposition
         </CardContent>
       </Card>
     );
+  }
+
+  // Only admins can add dispositions via this component
+  if (!isAdmin()) {
+    return null;
   }
 
   const handleSubmit = async () => {

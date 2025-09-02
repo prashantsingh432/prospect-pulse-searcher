@@ -19,6 +19,7 @@ import { EditProspectDialog } from "./EditProspectDialog";
 import { DeleteProspectDialog } from "./DeleteProspectDialog";
 import { DispositionEntry } from "./DispositionEntry";
 import { DispositionHistory } from "./DispositionHistory";
+import { AdminDispositionManager } from "./AdminDispositionManager";
 
 // Utility function to format LinkedIn URLs properly
 const formatLinkedInUrl = (url: string): string => {
@@ -684,6 +685,15 @@ Location: ${prospect.location || 'N/A'}`;
                               <DispositionHistory 
                                 prospectId={prospect.id} 
                                 refreshTrigger={dispositionRefresh[`${prospect.id}`]} 
+                              />
+                              <AdminDispositionManager 
+                                prospectId={prospect.id}
+                                onDispositionChange={() => {
+                                  setDispositionRefresh(prev => ({
+                                    ...prev,
+                                    [`${prospect.id}`]: (prev[`${prospect.id}`] || 0) + 1
+                                  }));
+                                }}
                               />
                               <DispositionEntry 
                                 prospectId={prospect.id}
