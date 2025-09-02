@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Shield, Loader2, Trash2, Plus } from "lucide-react";
+import { Shield, Loader2, Trash2, Plus, Edit } from "lucide-react";
 import { format } from "date-fns";
 
 interface AdminDispositionManagerProps {
@@ -19,7 +20,13 @@ interface AdminDispositionManagerProps {
 
 interface Disposition {
   id: string;
-  disposition_type: string;
+  disposition_type: 'not_interested' | 'not_connected' | 'duplicate_prospect' | 'irrelevant_company' |
+                   'contact_details_irrelevant' | 'not_interested_in_company' | 'reception_call_with_receptionist' |
+                   'hold_for_now' | 'irrelevant_designation' | 'irrelevant_location' | 'do_not_call' |
+                   'contract_renewal_year' | 'long_term_contract' | 'no_requirements' | 'call_back' |
+                   'follow_up' | 'mail_sent' | 'meeting_scheduled' | 'meeting_successful' | 'meeting_cancel' |
+                   'using_our_services' | 'already_in_touch_with_team' | 'person_irrelevant' |
+                   'wrong_number' | 'dnc' | 'call_back_later' | 'not_relevant' | 'others';
   custom_reason: string | null;
   created_at: string;
   user_id: string;
@@ -95,6 +102,11 @@ export function AdminDispositionManager({ prospectId, onDispositionChange }: Adm
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dispositions, setDispositions] = useState<Disposition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingDisposition, setEditingDisposition] = useState<Disposition | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editSelectedDisposition, setEditSelectedDisposition] = useState<string>("");
+  const [editCustomReason, setEditCustomReason] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
 
@@ -267,6 +279,69 @@ export function AdminDispositionManager({ prospectId, onDispositionChange }: Adm
     }
   };
 
+  const handleEditDisposition = (disposition: Disposition) => {
+    setEditingDisposition(disposition);
+    setEditSelectedDisposition(disposition.disposition_type);
+    setEditCustomReason(disposition.custom_reason || "");
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateDisposition = async () => {
+    if (!editingDisposition || !editSelectedDisposition) {
+      toast({
+        title: "Error",
+        description: "Please select a disposition",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editSelectedDisposition === "others" && !editCustomReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide a reason for 'Others'",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      const { error } = await supabase
+        .from("dispositions")
+        .update({
+          disposition_type: editSelectedDisposition,
+          custom_reason: editSelectedDisposition === "others" ? editCustomReason.trim() : null,
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq("id", editingDisposition.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Disposition updated successfully",
+      });
+
+      setEditDialogOpen(false);
+      setEditingDisposition(null);
+      setEditSelectedDisposition("");
+      setEditCustomReason("");
+      fetchDispositions();
+      onDispositionChange();
+    } catch (error) {
+      console.error("Error updating disposition:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update disposition",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <Card className="mt-4 border-orange-200 bg-orange-50/50">
       <CardHeader>
@@ -346,6 +421,11 @@ export function AdminDispositionManager({ prospectId, onDispositionChange }: Adm
                     <Badge variant="outline">
                       {dispositionLabels[disposition.disposition_type]}
                     </Badge>
+                    {disposition.custom_reason && (
+                      <span className="text-sm text-muted-foreground italic">
+                        "{disposition.custom_reason}"
+                      </span>
+                    )}
                     <span className="text-sm text-muted-foreground">
                       {format(new Date(disposition.created_at), "dd MMM h:mmaaa")}
                     </span>
@@ -353,39 +433,111 @@ export function AdminDispositionManager({ prospectId, onDispositionChange }: Adm
                       by {disposition.user_name || 'Unknown User'}
                     </span>
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Disposition</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete this disposition? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={() => handleDeleteDisposition(disposition.id)}
-                          className="bg-red-600 hover:bg-red-700"
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleEditDisposition(disposition)}
+                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
                         >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Disposition</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this disposition? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteDisposition(disposition.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {/* Edit Disposition Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Disposition</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="editDisposition">Disposition</Label>
+                <Select value={editSelectedDisposition} onValueChange={setEditSelectedDisposition}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select disposition reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dispositionOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editSelectedDisposition === "others" && (
+                <div className="space-y-2">
+                  <Label htmlFor="editCustomReason">Reason</Label>
+                  <Textarea
+                    id="editCustomReason"
+                    placeholder="Please specify the reason..."
+                    value={editCustomReason}
+                    onChange={(e) => setEditCustomReason(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setEditDialogOpen(false)}
+                  disabled={isUpdating}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleUpdateDisposition}
+                  disabled={!editSelectedDisposition || isUpdating}
+                >
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Disposition"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
