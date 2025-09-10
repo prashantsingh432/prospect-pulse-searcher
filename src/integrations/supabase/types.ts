@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -145,8 +145,8 @@ export type Database = {
           custom_reason: string | null
           disposition_type: Database["public"]["Enums"]["disposition_type"]
           id: string
-          prospect_id: number
           project_name: string | null
+          prospect_id: number
           updated_at: string
           user_id: string
           user_name: string | null
@@ -156,8 +156,8 @@ export type Database = {
           custom_reason?: string | null
           disposition_type: Database["public"]["Enums"]["disposition_type"]
           id?: string
-          prospect_id: number
           project_name?: string | null
+          prospect_id: number
           updated_at?: string
           user_id: string
           user_name?: string | null
@@ -167,8 +167,8 @@ export type Database = {
           custom_reason?: string | null
           disposition_type?: Database["public"]["Enums"]["disposition_type"]
           id?: string
-          prospect_id?: number
           project_name?: string | null
+          prospect_id?: number
           updated_at?: string
           user_id?: string
           user_name?: string | null
@@ -534,6 +534,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          last_login: string | null
+          project: string | null
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id: string
+          last_login?: string | null
+          project?: string | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          last_login?: string | null
+          project?: string | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           email: string
@@ -569,6 +602,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_delete_user_cascade: {
+        Args: { user_id_param: string }
+        Returns: boolean
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -576,6 +613,10 @@ export type Database = {
       get_user_role_safe: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       sync_user_profile: {
         Args: Record<PropertyKey, never>
@@ -590,6 +631,28 @@ export type Database = {
         | "call_back_later"
         | "not_relevant"
         | "others"
+        | "not_connected"
+        | "duplicate_prospect"
+        | "irrelevant_company"
+        | "contact_details_irrelevant"
+        | "not_interested_in_company"
+        | "reception_call_with_receptionist"
+        | "hold_for_now"
+        | "irrelevant_designation"
+        | "irrelevant_location"
+        | "do_not_call"
+        | "contract_renewal_year"
+        | "long_term_contract"
+        | "no_requirements"
+        | "call_back"
+        | "follow_up"
+        | "mail_sent"
+        | "meeting_scheduled"
+        | "meeting_successful"
+        | "meeting_cancel"
+        | "using_our_services"
+        | "already_in_touch_with_team"
+        | "person_irrelevant"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -724,6 +787,28 @@ export const Constants = {
         "call_back_later",
         "not_relevant",
         "others",
+        "not_connected",
+        "duplicate_prospect",
+        "irrelevant_company",
+        "contact_details_irrelevant",
+        "not_interested_in_company",
+        "reception_call_with_receptionist",
+        "hold_for_now",
+        "irrelevant_designation",
+        "irrelevant_location",
+        "do_not_call",
+        "contract_renewal_year",
+        "long_term_contract",
+        "no_requirements",
+        "call_back",
+        "follow_up",
+        "mail_sent",
+        "meeting_scheduled",
+        "meeting_successful",
+        "meeting_cancel",
+        "using_our_services",
+        "already_in_touch_with_team",
+        "person_irrelevant",
       ],
     },
   },
