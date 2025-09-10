@@ -264,20 +264,21 @@ serve(async (req) => {
           console.log('Deleting user:', userInfo?.user?.email || userId)
         }
 
-        // Delete from public.users table first
-        const { error: deletePublicError } = await supabaseAdmin
-          .from('users')
-          .delete()
-          .eq('id', userId)
+        // Use the cascade delete function to clean up all related data first
+        console.log('Calling admin_delete_user_cascade function for userId:', userId)
+        const { data: cascadeResult, error: cascadeError } = await supabaseAdmin.rpc('admin_delete_user_cascade', {
+          user_id_param: userId
+        })
 
-        if (deletePublicError) {
-          console.error('Error deleting from public.users table:', deletePublicError)
-          // Continue with auth deletion even if this fails
+        if (cascadeError) {
+          console.error('Error in cascade delete function:', cascadeError)
+          // Still try to continue with auth user deletion
         } else {
-          console.log('Successfully deleted from public.users table')
+          console.log('Cascade delete function result:', cascadeResult)
         }
 
         // Then delete from auth.users
+        console.log('Attempting to delete from auth.users:', userId)
         const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId)
         if (deleteAuthError) {
           console.error('Error deleting from auth.users:', deleteAuthError)
