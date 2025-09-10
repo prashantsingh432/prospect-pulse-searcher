@@ -227,50 +227,86 @@ serve(async (req) => {
     if (method === 'DELETE' && action === 'delete') {
       // Delete auth user - accept userId via body or query param
       let userId: string | null = url.searchParams.get('userId')
+      
+      console.log('DELETE request received:', { 
+        method, 
+        action, 
+        userIdFromQuery: userId,
+        url: req.url 
+      })
+
       if (!userId) {
         try {
           const body = await req.json()
           userId = body?.userId ?? null
-        } catch (_) {
-          // ignore parse errors for DELETE requests
+          console.log('Got userId from body:', userId)
+        } catch (e) {
+          console.log('No body or invalid JSON in DELETE request:', e.message)
         }
       }
 
       if (!userId) {
-        return new Response(JSON.stringify({ error: 'Missing userId' }), {
+        console.error('Missing userId in DELETE request')
+        return new Response(JSON.stringify({ error: 'Missing userId parameter' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
 
-      console.log('Deleting user:', userId)
+      console.log('Attempting to delete user:', userId)
 
-      // First delete from public.users table
-      const { error: deletePublicError } = await supabaseAdmin
-        .from('users')
-        .delete()
-        .eq('id', userId)
+      try {
+        // First get user info before deletion for logging
+        const { data: userInfo, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId)
+        if (getUserError) {
+          console.log('Warning: Could not get user info before deletion:', getUserError.message)
+        } else {
+          console.log('Deleting user:', userInfo?.user?.email || userId)
+        }
 
-      if (deletePublicError) {
-        console.error('Error deleting from public.users:', deletePublicError)
-        // Continue with auth deletion even if this fails
-      }
+        // Delete from public.users table first
+        const { error: deletePublicError } = await supabaseAdmin
+          .from('users')
+          .delete()
+          .eq('id', userId)
 
-      // Then delete from auth.users
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
-      if (error) {
-        console.error('Error deleting auth user:', error)
-        return new Response(JSON.stringify({ error: error.message || 'Failed to delete user' }), {
+        if (deletePublicError) {
+          console.error('Error deleting from public.users table:', deletePublicError)
+          // Continue with auth deletion even if this fails
+        } else {
+          console.log('Successfully deleted from public.users table')
+        }
+
+        // Then delete from auth.users
+        const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+        if (deleteAuthError) {
+          console.error('Error deleting from auth.users:', deleteAuthError)
+          return new Response(JSON.stringify({ 
+            error: `Failed to delete user from authentication: ${deleteAuthError.message}` 
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          })
+        }
+
+        console.log('Successfully deleted user from auth.users:', userId)
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: `User ${userInfo?.user?.email || userId} deleted successfully` 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+
+      } catch (deleteError) {
+        console.error('Unexpected error during user deletion:', deleteError)
+        return new Response(JSON.stringify({ 
+          error: `Database error deleting user: ${deleteError.message}` 
+        }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
-
-      console.log('User deleted successfully:', userId)
-
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
     }
 
     return new Response(JSON.stringify({ error: 'Invalid action' }), {

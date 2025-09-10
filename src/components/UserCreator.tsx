@@ -163,7 +163,7 @@ export const UserCreator = () => {
       action === 'delete' ? 'DELETE' :
       'POST';
 
-    console.log(`Calling auth function: ${method} ${url.toString()}`, data);
+    console.log(`Calling auth function: ${method} ${url.toString()}`, { action, data });
 
     const requestOptions: RequestInit = {
       method,
@@ -180,19 +180,25 @@ export const UserCreator = () => {
 
     const response = await fetch(url.toString(), requestOptions);
 
+    console.log(`Response status: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
       let errorMessage = 'Request failed';
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+        console.error('API Error Details:', errorData);
       } catch (e) {
         errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        console.error('Failed to parse error response:', e);
       }
       console.error('Auth function error:', errorMessage);
       throw new Error(errorMessage);
     }
 
-    return response.json();
+    const responseData = await response.json();
+    console.log('Auth function success response:', responseData);
+    return responseData;
   };
 
   // Fetch users from auth.users via edge function
