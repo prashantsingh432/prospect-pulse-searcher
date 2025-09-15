@@ -51,9 +51,33 @@ serve(async (req) => {
       })
     }
 
-    // Verify password using bcrypt
-    const bcrypt = await import('https://deno.land/x/bcrypt@v0.4.1/mod.ts')
-    const isValidPassword = await bcrypt.compare(password, user.password_hash)
+    // Verify password using Web Crypto API compatible hash
+    const encoder = new TextEncoder()
+    const passwordData = encoder.encode(password)
+    const saltData = encoder.encode(user.email) // Use email as salt for simplicity
+    
+    const key = await crypto.subtle.importKey(
+      'raw',
+      passwordData,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits']
+    )
+    
+    const derivedKey = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: saltData,
+        iterations: 100000,
+        hash: 'SHA-256'
+      },
+      key,
+      256
+    )
+    
+    const hashArray = Array.from(new Uint8Array(derivedKey))
+    const generatedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    const isValidPassword = generatedHash === user.password_hash
 
     if (!isValidPassword) {
       console.log('Invalid password for user:', email)
@@ -65,7 +89,7 @@ serve(async (req) => {
 
     // Create JWT token
     const JWT_SECRET = Deno.env.get('JWT_SECRET') || 'your-secret-key'
-    const key = await crypto.subtle.importKey(
+    const jwtKey = await crypto.subtle.importKey(
       'raw',
       new TextEncoder().encode(JWT_SECRET),
       { name: 'HMAC', hash: 'SHA-256' },
@@ -79,7 +103,7 @@ serve(async (req) => {
       exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
     }
 
-    const token = await create({ alg: 'HS256', typ: 'JWT' }, payload, key)
+    const token = await create({ alg: 'HS256', typ: 'JWT' }, payload, jwtKey)
 
     console.log('Login successful for user:', email)
 
