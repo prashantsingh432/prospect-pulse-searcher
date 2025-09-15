@@ -87,6 +87,74 @@ export type Database = {
           },
         ]
       }
+      chrome_extension_users: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          password_hash: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          password_hash: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          password_hash?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      chrome_prospects: {
+        Row: {
+          company: string | null
+          created_at: string | null
+          id: string
+          job_title: string | null
+          linkedin_url: string
+          location: string | null
+          name: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string | null
+          id?: string
+          job_title?: string | null
+          linkedin_url: string
+          location?: string | null
+          name: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string | null
+          id?: string
+          job_title?: string | null
+          linkedin_url?: string
+          location?: string | null
+          name?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chrome_prospects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "chrome_extension_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credits_log: {
         Row: {
           action: string
