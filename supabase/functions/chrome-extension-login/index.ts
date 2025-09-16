@@ -51,31 +51,13 @@ serve(async (req) => {
       })
     }
 
-    // Verify password using Web Crypto API compatible hash
+    // Verify password using same SHA-256 approach as database migration
     const encoder = new TextEncoder()
-    const passwordData = encoder.encode(password)
-    const saltData = encoder.encode(user.email) // Use email as salt for simplicity
+    const hashInput = password + user.email + 'salt123'
+    const hashData = encoder.encode(hashInput)
     
-    const key = await crypto.subtle.importKey(
-      'raw',
-      passwordData,
-      { name: 'PBKDF2' },
-      false,
-      ['deriveBits']
-    )
-    
-    const derivedKey = await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        salt: saltData,
-        iterations: 100000,
-        hash: 'SHA-256'
-      },
-      key,
-      256
-    )
-    
-    const hashArray = Array.from(new Uint8Array(derivedKey))
+    const hashBuffer = await crypto.subtle.digest('SHA-256', hashData)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
     const generatedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
     const isValidPassword = generatedHash === user.password_hash
 
