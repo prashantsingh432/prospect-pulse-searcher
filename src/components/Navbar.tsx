@@ -16,10 +16,10 @@ export const Navbar = () => {
   return <nav className="bg-white shadow-sm border-b">
       <div className="container flex justify-between items-center mx-auto py-[10px] px-[16px]">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
             <img src="/lovable-uploads/4ffa38c9-418b-49d3-8fd5-2838eb38f484.png" alt="AltLeads Logo" className="w-[110px] h-auto" />
             <h1 className="text-xl font-bold text-[#0000ff]">Prospect Finder</h1>
-          </div>
+          </Link>
           
           {/* Project Name Display */}
           {user?.projectName && <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full">
