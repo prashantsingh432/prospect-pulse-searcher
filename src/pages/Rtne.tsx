@@ -218,24 +218,40 @@ const Rtne: React.FC = () => {
   const insertRowAbove = () => {
     const targetIndex = rows.findIndex(row => row.id === contextMenu.rowId);
     if (targetIndex !== -1) {
-      const newRow = makeEmptyRow(nextIdRef.current++);
-      setRows(prev => [
-        ...prev.slice(0, targetIndex),
-        newRow,
-        ...prev.slice(targetIndex)
-      ]);
+      // Renumber all rows to maintain sequential numbering
+      const newRows = [...rows];
+      // Insert new row with the target row's number
+      const newRow = makeEmptyRow(rows[targetIndex].id);
+      newRows.splice(targetIndex, 0, newRow);
+      
+      // Renumber subsequent rows
+      for (let i = targetIndex + 1; i < newRows.length; i++) {
+        newRows[i] = { ...newRows[i], id: newRows[i - 1].id + 1 };
+      }
+      
+      setRows(newRows);
+      // Update nextIdRef to the highest ID + 1
+      nextIdRef.current = Math.max(...newRows.map(r => r.id)) + 1;
     }
   };
 
   const insertRowBelow = () => {
     const targetIndex = rows.findIndex(row => row.id === contextMenu.rowId);
     if (targetIndex !== -1) {
-      const newRow = makeEmptyRow(nextIdRef.current++);
-      setRows(prev => [
-        ...prev.slice(0, targetIndex + 1),
-        newRow,
-        ...prev.slice(targetIndex + 1)
-      ]);
+      // Renumber all rows to maintain sequential numbering
+      const newRows = [...rows];
+      // Insert new row with the next sequential number
+      const newRow = makeEmptyRow(rows[targetIndex].id + 1);
+      newRows.splice(targetIndex + 1, 0, newRow);
+      
+      // Renumber subsequent rows
+      for (let i = targetIndex + 2; i < newRows.length; i++) {
+        newRows[i] = { ...newRows[i], id: newRows[i - 1].id + 1 };
+      }
+      
+      setRows(newRows);
+      // Update nextIdRef to the highest ID + 1
+      nextIdRef.current = Math.max(...newRows.map(r => r.id)) + 1;
     }
   };
 
@@ -852,6 +868,13 @@ const Rtne: React.FC = () => {
                             }
                           }}
                           onKeyDown={(e) => {
+                            // Handle delete/backspace for clearing cells when not editing
+                            if (!isCurrentlyEditing && (e.key === 'Delete' || e.key === 'Backspace')) {
+                              e.preventDefault();
+                              handleChange(row.id, field, '');
+                              return;
+                            }
+                            
                             // Stop propagation to prevent global handler from interfering
                             e.stopPropagation();
                             
