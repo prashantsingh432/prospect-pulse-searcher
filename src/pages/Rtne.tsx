@@ -868,13 +868,6 @@ const Rtne: React.FC = () => {
                             }
                           }}
                           onKeyDown={(e) => {
-                            // Handle delete/backspace for clearing cells when not editing
-                            if (!isCurrentlyEditing && (e.key === 'Delete' || e.key === 'Backspace')) {
-                              e.preventDefault();
-                              handleChange(row.id, field, '');
-                              return;
-                            }
-                            
                             // Stop propagation to prevent global handler from interfering
                             e.stopPropagation();
                             
