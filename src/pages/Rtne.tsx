@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle, Star, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, RotateCcw, RotateCw, Printer, Bold, Italic, Underline, Link, MessageSquare, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle } from "lucide-react";
+import RowContextMenu from "@/components/RowContextMenu";
 
 interface RtneRow {
   id: number;
@@ -62,6 +63,26 @@ const Rtne: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectionStart, setSelectionStart] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
   const [isShiftHeld, setIsShiftHeld] = useState(false);
+  
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    rowId: number;
+  }>({
+    isOpen: false,
+    position: { x: 0, y: 0 },
+    rowId: 0
+  });
+  
+  // Clipboard state for row operations
+  const [clipboardRow, setClipboardRow] = useState<RtneRow | null>(null);
+  const [clipboardOperation, setClipboardOperation] = useState<'copy' | 'cut' | null>(null);
+  
+  // Visual feedback for cut rows
+  const isRowCut = (rowId: number) => {
+    return clipboardOperation === 'cut' && clipboardRow?.id === rowId;
+  };
 
   const projectName = user?.projectName || "Unknown Project";
 
@@ -178,6 +199,103 @@ const Rtne: React.FC = () => {
         firstNewRowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 100);
+  };
+
+  // Context menu and row manipulation functions
+  const handleRowRightClick = (e: React.MouseEvent, rowId: number) => {
+    e.preventDefault();
+    setContextMenu({
+      isOpen: true,
+      position: { x: e.clientX, y: e.clientY },
+      rowId
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const insertRowAbove = () => {
+    const targetIndex = rows.findIndex(row => row.id === contextMenu.rowId);
+    if (targetIndex !== -1) {
+      const newRow = makeEmptyRow(nextIdRef.current++);
+      setRows(prev => [
+        ...prev.slice(0, targetIndex),
+        newRow,
+        ...prev.slice(targetIndex)
+      ]);
+    }
+  };
+
+  const insertRowBelow = () => {
+    const targetIndex = rows.findIndex(row => row.id === contextMenu.rowId);
+    if (targetIndex !== -1) {
+      const newRow = makeEmptyRow(nextIdRef.current++);
+      setRows(prev => [
+        ...prev.slice(0, targetIndex + 1),
+        newRow,
+        ...prev.slice(targetIndex + 1)
+      ]);
+    }
+  };
+
+  const deleteRow = () => {
+    setRows(prev => prev.filter(row => row.id !== contextMenu.rowId));
+  };
+
+  const clearRow = () => {
+    setRows(prev => prev.map(row => 
+      row.id === contextMenu.rowId 
+        ? makeEmptyRow(row.id)
+        : row
+    ));
+  };
+
+  const copyRow = () => {
+    const targetRow = rows.find(row => row.id === contextMenu.rowId);
+    if (targetRow) {
+      setClipboardRow(targetRow);
+      setClipboardOperation('copy');
+    }
+  };
+
+  const cutRow = () => {
+    const targetRow = rows.find(row => row.id === contextMenu.rowId);
+    if (targetRow) {
+      setClipboardRow(targetRow);
+      setClipboardOperation('cut');
+    }
+  };
+
+  const pasteRow = () => {
+    if (clipboardRow) {
+      const targetIndex = rows.findIndex(row => row.id === contextMenu.rowId);
+      if (targetIndex !== -1) {
+        const newRow = { ...clipboardRow, id: nextIdRef.current++ };
+        
+        if (clipboardOperation === 'cut') {
+          // Remove the original row and insert the new one
+          setRows(prev => {
+            const filteredRows = prev.filter(row => row.id !== clipboardRow.id);
+            const adjustedIndex = filteredRows.findIndex(row => row.id === contextMenu.rowId);
+            return [
+              ...filteredRows.slice(0, adjustedIndex),
+              newRow,
+              ...filteredRows.slice(adjustedIndex)
+            ];
+          });
+          setClipboardRow(null);
+          setClipboardOperation(null);
+        } else {
+          // Copy operation - just insert
+          setRows(prev => [
+            ...prev.slice(0, targetIndex),
+            newRow,
+            ...prev.slice(targetIndex)
+          ]);
+        }
+      }
+    }
   };
 
   const handleQuickAdd = (count: number) => {
@@ -360,6 +478,52 @@ const Rtne: React.FC = () => {
         case 'Backspace':
           e.preventDefault();
           deleteSelectedCells();
+          break;
+        default:
+          // Handle Ctrl+C, Ctrl+X, Ctrl+V for row operations
+          if (e.ctrlKey || e.metaKey) {
+            if (e.key === 'c' && selectedCell) {
+              e.preventDefault();
+              const targetRow = rows.find(row => row.id === selectedCell.rowId);
+              if (targetRow) {
+                setClipboardRow(targetRow);
+                setClipboardOperation('copy');
+              }
+            } else if (e.key === 'x' && selectedCell) {
+              e.preventDefault();
+              const targetRow = rows.find(row => row.id === selectedCell.rowId);
+              if (targetRow) {
+                setClipboardRow(targetRow);
+                setClipboardOperation('cut');
+              }
+            } else if (e.key === 'v' && selectedCell && clipboardRow) {
+              e.preventDefault();
+              const targetIndex = rows.findIndex(row => row.id === selectedCell.rowId);
+              if (targetIndex !== -1) {
+                const newRow = { ...clipboardRow, id: nextIdRef.current++ };
+                
+                if (clipboardOperation === 'cut') {
+                  setRows(prev => {
+                    const filteredRows = prev.filter(row => row.id !== clipboardRow.id);
+                    const adjustedIndex = filteredRows.findIndex(row => row.id === selectedCell.rowId);
+                    return [
+                      ...filteredRows.slice(0, adjustedIndex),
+                      newRow,
+                      ...filteredRows.slice(adjustedIndex)
+                    ];
+                  });
+                  setClipboardRow(null);
+                  setClipboardOperation(null);
+                } else {
+                  setRows(prev => [
+                    ...prev.slice(0, targetIndex),
+                    newRow,
+                    ...prev.slice(targetIndex)
+                  ]);
+                }
+              }
+            }
+          }
           break;
       }
     } else {
@@ -643,8 +807,11 @@ const Rtne: React.FC = () => {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="group hover:bg-blue-50/50" data-row-id={row.id}>
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10">
+                <tr key={row.id} className={`group hover:bg-blue-50/50 ${isRowCut(row.id) ? 'opacity-50 bg-red-50' : ''}`} data-row-id={row.id}>
+                  <td 
+                    className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10 cursor-context-menu select-none"
+                    onContextMenu={(e) => handleRowRightClick(e, row.id)}
+                  >
                     {row.id}
                   </td>
                   {fieldOrder.map((field) => {
@@ -814,6 +981,21 @@ const Rtne: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Context Menu */}
+      <RowContextMenu
+        isOpen={contextMenu.isOpen}
+        position={contextMenu.position}
+        onClose={closeContextMenu}
+        onInsertRowAbove={insertRowAbove}
+        onInsertRowBelow={insertRowBelow}
+        onDeleteRow={deleteRow}
+        onClearRow={clearRow}
+        onCopyRow={copyRow}
+        onCutRow={cutRow}
+        onPasteRow={pasteRow}
+        rowNumber={contextMenu.rowId}
+      />
     </div>
   );
 };
