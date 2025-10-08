@@ -600,7 +600,7 @@ const Rtne: React.FC = () => {
   const handleCellClick = useCallback((e: React.MouseEvent, rowId: number, field: keyof RtneRow) => {
     const newSelectedCell = { rowId, field };
     setSelectedCell(newSelectedCell);
-    setIsEditing(false);
+    setIsEditing(true); // Enable editing immediately on click
     
     if (e.shiftKey && selectionStart) {
       // Extend selection
@@ -746,7 +746,7 @@ const Rtne: React.FC = () => {
 
       {/* Spreadsheet Table */}
       <main className="max-w-full mx-auto p-0">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
           <table className="w-full border-collapse border border-gray-300">
             <thead className="bg-gray-200">
               <tr>
@@ -852,13 +852,10 @@ const Rtne: React.FC = () => {
                           type={field === 'prospect_email' ? 'email' : 'text'}
                           value={cellValue}
                           onChange={(e) => handleChange(row.id, field, e.target.value)}
-                          readOnly={!isCurrentlyEditing}
                           onFocus={() => {
-                            if (!isCurrentlyEditing) {
-                              setSelectedCell({ rowId: row.id, field });
-                              setSelectionStart({ rowId: row.id, field });
-                              setIsEditing(true);
-                            }
+                            setSelectedCell({ rowId: row.id, field });
+                            setSelectionStart({ rowId: row.id, field });
+                            setIsEditing(true);
                           }}
                           onBlur={(e) => {
                             // Only blur if not moving to another input
