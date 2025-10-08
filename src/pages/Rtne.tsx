@@ -19,6 +19,7 @@ interface RtneRow {
   prospect_number4?: string;
   prospect_designation?: string;
   status?: 'ready' | 'pending' | 'processing' | 'completed' | 'failed';
+  supabaseId?: string; // Store the Supabase UUID for updates
 }
 
 const Rtne: React.FC = () => {
@@ -55,6 +56,8 @@ const Rtne: React.FC = () => {
   const [newRowsCount, setNewRowsCount] = useState("100");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingRowsCount, setPendingRowsCount] = useState(0);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const saveTimeoutRef = useRef<{[key: string]: NodeJS.Timeout}>({});
   
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
@@ -100,7 +103,54 @@ const Rtne: React.FC = () => {
     'prospect_number4'
   ];
 
+  // Load data from Supabase on mount
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoadingData(true);
+        const { data: masterProspects, error } = await supabase
+          .from('master_prospects')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        if (masterProspects && masterProspects.length > 0) {
+          // Map Supabase data to RtneRow format
+          const loadedRows: RtneRow[] = masterProspects.map((prospect, index) => ({
+            id: index + 1,
+            prospect_linkedin: prospect.canonical_url || '',
+            full_name: prospect.full_name || '',
+            company_name: prospect.company_name || '',
+            prospect_city: prospect.prospect_city || '',
+            prospect_number: prospect.prospect_number || '',
+            prospect_email: prospect.prospect_email || '',
+            prospect_number2: prospect.prospect_number2 || '',
+            prospect_number3: prospect.prospect_number3 || '',
+            prospect_number4: prospect.prospect_number4 || '',
+            prospect_designation: prospect.prospect_designation || '',
+            supabaseId: prospect.id // Store Supabase ID for updates
+          }));
+
+          // Add empty rows to reach at least 100 rows
+          const emptyRowsNeeded = Math.max(0, 100 - loadedRows.length);
+          const emptyRows: RtneRow[] = [];
+          for (let i = 0; i < emptyRowsNeeded; i++) {
+            emptyRows.push(makeEmptyRow(loadedRows.length + i + 1));
+          }
+
+          setRows([...loadedRows, ...emptyRows]);
+          nextIdRef.current = loadedRows.length + emptyRows.length + 1;
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadData();
+
     // Basic SEO for the page
     const title = "LinkedIn Prospects | RTNE";
     document.title = title;
@@ -116,10 +166,70 @@ const Rtne: React.FC = () => {
     document.head.appendChild(link);
   }, []);
 
-  const handleChange = (rowId: number, field: keyof RtneRow, value: string) => {
+  const handleChange = async (rowId: number, field: keyof RtneRow, value: string) => {
+    // Update local state immediately
     setRows(prev => prev.map(row => 
       row.id === rowId ? { ...row, [field]: value } : row
     ));
+
+    // Debounce the Supabase save
+    const cellKey = `${rowId}-${field}`;
+    if (saveTimeoutRef.current[cellKey]) {
+      clearTimeout(saveTimeoutRef.current[cellKey]);
+    }
+
+    saveTimeoutRef.current[cellKey] = setTimeout(async () => {
+      const row = rows.find(r => r.id === rowId);
+      if (!row) return;
+
+      try {
+        // Map RtneRow fields to master_prospects columns
+        const prospectData: any = {
+          full_name: field === 'full_name' ? value : row.full_name,
+          company_name: field === 'company_name' ? value : row.company_name,
+          prospect_city: field === 'prospect_city' ? value : row.prospect_city,
+          prospect_number: field === 'prospect_number' ? value : row.prospect_number,
+          prospect_email: field === 'prospect_email' ? value : row.prospect_email,
+          prospect_number2: field === 'prospect_number2' ? value : row.prospect_number2,
+          prospect_number3: field === 'prospect_number3' ? value : row.prospect_number3,
+          prospect_number4: field === 'prospect_number4' ? value : row.prospect_number4,
+          prospect_designation: field === 'prospect_designation' ? value : row.prospect_designation,
+          canonical_url: field === 'prospect_linkedin' ? value : row.prospect_linkedin,
+          linkedin_id: field === 'prospect_linkedin' ? value.split('/').filter(Boolean).pop() || '' : row.prospect_linkedin?.split('/').filter(Boolean).pop() || '',
+          created_by: user?.id,
+          updated_at: new Date().toISOString()
+        };
+
+        // Check if row has a Supabase ID (existing record)
+        if ((row as any).supabaseId) {
+          // Update existing record
+          const { error } = await supabase
+            .from('master_prospects')
+            .update(prospectData)
+            .eq('id', (row as any).supabaseId);
+
+          if (error) throw error;
+        } else {
+          // Insert new record
+          const { data, error } = await supabase
+            .from('master_prospects')
+            .insert([prospectData])
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          // Store the Supabase ID for future updates
+          if (data) {
+            setRows(prev => prev.map(r => 
+              r.id === rowId ? { ...r, supabaseId: data.id } as any : r
+            ));
+          }
+        }
+      } catch (error) {
+        console.error('Error saving to Supabase:', error);
+      }
+    }, 1000); // Save after 1 second of no typing
   };
 
   const handleSubmit = async () => {
@@ -255,11 +365,51 @@ const Rtne: React.FC = () => {
     }
   };
 
-  const deleteRow = () => {
+  const deleteRow = async () => {
+    const row = rows.find(r => r.id === contextMenu.rowId);
+    if (row && (row as any).supabaseId) {
+      // Delete from Supabase if it exists there
+      try {
+        const { error } = await supabase
+          .from('master_prospects')
+          .delete()
+          .eq('id', (row as any).supabaseId);
+        
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error deleting from Supabase:', error);
+      }
+    }
     setRows(prev => prev.filter(row => row.id !== contextMenu.rowId));
   };
 
-  const clearRow = () => {
+  const clearRow = async () => {
+    const row = rows.find(r => r.id === contextMenu.rowId);
+    if (row && (row as any).supabaseId) {
+      // Update in Supabase to clear all fields
+      try {
+        const { error } = await supabase
+          .from('master_prospects')
+          .update({
+            full_name: '',
+            company_name: '',
+            prospect_city: '',
+            prospect_number: '',
+            prospect_email: '',
+            prospect_number2: '',
+            prospect_number3: '',
+            prospect_number4: '',
+            prospect_designation: '',
+            canonical_url: '',
+            linkedin_id: ''
+          })
+          .eq('id', (row as any).supabaseId);
+        
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error clearing row in Supabase:', error);
+      }
+    }
     setRows(prev => prev.map(row => 
       row.id === contextMenu.rowId 
         ? makeEmptyRow(row.id)
@@ -746,7 +896,13 @@ const Rtne: React.FC = () => {
 
       {/* Spreadsheet Table */}
       <main className="max-w-full mx-auto p-0">
-        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+        {isLoadingData ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="w-8 h-8 animate-spin text-[#0A66C2]" />
+            <span className="ml-2 text-gray-600">Loading your data...</span>
+          </div>
+        ) : (
+          <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
           <table className="w-full border-collapse border border-gray-300">
             <thead className="bg-gray-200">
               <tr>
@@ -905,6 +1061,7 @@ const Rtne: React.FC = () => {
             </tbody>
           </table>
         </div>
+        )}
 
         {/* Row Management Controls */}
         <div className="bg-white border-t border-gray-300 p-4 flex items-center justify-between">
