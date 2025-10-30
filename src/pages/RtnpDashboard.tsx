@@ -33,33 +33,52 @@ export const RtnpDashboard: React.FC = () => {
   const loadProjectStats = async () => {
     setIsLoading(true);
     try {
-      // Get all requests grouped by project
-      const { data, error } = await supabase
+      // Get all unique projects from users table
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('project_name')
+        .not('project_name', 'is', null)
+        .neq('project_name', 'ADMIN');
+
+      if (usersError) throw usersError;
+
+      // Get unique project names
+      const uniqueProjects = [...new Set(usersData?.map(u => u.project_name).filter(Boolean))];
+
+      // Get all requests to count pending/completed per project
+      const { data: requestsData, error: requestsError } = await supabase
         .from('rtne_requests')
         .select('project_name, status');
 
-      if (error) throw error;
+      if (requestsError) throw requestsError;
 
-      // Group by project and count
+      // Create stats for each project
       const statsMap = new Map<string, ProjectStats>();
       
-      data?.forEach(request => {
-        const existing = statsMap.get(request.project_name) || {
-          project_name: request.project_name,
+      // Initialize all projects with 0 counts
+      uniqueProjects.forEach(projectName => {
+        statsMap.set(projectName, {
+          project_name: projectName,
           pending_count: 0,
           completed_count: 0
-        };
-
-        if (request.status === 'pending') {
-          existing.pending_count++;
-        } else if (request.status === 'completed') {
-          existing.completed_count++;
-        }
-
-        statsMap.set(request.project_name, existing);
+        });
       });
 
-      const stats = Array.from(statsMap.values());
+      // Count requests per project
+      requestsData?.forEach(request => {
+        const existing = statsMap.get(request.project_name);
+        if (existing) {
+          if (request.status === 'pending') {
+            existing.pending_count++;
+          } else if (request.status === 'completed') {
+            existing.completed_count++;
+          }
+        }
+      });
+
+      const stats = Array.from(statsMap.values()).sort((a, b) => 
+        a.project_name.localeCompare(b.project_name)
+      );
       setProjectStats(stats);
       setTotalPending(stats.reduce((sum, s) => sum + s.pending_count, 0));
     } catch (error: any) {
