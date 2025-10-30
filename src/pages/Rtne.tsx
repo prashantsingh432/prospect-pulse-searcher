@@ -108,39 +108,42 @@ const Rtne: React.FC = () => {
     const loadData = async () => {
       try {
         setIsLoadingData(true);
-        const { data: masterProspects, error } = await supabase
-          .from('master_prospects')
+        // Load user's own RTNE requests
+        const { data: rtneRequests, error } = await supabase
+          .from('rtne_requests')
           .select('*')
-          .order('created_at', { ascending: true });
+          .eq('user_id', user?.id)
+          .eq('project_name', projectName)
+          .order('row_number', { ascending: true });
 
         if (error) throw error;
 
-        if (masterProspects && masterProspects.length > 0) {
-          // Map Supabase data to RtneRow format
-          const loadedRows: RtneRow[] = masterProspects.map((prospect, index) => ({
-            id: index + 1,
-            prospect_linkedin: prospect.canonical_url || '',
-            full_name: prospect.full_name || '',
-            company_name: prospect.company_name || '',
-            prospect_city: prospect.prospect_city || '',
-            prospect_number: prospect.prospect_number || '',
-            prospect_email: prospect.prospect_email || '',
-            prospect_number2: prospect.prospect_number2 || '',
-            prospect_number3: prospect.prospect_number3 || '',
-            prospect_number4: prospect.prospect_number4 || '',
-            prospect_designation: prospect.prospect_designation || '',
-            supabaseId: prospect.id // Store Supabase ID for updates
+        if (rtneRequests && rtneRequests.length > 0) {
+          // Map rtne_requests to RtneRow format
+          const loadedRows: RtneRow[] = rtneRequests.map((request) => ({
+            id: request.row_number,
+            prospect_linkedin: request.linkedin_url || '',
+            full_name: request.full_name || '',
+            company_name: request.company_name || '',
+            prospect_city: request.city || '',
+            prospect_number: request.primary_phone || '',
+            prospect_email: request.email_address || '',
+            prospect_number2: '',
+            prospect_number3: '',
+            prospect_number4: '',
+            prospect_designation: request.job_title || '',
+            supabaseId: request.id // Store request ID for updates
           }));
 
-          // Add empty rows to reach at least 100 rows
-          const emptyRowsNeeded = Math.max(0, 100 - loadedRows.length);
-          const emptyRows: RtneRow[] = [];
-          for (let i = 0; i < emptyRowsNeeded; i++) {
-            emptyRows.push(makeEmptyRow(loadedRows.length + i + 1));
+          // Create a full 100-row array with loaded data in correct positions
+          const fullRows: RtneRow[] = [];
+          for (let i = 1; i <= 100; i++) {
+            const existingRow = loadedRows.find(r => r.id === i);
+            fullRows.push(existingRow || makeEmptyRow(i));
           }
 
-          setRows([...loadedRows, ...emptyRows]);
-          nextIdRef.current = loadedRows.length + emptyRows.length + 1;
+          setRows(fullRows);
+          nextIdRef.current = 101;
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -164,7 +167,7 @@ const Rtne: React.FC = () => {
     link.setAttribute('rel', 'canonical');
     link.setAttribute('href', window.location.href);
     document.head.appendChild(link);
-  }, []);
+  }, [user?.id, projectName]);
 
   const handleChange = async (rowId: number, field: keyof RtneRow, value: string) => {
     // Update local state immediately
@@ -183,20 +186,20 @@ const Rtne: React.FC = () => {
       if (!row) return;
 
       try {
-        // Map RtneRow fields to master_prospects columns
-        const prospectData: any = {
+        // Map RtneRow fields to rtne_requests columns
+        const requestData: any = {
+          project_name: projectName,
+          user_id: user?.id,
+          user_name: user?.fullName || user?.email?.split('@')[0] || 'Unknown',
+          linkedin_url: field === 'prospect_linkedin' ? value : row.prospect_linkedin,
           full_name: field === 'full_name' ? value : row.full_name,
           company_name: field === 'company_name' ? value : row.company_name,
-          prospect_city: field === 'prospect_city' ? value : row.prospect_city,
-          prospect_number: field === 'prospect_number' ? value : row.prospect_number,
-          prospect_email: field === 'prospect_email' ? value : row.prospect_email,
-          prospect_number2: field === 'prospect_number2' ? value : row.prospect_number2,
-          prospect_number3: field === 'prospect_number3' ? value : row.prospect_number3,
-          prospect_number4: field === 'prospect_number4' ? value : row.prospect_number4,
-          prospect_designation: field === 'prospect_designation' ? value : row.prospect_designation,
-          canonical_url: field === 'prospect_linkedin' ? value : row.prospect_linkedin,
-          linkedin_id: field === 'prospect_linkedin' ? value.split('/').filter(Boolean).pop() || '' : row.prospect_linkedin?.split('/').filter(Boolean).pop() || '',
-          created_by: user?.id,
+          city: field === 'prospect_city' ? value : row.prospect_city,
+          primary_phone: field === 'prospect_number' ? value : row.prospect_number,
+          email_address: field === 'prospect_email' ? value : row.prospect_email,
+          job_title: field === 'prospect_designation' ? value : row.prospect_designation,
+          row_number: rowId,
+          status: 'pending',
           updated_at: new Date().toISOString()
         };
 
@@ -204,26 +207,28 @@ const Rtne: React.FC = () => {
         if ((row as any).supabaseId) {
           // Update existing record
           const { error } = await supabase
-            .from('master_prospects')
-            .update(prospectData)
+            .from('rtne_requests')
+            .update(requestData)
             .eq('id', (row as any).supabaseId);
 
           if (error) throw error;
         } else {
-          // Insert new record
-          const { data, error } = await supabase
-            .from('master_prospects')
-            .insert([prospectData])
-            .select()
-            .single();
+          // Insert new record only if there's actual data
+          if (requestData.linkedin_url || requestData.full_name || requestData.company_name) {
+            const { data, error } = await supabase
+              .from('rtne_requests')
+              .insert([requestData])
+              .select()
+              .single();
 
-          if (error) throw error;
+            if (error) throw error;
 
-          // Store the Supabase ID for future updates
-          if (data) {
-            setRows(prev => prev.map(r => 
-              r.id === rowId ? { ...r, supabaseId: data.id } as any : r
-            ));
+            // Store the Supabase ID for future updates
+            if (data) {
+              setRows(prev => prev.map(r => 
+                r.id === rowId ? { ...r, supabaseId: data.id } as any : r
+              ));
+            }
           }
         }
       } catch (error) {
@@ -371,7 +376,7 @@ const Rtne: React.FC = () => {
       // Delete from Supabase if it exists there
       try {
         const { error } = await supabase
-          .from('master_prospects')
+          .from('rtne_requests')
           .delete()
           .eq('id', (row as any).supabaseId);
         
@@ -389,19 +394,15 @@ const Rtne: React.FC = () => {
       // Update in Supabase to clear all fields
       try {
         const { error } = await supabase
-          .from('master_prospects')
+          .from('rtne_requests')
           .update({
             full_name: '',
             company_name: '',
-            prospect_city: '',
-            prospect_number: '',
-            prospect_email: '',
-            prospect_number2: '',
-            prospect_number3: '',
-            prospect_number4: '',
-            prospect_designation: '',
-            canonical_url: '',
-            linkedin_id: ''
+            city: '',
+            primary_phone: '',
+            email_address: '',
+            job_title: '',
+            linkedin_url: ''
           })
           .eq('id', (row as any).supabaseId);
         

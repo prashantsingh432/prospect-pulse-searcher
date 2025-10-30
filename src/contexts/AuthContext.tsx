@@ -19,6 +19,7 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   isAdmin: () => boolean;
+  isRtnpUser: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -139,13 +140,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return user?.role === 'admin' || user?.projectName === 'ADMIN';
   };
 
+  const isRtnpUser = () => {
+    return user?.email === 'realtimenumberprovider@amplior.com' || isAdmin();
+  };
+
   const value = {
     user,
     session,
     login,
     logout,
     loading,
-    isAdmin
+    isAdmin,
+    isRtnpUser
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

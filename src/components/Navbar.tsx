@@ -1,11 +1,12 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
-import { Database, Settings } from "lucide-react";
+import { Database, Settings, Phone } from "lucide-react";
 export const Navbar = () => {
   const {
     logout,
     isAdmin,
+    isRtnpUser,
     user
   } = useAuth();
   const navigate = useNavigate();
@@ -31,6 +32,15 @@ export const Navbar = () => {
         </div>
         
         <div className="flex items-center gap-4">
+          {(isRtnpUser() || isAdmin()) && (
+            <Button variant="default" asChild className="bg-purple-600 hover:bg-purple-700">
+              <Link to="/rtnp" className="flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                RTNP Dashboard
+              </Link>
+            </Button>
+          )}
+          
           {isAdmin() && (
             <>
               <Button variant="outline" asChild>

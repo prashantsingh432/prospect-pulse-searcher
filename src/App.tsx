@@ -12,6 +12,8 @@ import Admin from "./pages/Admin";
 import DataManagement from "./pages/DataManagement";
 import NotFound from "./pages/NotFound";
 import Rtne from "./pages/Rtne";
+import { RtnpDashboard } from "./pages/RtnpDashboard";
+import { RtnpProjectView } from "./pages/RtnpProjectView";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +57,28 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const RtnpRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isRtnpUser, isAdmin, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (!isRtnpUser() && !isAdmin()) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -79,6 +103,22 @@ const App = () => (
                 <ProtectedRoute>
                   <Rtne />
                 </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/rtnp" 
+              element={
+                <RtnpRoute>
+                  <RtnpDashboard />
+                </RtnpRoute>
+              } 
+            />
+            <Route 
+              path="/rtnp/project/:projectName" 
+              element={
+                <RtnpRoute>
+                  <RtnpProjectView />
+                </RtnpRoute>
               } 
             />
             <Route

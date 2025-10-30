@@ -347,6 +347,7 @@ export type Database = {
           prospect_number2: string | null
           prospect_number3: string | null
           prospect_number4: string | null
+          row_number: number | null
           updated_at: string
           verified: boolean
         }
@@ -365,6 +366,7 @@ export type Database = {
           prospect_number2?: string | null
           prospect_number3?: string | null
           prospect_number4?: string | null
+          row_number?: number | null
           updated_at?: string
           verified?: boolean
         }
@@ -383,6 +385,7 @@ export type Database = {
           prospect_number2?: string | null
           prospect_number3?: string | null
           prospect_number4?: string | null
+          row_number?: number | null
           updated_at?: string
           verified?: boolean
         }
@@ -602,6 +605,66 @@ export type Database = {
         }
         Relationships: []
       }
+      rtne_requests: {
+        Row: {
+          city: string | null
+          company_name: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          email_address: string | null
+          full_name: string | null
+          id: string
+          job_title: string | null
+          linkedin_url: string
+          primary_phone: string | null
+          project_name: string
+          row_number: number
+          status: string
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          city?: string | null
+          company_name?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          email_address?: string | null
+          full_name?: string | null
+          id?: string
+          job_title?: string | null
+          linkedin_url: string
+          primary_phone?: string | null
+          project_name: string
+          row_number: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          city?: string | null
+          company_name?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          email_address?: string | null
+          full_name?: string | null
+          id?: string
+          job_title?: string | null
+          linkedin_url?: string
+          primary_phone?: string | null
+          project_name?: string
+          row_number?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           created_at: string | null
@@ -674,22 +737,10 @@ export type Database = {
         Args: { user_id_param: string }
         Returns: boolean
       }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_user_role_safe: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      is_admin_user: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      sync_user_profile: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      get_current_user_role: { Args: never; Returns: string }
+      get_user_role_safe: { Args: never; Returns: string }
+      is_admin_user: { Args: never; Returns: boolean }
+      sync_user_profile: { Args: never; Returns: undefined }
     }
     Enums: {
       disposition_type:
