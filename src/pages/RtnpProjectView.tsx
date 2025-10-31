@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, CheckCircle, Star, Share } from "lucide-react";
+import RowContextMenu from "@/components/RowContextMenu";
 
 interface RtneRequest {
   id: string;
@@ -34,6 +35,17 @@ export const RtnpProjectView: React.FC = () => {
   const [requests, setRequests] = useState<RtneRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const saveTimeoutRef = useRef<{[key: string]: NodeJS.Timeout}>({});
+  
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    rowId: string;
+    isOpen: boolean;
+    position: { x: number; y: number };
+  }>({ rowId: '', isOpen: false, position: { x: 0, y: 0 } });
+  
+  // Clipboard for copy/paste
+  const [clipboardRow, setClipboardRow] = useState<RtneRequest | null>(null);
+  const [cutRowId, setCutRowId] = useState<string | null>(null);
 
   const isRtnpUser = user?.email === 'realtimenumberprovider@amplior.com' || isAdmin();
 
@@ -152,6 +164,185 @@ export const RtnpProjectView: React.FC = () => {
     }
   };
 
+  // Context menu handlers
+  const handleRowRightClick = (e: React.MouseEvent, requestId: string) => {
+    e.preventDefault();
+    setContextMenu({
+      rowId: requestId,
+      isOpen: true,
+      position: { x: e.clientX, y: e.clientY },
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const insertRowAbove = () => {
+    toast({
+      title: "Info",
+      description: "Insert row feature coming soon for RTNP view",
+    });
+  };
+
+  const insertRowBelow = () => {
+    toast({
+      title: "Info",
+      description: "Insert row feature coming soon for RTNP view",
+    });
+  };
+
+  const deleteRow = async () => {
+    const request = requests.find(r => r.id === contextMenu.rowId);
+    if (request) {
+      try {
+        const { error } = await supabase
+          .from('rtne_requests')
+          .delete()
+          .eq('id', request.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Row deleted successfully",
+        });
+
+        loadProjectRequests();
+      } catch (error: any) {
+        console.error('Error deleting row:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete row",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const clearRow = async () => {
+    const request = requests.find(r => r.id === contextMenu.rowId);
+    if (request) {
+      try {
+        const { error } = await supabase
+          .from('rtne_requests')
+          .update({
+            full_name: '',
+            city: '',
+            job_title: '',
+            company_name: '',
+            email_address: '',
+            primary_phone: '',
+            phone_2: '',
+            phone_3: '',
+            phone_4: ''
+          })
+          .eq('id', request.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Row cleared successfully",
+        });
+
+        loadProjectRequests();
+      } catch (error: any) {
+        console.error('Error clearing row:', error);
+        toast({
+          title: "Error",
+          description: "Failed to clear row",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const copyRow = () => {
+    const targetRow = requests.find(r => r.id === contextMenu.rowId);
+    if (targetRow) {
+      setClipboardRow(targetRow);
+      setCutRowId(null);
+      toast({
+        title: "Copied",
+        description: "Row copied to clipboard",
+      });
+    }
+  };
+
+  const cutRow = () => {
+    const targetRow = requests.find(r => r.id === contextMenu.rowId);
+    if (targetRow) {
+      setClipboardRow(targetRow);
+      setCutRowId(targetRow.id);
+      toast({
+        title: "Cut",
+        description: "Row cut to clipboard",
+      });
+    }
+  };
+
+  const pasteRow = async () => {
+    if (clipboardRow) {
+      const targetRequest = requests.find(r => r.id === contextMenu.rowId);
+      if (targetRequest) {
+        try {
+          const { error } = await supabase
+            .from('rtne_requests')
+            .update({
+              full_name: clipboardRow.full_name,
+              city: clipboardRow.city,
+              job_title: clipboardRow.job_title,
+              company_name: clipboardRow.company_name,
+              email_address: clipboardRow.email_address,
+              primary_phone: clipboardRow.primary_phone,
+              phone_2: clipboardRow.phone_2,
+              phone_3: clipboardRow.phone_3,
+              phone_4: clipboardRow.phone_4
+            })
+            .eq('id', targetRequest.id);
+
+          if (error) throw error;
+
+          // If it was a cut operation, clear the source row
+          if (cutRowId) {
+            await supabase
+              .from('rtne_requests')
+              .update({
+                full_name: '',
+                city: '',
+                job_title: '',
+                company_name: '',
+                email_address: '',
+                primary_phone: '',
+                phone_2: '',
+                phone_3: '',
+                phone_4: ''
+              })
+              .eq('id', cutRowId);
+            setCutRowId(null);
+          }
+
+          toast({
+            title: "Success",
+            description: "Row pasted successfully",
+          });
+
+          loadProjectRequests();
+        } catch (error: any) {
+          console.error('Error pasting row:', error);
+          toast({
+            title: "Error",
+            description: "Failed to paste row",
+            variant: "destructive",
+          });
+        }
+      }
+    }
+  };
+
+  const isRowCut = (requestId: string) => cutRowId === requestId;
+
   if (!isRtnpUser) {
     return null;
   }
@@ -240,12 +431,6 @@ export const RtnpProjectView: React.FC = () => {
                       User
                     </div>
                   </th>
-                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[100px]">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 mr-2 text-gray-600" />
-                      Status
-                    </div>
-                  </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[300px]">
                     <div className="flex items-center">
                       <svg className="w-4 h-4 mr-2 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
@@ -278,6 +463,18 @@ export const RtnpProjectView: React.FC = () => {
                       Phone 4
                     </div>
                   </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
+                    <div className="flex items-center">
+                      <Mail className="h-4 w-4 mr-2 text-gray-600" />
+                      Email Address
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[100px]">
+                    <div className="flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-2 text-gray-600" />
+                      Status
+                    </div>
+                  </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
                     <div className="flex items-center">
                       <User className="h-4 w-4 mr-2 text-gray-600" />
@@ -302,12 +499,6 @@ export const RtnpProjectView: React.FC = () => {
                       Company Name
                     </div>
                   </th>
-                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
-                    <div className="flex items-center">
-                      <Mail className="h-4 w-4 mr-2 text-gray-600" />
-                      Email Address
-                    </div>
-                  </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[120px]">
                     <div className="flex items-center">
                       Action
@@ -321,9 +512,12 @@ export const RtnpProjectView: React.FC = () => {
                     key={request.id} 
                     className={`group hover:bg-blue-50/50 ${
                       request.status === 'completed' ? 'bg-green-50/30' : ''
-                    }`}
+                    } ${isRowCut(request.id) ? 'opacity-50 bg-red-50' : ''}`}
                   >
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10">
+                    <td 
+                      className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10 cursor-context-menu select-none"
+                      onContextMenu={(e) => handleRowRightClick(e, request.id)}
+                    >
                       {request.row_number}
                     </td>
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
@@ -331,13 +525,6 @@ export const RtnpProjectView: React.FC = () => {
                         <User className="h-3 w-3 text-gray-400" />
                         <span className="text-xs font-medium">{request.user_name}</span>
                       </div>
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      {request.status === 'pending' ? (
-                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">Pending</span>
-                      ) : (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Done</span>
-                      )}
                     </td>
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
                       <input
@@ -390,6 +577,23 @@ export const RtnpProjectView: React.FC = () => {
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
                       <input
                         type="text"
+                        value={request.email_address || ''}
+                        onChange={(e) => handleFieldChange(request.id, 'email_address', e.target.value)}
+                        placeholder="Enter email"
+                        disabled={request.status === 'completed'}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                      />
+                    </td>
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      {request.status === 'pending' ? (
+                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">Pending</span>
+                      ) : (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Done</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input
+                        type="text"
                         value={request.full_name || ''}
                         onChange={(e) => handleFieldChange(request.id, 'full_name', e.target.value)}
                         placeholder="Enter name"
@@ -427,16 +631,6 @@ export const RtnpProjectView: React.FC = () => {
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
                       />
                     </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.email_address || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'email_address', e.target.value)}
-                        placeholder="Enter email"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm text-center">
                       {request.status === 'pending' && (
                         <button
@@ -458,6 +652,22 @@ export const RtnpProjectView: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Context Menu */}
+      <RowContextMenu
+        isOpen={contextMenu.isOpen}
+        position={contextMenu.position}
+        onClose={closeContextMenu}
+        onInsertRowAbove={insertRowAbove}
+        onInsertRowBelow={insertRowBelow}
+        onDeleteRow={deleteRow}
+        onClearRow={clearRow}
+        onCopyRow={copyRow}
+        onCutRow={cutRow}
+        onPasteRow={pasteRow}
+        rowNumber={parseInt(requests.find(r => r.id === contextMenu.rowId)?.row_number?.toString() || '0')}
+        hasClipboard={clipboardRow !== null}
+      />
     </div>
   );
 };

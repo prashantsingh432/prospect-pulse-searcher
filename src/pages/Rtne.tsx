@@ -92,16 +92,31 @@ const Rtne: React.FC = () => {
   // Define field order for navigation
   const fieldOrder: (keyof RtneRow)[] = [
     'prospect_linkedin',
-    'full_name', 
-    'prospect_city',
-    'prospect_designation',
-    'company_name',
-    'prospect_email',
     'prospect_number',
     'prospect_number2',
     'prospect_number3',
-    'prospect_number4'
+    'prospect_number4',
+    'prospect_email',
+    'full_name', 
+    'prospect_city',
+    'prospect_designation',
+    'company_name'
   ];
+
+  // Helper function to create empty row
+  const makeEmptyRow = useCallback((id: number): RtneRow => ({
+    id,
+    prospect_linkedin: "",
+    full_name: "",
+    prospect_city: "",
+    prospect_designation: "",
+    company_name: "",
+    prospect_email: "",
+    prospect_number: "",
+    prospect_number2: "",
+    prospect_number3: "",
+    prospect_number4: ""
+  }), []);
 
   // Load data from Supabase on mount
   useEffect(() => {
@@ -167,7 +182,7 @@ const Rtne: React.FC = () => {
     link.setAttribute('rel', 'canonical');
     link.setAttribute('href', window.location.href);
     document.head.appendChild(link);
-  }, [user?.id, projectName]);
+  }, [user?.id, projectName, makeEmptyRow]);
 
   const handleChange = async (rowId: number, field: keyof RtneRow, value: string) => {
     // Update local state immediately
@@ -266,21 +281,6 @@ const Rtne: React.FC = () => {
     }
     setIsSubmitting(false);
   };
-
-  // Helper function to create empty row
-  const makeEmptyRow = (id: number): RtneRow => ({
-    id,
-    prospect_linkedin: "",
-    full_name: "",
-    prospect_city: "",
-    prospect_designation: "",
-    company_name: "",
-    prospect_email: "",
-    prospect_number: "",
-    prospect_number2: "",
-    prospect_number3: "",
-    prospect_number4: ""
-  });
 
   // Add rows function
   const addRows = (count: number) => {
@@ -594,6 +594,119 @@ const Rtne: React.FC = () => {
     }
   }, [selectedCell, rows, fieldOrder, selectionStart]);
 
+  // Multi-cell delete function
+  const deleteSelectedCells = useCallback(() => {
+    if (selectedCells.size > 0) {
+      // Multi-cell delete
+      const updatedRows = rows.map(row => {
+        const updatedRow = { ...row };
+        fieldOrder.forEach(field => {
+          const cellKey = `${row.id}-${field}`;
+          if (selectedCells.has(cellKey)) {
+            (updatedRow as any)[field] = '';
+          }
+        });
+        return updatedRow;
+      });
+      setRows(updatedRows);
+    } else if (selectedCell) {
+      // Single cell delete
+      handleChange(selectedCell.rowId, selectedCell.field, '');
+    }
+  }, [selectedCells, selectedCell, rows, fieldOrder, handleChange]);
+
+  // Multi-cell copy/paste functions
+  const copySelectedCells = useCallback(() => {
+    if (selectedCells.size > 0) {
+      // Multi-cell copy
+      const cellsData: string[][] = [];
+      const cellsArray = Array.from(selectedCells);
+      
+      // Group cells by row
+      const rowMap = new Map<number, Map<number, string>>();
+      cellsArray.forEach(cellKey => {
+        const [rowIdStr, field] = cellKey.split('-');
+        const rowId = parseInt(rowIdStr);
+        const row = rows.find(r => r.id === rowId);
+        if (row) {
+          if (!rowMap.has(rowId)) {
+            rowMap.set(rowId, new Map());
+          }
+          const fieldIndex = fieldOrder.indexOf(field as keyof RtneRow);
+          const value = (row[field as keyof RtneRow] as string) || '';
+          rowMap.get(rowId)!.set(fieldIndex, value);
+        }
+      });
+      
+      // Convert to 2D array
+      const sortedRowIds = Array.from(rowMap.keys()).sort((a, b) => a - b);
+      sortedRowIds.forEach(rowId => {
+        const fieldMap = rowMap.get(rowId)!;
+        const sortedFields = Array.from(fieldMap.keys()).sort((a, b) => a - b);
+        const rowData = sortedFields.map(fieldIndex => fieldMap.get(fieldIndex) || '');
+        cellsData.push(rowData);
+      });
+      
+      // Convert to TSV format for clipboard
+      const tsvData = cellsData.map(row => row.join('\t')).join('\n');
+      navigator.clipboard.writeText(tsvData);
+    } else if (selectedCell) {
+      // Single cell copy
+      const row = rows.find(r => r.id === selectedCell.rowId);
+      if (row) {
+        const value = (row[selectedCell.field] as string) || '';
+        navigator.clipboard.writeText(value);
+      }
+    }
+  }, [selectedCells, selectedCell, rows, fieldOrder]);
+
+  const cutSelectedCells = useCallback(() => {
+    copySelectedCells();
+    deleteSelectedCells();
+  }, [copySelectedCells, deleteSelectedCells]);
+
+  const pasteSelectedCells = useCallback(async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      
+      if (!selectedCell) return;
+      
+      // Parse TSV data
+      const rows_data = clipboardText.split('\n').map(row => row.split('\t'));
+      
+      // Find starting position
+      const startRowIndex = rows.findIndex(r => r.id === selectedCell.rowId);
+      const startFieldIndex = fieldOrder.indexOf(selectedCell.field);
+      
+      if (startRowIndex === -1 || startFieldIndex === -1) return;
+      
+      // Paste data
+      const updatedRows = [...rows];
+      rows_data.forEach((rowData, rowOffset) => {
+        const targetRowIndex = startRowIndex + rowOffset;
+        if (targetRowIndex < updatedRows.length) {
+          rowData.forEach((cellValue, colOffset) => {
+            const targetFieldIndex = startFieldIndex + colOffset;
+            if (targetFieldIndex < fieldOrder.length) {
+              const field = fieldOrder[targetFieldIndex];
+              updatedRows[targetRowIndex] = {
+                ...updatedRows[targetRowIndex],
+                [field]: cellValue
+              };
+              
+              // Save to database
+              handleChange(updatedRows[targetRowIndex].id, field, cellValue);
+            }
+          });
+        }
+      });
+      
+      setRows(updatedRows);
+    } catch (error) {
+      console.error('Error pasting:', error);
+    }
+  }, [selectedCell, rows, fieldOrder, handleChange]);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!selectedCell) return;
 
@@ -647,48 +760,17 @@ const Rtne: React.FC = () => {
           deleteSelectedCells();
           break;
         default:
-          // Handle Ctrl+C, Ctrl+X, Ctrl+V for row operations
+          // Handle Ctrl+C, Ctrl+X, Ctrl+V for multi-cell operations
           if (e.ctrlKey || e.metaKey) {
-            if (e.key === 'c' && selectedCell) {
+            if (e.key === 'c') {
               e.preventDefault();
-              const targetRow = rows.find(row => row.id === selectedCell.rowId);
-              if (targetRow) {
-                setClipboardRow(targetRow);
-                setClipboardOperation('copy');
-              }
-            } else if (e.key === 'x' && selectedCell) {
+              copySelectedCells();
+            } else if (e.key === 'x') {
               e.preventDefault();
-              const targetRow = rows.find(row => row.id === selectedCell.rowId);
-              if (targetRow) {
-                setClipboardRow(targetRow);
-                setClipboardOperation('cut');
-              }
-            } else if (e.key === 'v' && selectedCell && clipboardRow) {
+              cutSelectedCells();
+            } else if (e.key === 'v') {
               e.preventDefault();
-              const targetIndex = rows.findIndex(row => row.id === selectedCell.rowId);
-              if (targetIndex !== -1) {
-                const newRow = { ...clipboardRow, id: nextIdRef.current++ };
-                
-                if (clipboardOperation === 'cut') {
-                  setRows(prev => {
-                    const filteredRows = prev.filter(row => row.id !== clipboardRow.id);
-                    const adjustedIndex = filteredRows.findIndex(row => row.id === selectedCell.rowId);
-                    return [
-                      ...filteredRows.slice(0, adjustedIndex),
-                      newRow,
-                      ...filteredRows.slice(adjustedIndex)
-                    ];
-                  });
-                  setClipboardRow(null);
-                  setClipboardOperation(null);
-                } else {
-                  setRows(prev => [
-                    ...prev.slice(0, targetIndex),
-                    newRow,
-                    ...prev.slice(targetIndex)
-                  ]);
-                }
-              }
+              pasteSelectedCells();
             }
           }
           break;
@@ -720,33 +802,13 @@ const Rtne: React.FC = () => {
           break;
       }
     }
-  }, [selectedCell, isEditing, moveSelection]);
+  }, [selectedCell, isEditing, moveSelection, copySelectedCells, cutSelectedCells, pasteSelectedCells, deleteSelectedCells]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Shift') {
       setIsShiftHeld(false);
     }
   }, []);
-
-  const deleteSelectedCells = useCallback(() => {
-    if (selectedCells.size > 0) {
-      // Multi-cell delete
-      const updatedRows = rows.map(row => {
-        const updatedRow = { ...row };
-        fieldOrder.forEach(field => {
-          const cellKey = `${row.id}-${field}`;
-          if (selectedCells.has(cellKey)) {
-            (updatedRow as any)[field] = '';
-          }
-        });
-        return updatedRow;
-      });
-      setRows(updatedRows);
-    } else if (selectedCell) {
-      // Single cell delete
-      handleChange(selectedCell.rowId, selectedCell.field, '');
-    }
-  }, [selectedCells, selectedCell, rows, fieldOrder, handleChange]);
 
   const handleCellClick = useCallback((e: React.MouseEvent, rowId: number, field: keyof RtneRow) => {
     const newSelectedCell = { rowId, field };
@@ -802,6 +864,18 @@ const Rtne: React.FC = () => {
       document.removeEventListener('keyup', handleKeyUp);
     };
   }, [handleKeyDown, handleKeyUp]);
+
+  // Mouse event listeners for drag selection
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      setIsDragging(false);
+    };
+    
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F3F2EF]">
@@ -918,36 +992,6 @@ const Rtne: React.FC = () => {
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
                   <div className="flex items-center">
-                    <User className="h-4 w-4 mr-2 text-gray-600" />
-                    Full Name
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
-                  <div className="flex items-center">
-                    <MapPin className="h-4 w-4 mr-2 text-gray-600" />
-                    City
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <Briefcase className="h-4 w-4 mr-2 text-gray-600" />
-                    Job Title
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <Building className="h-4 w-4 mr-2 text-gray-600" />
-                    Company Name
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 mr-2 text-gray-600" />
-                    Email Address
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
                     <Phone className="h-4 w-4 mr-2 text-gray-600" />
                     Primary Phone
                   </div>
@@ -970,10 +1014,40 @@ const Rtne: React.FC = () => {
                     Phone 4
                   </div>
                 </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
+                  <div className="flex items-center">
+                    <Mail className="h-4 w-4 mr-2 text-gray-600" />
+                    Email Address
+                  </div>
+                </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
                   <div className="flex items-center">
                     <CheckCircle className="h-4 w-4 mr-2 text-gray-600" />
                     Status
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <User className="h-4 w-4 mr-2 text-gray-600" />
+                    Full Name
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-2 text-gray-600" />
+                    City
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <Briefcase className="h-4 w-4 mr-2 text-gray-600" />
+                    Job Title
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <Building className="h-4 w-4 mr-2 text-gray-600" />
+                    Company Name
                   </div>
                 </th>
               </tr>
@@ -1002,6 +1076,38 @@ const Rtne: React.FC = () => {
                         }`}
                         onClick={(e) => handleCellClick(e, row.id, field)}
                         onDoubleClick={() => handleCellDoubleClick(row.id, field)}
+                        onMouseDown={(e) => {
+                          if (e.button === 0 && !isEditing) {
+                            setIsDragging(true);
+                            handleCellClick(e, row.id, field);
+                          }
+                        }}
+                        onMouseEnter={() => {
+                          if (isDragging && selectionStart) {
+                            const newSelectedCells = new Set<string>();
+                            const startRowIndex = rows.findIndex(r => r.id === selectionStart.rowId);
+                            const endRowIndex = rows.findIndex(r => r.id === row.id);
+                            const startFieldIndex = fieldOrder.indexOf(selectionStart.field);
+                            const endFieldIndex = fieldOrder.indexOf(field);
+
+                            const minRowIndex = Math.min(startRowIndex, endRowIndex);
+                            const maxRowIndex = Math.max(startRowIndex, endRowIndex);
+                            const minFieldIndex = Math.min(startFieldIndex, endFieldIndex);
+                            const maxFieldIndex = Math.max(startFieldIndex, endFieldIndex);
+
+                            for (let r = minRowIndex; r <= maxRowIndex; r++) {
+                              for (let f = minFieldIndex; f <= maxFieldIndex; f++) {
+                                const cellKey = `${rows[r].id}-${fieldOrder[f]}`;
+                                newSelectedCells.add(cellKey);
+                              }
+                            }
+                            setSelectedCells(newSelectedCells);
+                            setSelectedCell({ rowId: row.id, field });
+                          }
+                        }}
+                        onMouseUp={() => {
+                          setIsDragging(false);
+                        }}
                       >
                         <input
                           data-cell={`${row.id}-${field}`}
@@ -1166,6 +1272,7 @@ const Rtne: React.FC = () => {
         onCutRow={cutRow}
         onPasteRow={pasteRow}
         rowNumber={contextMenu.rowId}
+        hasClipboard={clipboardRow !== null}
       />
     </div>
   );
