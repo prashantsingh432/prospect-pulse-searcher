@@ -328,11 +328,11 @@ export const DataManagement: React.FC = () => {
       // Get headers (case-insensitive)
       const headers = parsedRows[0].map((h) => h.trim().toLowerCase());
 
-      // Validate required columns (case-insensitive)
-      const requiredColumns = ["full_name", "company_name"];
-      const missingColumns = requiredColumns.filter(col => !headers.includes(col.toLowerCase()));
+      // Check for recommended columns (not strictly required anymore)
+      const recommendedColumns = ["full_name", "company_name"];
+      const missingColumns = recommendedColumns.filter(col => !headers.includes(col.toLowerCase()));
       if (missingColumns.length > 0) {
-        throw new Error(`Missing required columns: ${missingColumns.join(", ")}`);
+        console.warn(`Missing recommended columns: ${missingColumns.join(", ")}`);
       }
 
       // Parse records
@@ -372,13 +372,8 @@ export const DataManagement: React.FC = () => {
           }
         }
 
-        // Validate required fields after trimming
-        const fullNameValue = String(normalized.full_name || "").trim();
-        const companyNameValue = String(normalized.company_name || "").trim();
-        
-        if (!fullNameValue || !companyNameValue) {
-          throw new Error(`Row ${record._lineNumber}: Missing required fields (full_name, company_name)`);
-        }
+        // Store line number for tracking
+        normalized._lineNumber = record._lineNumber;
 
         return normalized;
       });
@@ -539,7 +534,7 @@ export const DataManagement: React.FC = () => {
                     disabled={isUploading}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Max 25MB. Required columns: full_name, company_name
+                    Max 25MB. Recommended columns: full_name, company_name (rows without data will be skipped)
                   </p>
                 </div>
 
