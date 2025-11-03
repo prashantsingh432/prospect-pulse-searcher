@@ -18,6 +18,79 @@ const csvEscape = (val: any) => {
   return s;
 };
 
+// Proper CSV parser that handles quoted fields, commas, and newlines
+const parseCSVLine = (line: string): string[] => {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+    
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote within quoted field
+        current += '"';
+        i++; // Skip next quote
+      } else {
+        // Toggle quote mode
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // End of field
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  // Add last field
+  result.push(current.trim());
+  
+  return result;
+};
+
+// Parse multi-line CSV properly
+const parseCSV = (text: string): string[][] => {
+  const lines: string[] = [];
+  let currentLine = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+    
+    if (char === '"') {
+      currentLine += char;
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote
+        currentLine += nextChar;
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
+      // End of line (not inside quotes)
+      if (currentLine.trim()) {
+        lines.push(currentLine);
+      }
+      currentLine = '';
+      if (char === '\r') i++; // Skip \n after \r
+    } else {
+      currentLine += char;
+    }
+  }
+  
+  // Add last line
+  if (currentLine.trim()) {
+    lines.push(currentLine);
+  }
+  
+  return lines.map(line => parseCSVLine(line));
+};
+
 export const DataManagement: React.FC = () => {
   const { toast } = useToast();
   const [downloadComplete, setDownloadComplete] = useState(false);
@@ -242,14 +315,18 @@ export const DataManagement: React.FC = () => {
 
     try {
       const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
-
-      if (lines.length < 2) {
+      
+      // Use proper CSV parser
+      const parsedRows = parseCSV(text);
+      
+      if (parsedRows.length < 2) {
         throw new Error("File appears to be empty or contains only headers");
       }
 
       setProgress("Parsing CSV data...");
-      const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, "").toLowerCase());
+      
+      // Get headers (case-insensitive)
+      const headers = parsedRows[0].map((h) => h.trim().toLowerCase());
 
       // Validate required columns (case-insensitive)
       const requiredColumns = ["full_name", "company_name"];
@@ -258,25 +335,17 @@ export const DataManagement: React.FC = () => {
         throw new Error(`Missing required columns: ${missingColumns.join(", ")}`);
       }
 
-      // Parse records with better CSV handling
-      const records = lines.slice(1).map((line, lineIndex) => {
-        try {
-          const cells = line.split(",").map(cell => {
-            // Trim whitespace and newlines, remove quotes
-            return cell.trim().replace(/^"|"$/g, "").replace(/[\r\n]+/g, "").trim();
-          });
-          const obj: Record<string, any> = {};
-          headers.forEach((h, i) => {
-            const value = cells[i] || null;
-            obj[h] = value === "" || value === "null" ? null : value;
-          });
-          
-          // Store original line number for error reporting
-          obj._lineNumber = lineIndex + 2; // +2 because: +1 for header, +1 for 1-based indexing
-          return obj;
-        } catch (err) {
-          throw new Error(`Error parsing line ${lineIndex + 2}: ${err}`);
-        }
+      // Parse records
+      const records = parsedRows.slice(1).map((cells, lineIndex) => {
+        const obj: Record<string, any> = {};
+        headers.forEach((h, i) => {
+          const value = cells[i] || null;
+          obj[h] = value === "" || value === "null" ? null : value;
+        });
+        
+        // Store original line number for error reporting
+        obj._lineNumber = lineIndex + 2; // +2 because: +1 for header, +1 for 1-based indexing
+        return obj;
       });
 
       // Filter out completely blank rows (where all required fields are empty)
