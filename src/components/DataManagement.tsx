@@ -249,28 +249,41 @@ export const DataManagement: React.FC = () => {
       }
 
       setProgress("Parsing CSV data...");
-      const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
+      const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, "").toLowerCase());
 
-      // Validate required columns
+      // Validate required columns (case-insensitive)
       const requiredColumns = ["full_name", "company_name"];
-      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+      const missingColumns = requiredColumns.filter(col => !headers.includes(col.toLowerCase()));
       if (missingColumns.length > 0) {
         throw new Error(`Missing required columns: ${missingColumns.join(", ")}`);
       }
 
       // Parse records with better CSV handling
-      const records = lines.slice(1).map((line, index) => {
+      const records = lines.slice(1).map((line, lineIndex) => {
         try {
-          const cells = line.split(",").map(cell => cell.trim().replace(/^"|"$/g, ""));
+          const cells = line.split(",").map(cell => {
+            // Trim whitespace and newlines, remove quotes
+            return cell.trim().replace(/^"|"$/g, "").replace(/[\r\n]+/g, "").trim();
+          });
           const obj: Record<string, any> = {};
           headers.forEach((h, i) => {
             const value = cells[i] || null;
             obj[h] = value === "" || value === "null" ? null : value;
           });
+          
+          // Store original line number for error reporting
+          obj._lineNumber = lineIndex + 2; // +2 because: +1 for header, +1 for 1-based indexing
           return obj;
         } catch (err) {
-          throw new Error(`Error parsing line ${index + 2}: ${err}`);
+          throw new Error(`Error parsing line ${lineIndex + 2}: ${err}`);
         }
+      });
+
+      // Filter out completely blank rows (where all required fields are empty)
+      const nonBlankRecords = records.filter(record => {
+        const hasFullName = record.full_name && String(record.full_name).trim() !== "";
+        const hasCompanyName = record.company_name && String(record.company_name).trim() !== "";
+        return hasFullName || hasCompanyName; // Keep row if at least one field has data
       });
 
       // Filter and normalize data
@@ -280,17 +293,22 @@ export const DataManagement: React.FC = () => {
         "prospect_number3", "prospect_number4"
       ];
 
-      const normalized = records.map((record, index) => {
+      const normalized = nonBlankRecords.map((record) => {
         const normalized: any = {};
         for (const col of allowedColumns) {
           if (col in record) {
-            normalized[col] = record[col];
+            // Trim all string values before storing
+            const value = record[col];
+            normalized[col] = (typeof value === 'string') ? value.trim() : value;
           }
         }
 
-        // Validate required fields
-        if (!normalized.full_name || !normalized.company_name) {
-          throw new Error(`Row ${index + 2}: Missing required fields (full_name, company_name)`);
+        // Validate required fields after trimming
+        const fullNameValue = String(normalized.full_name || "").trim();
+        const companyNameValue = String(normalized.company_name || "").trim();
+        
+        if (!fullNameValue || !companyNameValue) {
+          throw new Error(`Row ${record._lineNumber}: Missing required fields (full_name, company_name)`);
         }
 
         return normalized;
