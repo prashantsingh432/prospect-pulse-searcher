@@ -372,9 +372,7 @@ export const DataManagement: React.FC = () => {
           }
         }
 
-        // Store line number for tracking
-        normalized._lineNumber = record._lineNumber;
-
+        // Note: _lineNumber is kept in 'record' for error tracking but NOT included in database insert
         return normalized;
       });
 
