@@ -376,7 +376,20 @@ export const DataManagement: React.FC = () => {
         return normalized;
       });
 
-      setUploadStats({ total: normalized.length, processed: 0 });
+      // Filter out records with missing required NOT NULL fields (full_name, company_name)
+      // These columns have database constraints and cannot be null
+      const validRecords = normalized.filter((record) => {
+        const fullName = String(record.full_name || "").trim();
+        const companyName = String(record.company_name || "").trim();
+        return fullName !== "" && companyName !== "";
+      });
+
+      const skippedCount = normalized.length - validRecords.length;
+      if (skippedCount > 0) {
+        console.log(`Skipping ${skippedCount} records with missing full_name or company_name`);
+      }
+
+      setUploadStats({ total: validRecords.length, processed: 0 });
 
       // Handle overwrite vs upsert
       if (uploadType === "overwrite") {
@@ -394,11 +407,11 @@ export const DataManagement: React.FC = () => {
       const chunkSize = 500; // Smaller chunks for better progress tracking
       let processed = 0;
 
-      for (let i = 0; i < normalized.length; i += chunkSize) {
-        const chunk = normalized.slice(i, i + chunkSize);
-        const chunkEnd = Math.min(i + chunkSize, normalized.length);
+      for (let i = 0; i < validRecords.length; i += chunkSize) {
+        const chunk = validRecords.slice(i, i + chunkSize);
+        const chunkEnd = Math.min(i + chunkSize, validRecords.length);
 
-        setProgress(`Processing records ${i + 1} to ${chunkEnd} of ${normalized.length}...`);
+        setProgress(`Processing records ${i + 1} to ${chunkEnd} of ${validRecords.length}...`);
 
         const { error } = await supabase
           .from("prospects")
@@ -413,7 +426,7 @@ export const DataManagement: React.FC = () => {
         }
 
         processed += chunk.length;
-        setUploadStats({ total: normalized.length, processed });
+        setUploadStats({ total: validRecords.length, processed });
 
         // Small delay to prevent overwhelming the database
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -441,7 +454,7 @@ export const DataManagement: React.FC = () => {
 
       toast({
         title: "Upload Successful",
-        description: `Successfully processed ${processed} records using ${uploadType} mode`
+        description: `Successfully processed ${processed} records using ${uploadType} mode${skippedCount > 0 ? `. Skipped ${skippedCount} rows with missing required fields.` : ''}`
       });
 
     } catch (err: any) {
