@@ -110,56 +110,73 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
 };
 
 /**
- * Search for prospects by LinkedIn URL
+ * Search for prospects by LinkedIn URL (supports multiple URLs)
  */
 async function searchByLinkedInUrl(linkedinUrl: string, filters?: SearchFilters): Promise<any[]> {
-  console.log("Searching by LinkedIn URL:", linkedinUrl);
+  console.log("🔍 Searching by LinkedIn URL(s):", linkedinUrl);
   
   if (!linkedinUrl.trim()) {
     return [];
   }
   
-  const normalizedLinkedInUrl = normalizeLinkedInUrl(linkedinUrl.trim());
-  console.log("Normalized URL for search:", normalizedLinkedInUrl);
+  // Parse multiple URLs (separated by newlines or commas)
+  const urls = linkedinUrl
+    .split(/[\n,]+/)
+    .map(url => url.trim())
+    .filter(url => url.length > 0)
+    .slice(0, 5); // Limit to 5 URLs
   
-  // Try multiple search strategies for better matches
-  const searchPromises = [];
+  console.log(`📋 Parsed ${urls.length} URL(s) to search`);
   
-  // Strategy 1: Direct match on normalized URL (most precise)
-  let query1 = supabase
-    .from("prospects")
-    .select("*")
-    .ilike("prospect_linkedin", `%${normalizedLinkedInUrl}%`);
-  query1 = applyContactFilters(query1, filters);
-  searchPromises.push(query1);
-  
-  // Strategy 2: Try to match just the username portion
-  const username = extractLinkedInUsername(linkedinUrl);
-  if (username) {
-    console.log("Extracted username for search:", username);
-    let query2 = supabase
+  // Search for all URLs in parallel
+  const urlSearchPromises = urls.map(async (url) => {
+    const normalizedLinkedInUrl = normalizeLinkedInUrl(url);
+    console.log(`📝 Searching normalized URL: ${normalizedLinkedInUrl}`);
+    
+    const searchPromises = [];
+    
+    // Strategy 1: Direct match on normalized URL (most precise)
+    let query1 = supabase
       .from("prospects")
       .select("*")
-      .ilike("prospect_linkedin", `%${username}%`);
-    query2 = applyContactFilters(query2, filters);
-    searchPromises.push(query2);
-  }
-  
-  // Execute all search strategies in parallel
-  const searchResults = await Promise.all(searchPromises);
-  console.log("Multiple search strategies results:", searchResults.map(r => r.data?.length || 0));
-  
-  // Combine and deduplicate results
-  const allResults = searchResults
-    .filter(result => !result.error && result.data)
-    .flatMap(result => result.data || []);
+      .ilike("prospect_linkedin", `%${normalizedLinkedInUrl}%`);
+    query1 = applyContactFilters(query1, filters);
+    searchPromises.push(query1);
     
-  // Remove duplicates by name + company combination (since we don't have id)
+    // Strategy 2: Try to match just the username portion
+    const username = extractLinkedInUsername(url);
+    if (username) {
+      console.log(`🔑 Extracted username: ${username}`);
+      let query2 = supabase
+        .from("prospects")
+        .select("*")
+        .ilike("prospect_linkedin", `%${username}%`);
+      query2 = applyContactFilters(query2, filters);
+      searchPromises.push(query2);
+    }
+    
+    // Execute all search strategies for this URL
+    const searchResults = await Promise.all(searchPromises);
+    
+    // Combine results for this URL
+    const allResults = searchResults
+      .filter(result => !result.error && result.data)
+      .flatMap(result => result.data || []);
+    
+    console.log(`✅ Found ${allResults.length} results for ${url}`);
+    return allResults;
+  });
+  
+  // Wait for all URL searches to complete
+  const allUrlResults = await Promise.all(urlSearchPromises);
+  
+  // Flatten and deduplicate all results
+  const flatResults = allUrlResults.flat();
   const uniqueResults = Array.from(
-    new Map(allResults.map(item => [`${item.full_name}-${item.company_name}`, item])).values()
+    new Map(flatResults.map(item => [item.id || `${item.full_name}-${item.company_name}`, item])).values()
   );
   
-  console.log(`LinkedIn search found ${uniqueResults.length} results`);
+  console.log(`✨ Total unique prospects found: ${uniqueResults.length}`);
   return uniqueResults;
 }
 

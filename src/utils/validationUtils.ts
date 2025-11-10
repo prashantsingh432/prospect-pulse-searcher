@@ -31,7 +31,7 @@ export const validateProspectSearch = (
       };
     }
   } else if (activeTab === "linkedin-url") {
-    // For LinkedIn tab, require the LinkedIn URL
+    // For LinkedIn tab, require at least one LinkedIn URL
     if (!linkedinUrl.trim()) {
       return {
         isValid: false,
@@ -39,12 +39,25 @@ export const validateProspectSearch = (
       };
     }
 
-    // Simple validation for LinkedIn URL format
-    const linkedinPattern = /linkedin\.com/i;
-    if (!linkedinPattern.test(linkedinUrl.trim())) {
+    // Parse multiple URLs
+    const urls = linkedinUrl.split(/[\n,]+/).filter(url => url.trim());
+    
+    // Check URL count limit
+    if (urls.length > 5) {
       return {
         isValid: false,
-        errorMessage: "Please enter a URL containing 'linkedin.com'"
+        errorMessage: "Maximum 5 URLs allowed"
+      };
+    }
+
+    // Validate each URL format
+    const linkedinPattern = /linkedin\.com/i;
+    const invalidUrls = urls.filter(url => !linkedinPattern.test(url.trim()));
+    
+    if (invalidUrls.length > 0) {
+      return {
+        isValid: false,
+        errorMessage: `${invalidUrls.length} invalid URL(s) - must contain 'linkedin.com'`
       };
     }
   }
