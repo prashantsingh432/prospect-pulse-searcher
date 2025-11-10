@@ -392,16 +392,21 @@ export const DataManagement: React.FC = () => {
 
       setUploadStats({ total: validRecords.length, processed: 0 });
 
-      // Handle overwrite vs upsert
+      // Handle overwrite mode - delete all existing data first
       if (uploadType === "overwrite") {
-        setProgress("WARNING: Overwrite mode - this will replace ALL existing data");
-        // For safety, we'll still do upsert on client side
-        // True overwrite should be implemented server-side
-        toast({
-          title: "Overwrite Mode",
-          description: "For safety, performing upsert instead. Implement server-side overwrite for true replacement.",
-          variant: "destructive"
-        });
+        setProgress("Deleting all existing data...");
+        
+        const { error: deleteError } = await supabase
+          .from("prospects")
+          .delete()
+          .neq('id', 0); // Delete all records (id is always >= 1)
+
+        if (deleteError) {
+          console.error("Delete error:", deleteError);
+          throw new Error(`Failed to delete existing data: ${deleteError.message}`);
+        }
+
+        setProgress("Existing data deleted. Uploading new data...");
       }
 
       // Batch processing with progress updates
@@ -414,16 +419,28 @@ export const DataManagement: React.FC = () => {
 
         setProgress(`Processing records ${i + 1} to ${chunkEnd} of ${validRecords.length}...`);
 
-        const { error } = await supabase
-          .from("prospects")
-          .upsert(chunk, {
-            onConflict: "id",
-            ignoreDuplicates: false
-          });
+        // Use insert for overwrite mode, upsert for upload mode
+        if (uploadType === "overwrite") {
+          const { error } = await supabase
+            .from("prospects")
+            .insert(chunk);
 
-        if (error) {
-          console.error("Upsert error:", error);
-          throw new Error(`Database error at records ${i + 1}-${chunkEnd}: ${error.message}`);
+          if (error) {
+            console.error("Insert error:", error);
+            throw new Error(`Database error at records ${i + 1}-${chunkEnd}: ${error.message}`);
+          }
+        } else {
+          const { error } = await supabase
+            .from("prospects")
+            .upsert(chunk, {
+              onConflict: "id",
+              ignoreDuplicates: false
+            });
+
+          if (error) {
+            console.error("Upsert error:", error);
+            throw new Error(`Database error at records ${i + 1}-${chunkEnd}: ${error.message}`);
+          }
         }
 
         processed += chunk.length;
