@@ -101,6 +101,7 @@ export const DataManagement: React.FC = () => {
   const [progress, setProgress] = useState<string>("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [uploadStats, setUploadStats] = useState<{ total: number; processed: number } | null>(null);
+  const [existingRecordCount, setExistingRecordCount] = useState<number>(0);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const acceptedTypes = useMemo(() => ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"], []);
@@ -238,8 +239,26 @@ export const DataManagement: React.FC = () => {
     };
   };
 
-  const confirmUpload = () => {
+  const confirmUpload = async () => {
     if (uploadType === "overwrite") {
+      // Fetch current record count
+      setProgress("Checking existing records...");
+      const { count, error } = await supabase
+        .from("prospects")
+        .select("*", { count: "exact", head: true });
+      
+      if (error) {
+        console.error("Count error:", error);
+        toast({
+          title: "Error",
+          description: "Failed to check existing records",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      setExistingRecordCount(count || 0);
+      setProgress("");
       setShowConfirmDialog(true);
     } else {
       handleUpload();
@@ -650,14 +669,19 @@ export const DataManagement: React.FC = () => {
               <AlertTriangle className="h-5 w-5" />
               Confirm Overwrite Operation
             </DialogTitle>
-            <DialogDescription className="space-y-2">
-              <p>
-                <strong>⚠️ WARNING:</strong> This will replace ALL existing prospect data with the contents of your uploaded file.
+            <DialogDescription className="space-y-3">
+              <div className="bg-red-50 border border-red-200 rounded p-3">
+                <p className="text-red-800 font-semibold text-lg">
+                  {existingRecordCount.toLocaleString()} records will be permanently deleted
+                </p>
+              </div>
+              <p className="text-gray-700">
+                <strong>⚠️ WARNING:</strong> This will delete all {existingRecordCount.toLocaleString()} existing prospect records and replace them with the contents of your uploaded file.
               </p>
-              <p>
+              <p className="text-gray-700">
                 <strong>This action cannot be undone.</strong>
               </p>
-              <p>
+              <p className="text-gray-600 text-sm">
                 Make sure you have downloaded a backup and verified your upload file is correct.
               </p>
             </DialogDescription>
