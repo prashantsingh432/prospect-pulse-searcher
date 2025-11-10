@@ -102,6 +102,7 @@ export const DataManagement: React.FC = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [uploadStats, setUploadStats] = useState<{ total: number; processed: number } | null>(null);
   const [existingRecordCount, setExistingRecordCount] = useState<number>(0);
+  const [backupConfirmed, setBackupConfirmed] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const acceptedTypes = useMemo(() => ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"], []);
@@ -278,16 +279,6 @@ export const DataManagement: React.FC = () => {
       return;
     }
 
-    // Validation checks
-    if (!downloadComplete) {
-      toast({
-        title: "Download Required",
-        description: "You must download current data before uploading. This ensures you have a backup.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     const file = fileRef.current?.files?.[0];
     if (!file) {
       toast({
@@ -331,6 +322,7 @@ export const DataManagement: React.FC = () => {
     setProgress("Validating file...");
     setUploadStats(null);
     setShowConfirmDialog(false);
+    setBackupConfirmed(false);
 
     try {
       const text = await file.text();
@@ -615,7 +607,7 @@ export const DataManagement: React.FC = () => {
 
                 <Button
                   onClick={confirmUpload}
-                  disabled={!downloadComplete || isUploading}
+                  disabled={isUploading}
                   className="w-full"
                   variant={uploadType === "overwrite" ? "destructive" : "default"}
                   size="lg"
@@ -627,15 +619,6 @@ export const DataManagement: React.FC = () => {
                   )}
                   {isUploading ? "Processing..." : `${uploadType === "overwrite" ? "⚠️ Overwrite" : "Upload"} Data`}
                 </Button>
-
-                {!downloadComplete && (
-                  <Alert className="bg-amber-50 border-amber-200">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription className="text-amber-700">
-                      You must download current data first to ensure you have a backup.
-                    </AlertDescription>
-                  </Alert>
-                )}
 
                 {progress && isUploading && (
                   <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
@@ -669,7 +652,7 @@ export const DataManagement: React.FC = () => {
               <AlertTriangle className="h-5 w-5" />
               Confirm Overwrite Operation
             </DialogTitle>
-            <DialogDescription className="space-y-3">
+            <DialogDescription className="space-y-4">
               <div className="bg-red-50 border border-red-200 rounded p-3">
                 <p className="text-red-800 font-semibold text-lg">
                   {existingRecordCount.toLocaleString()} records will be permanently deleted
@@ -681,21 +664,38 @@ export const DataManagement: React.FC = () => {
               <p className="text-gray-700">
                 <strong>This action cannot be undone.</strong>
               </p>
-              <p className="text-gray-600 text-sm">
-                Make sure you have downloaded a backup and verified your upload file is correct.
-              </p>
+              
+              <div className="bg-amber-50 border border-amber-200 rounded p-4 space-y-3">
+                <p className="text-amber-800 font-semibold">Backup Confirmation Required</p>
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="backup-confirm"
+                    checked={backupConfirmed}
+                    onChange={(e) => setBackupConfirmed(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300"
+                  />
+                  <label htmlFor="backup-confirm" className="text-sm text-amber-700 cursor-pointer">
+                    I confirm that I have downloaded a recent backup of the current data and verified my upload file is correct.
+                  </label>
+                </div>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
-              onClick={() => setShowConfirmDialog(false)}
+              onClick={() => {
+                setShowConfirmDialog(false);
+                setBackupConfirmed(false);
+              }}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleUpload}
+              disabled={!backupConfirmed}
             >
               Yes, Overwrite All Data
             </Button>
