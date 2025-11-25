@@ -5,6 +5,8 @@ import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle, Star, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, RotateCcw, RotateCw, Printer, Bold, Italic, Underline, Link, MessageSquare, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle } from "lucide-react";
 import RowContextMenu from "@/components/RowContextMenu";
+import { enrichProspectByName } from "@/services/lushaService";
+import { toast } from "sonner";
 
 interface RtneRow {
   id: number;
@@ -58,6 +60,8 @@ const Rtne: React.FC = () => {
   const [pendingRowsCount, setPendingRowsCount] = useState(0);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const saveTimeoutRef = useRef<{[key: string]: NodeJS.Timeout}>({});
+  const enrichmentTriggeredRef = useRef<Set<number>>(new Set());
+  const [enrichingRows, setEnrichingRows] = useState<Set<number>>(new Set());
   
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
@@ -190,6 +194,72 @@ const Rtne: React.FC = () => {
       row.id === rowId ? { ...row, [field]: value } : row
     ));
 
+    // Check if we should trigger enrichment (only for direct user input, not programmatic updates)
+    const row = rows.find(r => r.id === rowId);
+    if (row) {
+      // Trigger enrichment when:
+      // 1. Full Name AND Company are both filled
+      // 2. No LinkedIn URL present
+      // 3. Phone/Email fields are empty
+      // 4. Not already enriched for this row
+      const shouldEnrich = 
+        (field === 'full_name' || field === 'company_name') &&
+        !enrichmentTriggeredRef.current.has(rowId) &&
+        !row.prospect_linkedin &&
+        !row.prospect_number &&
+        !row.prospect_email;
+
+      if (shouldEnrich) {
+        const fullName = field === 'full_name' ? value : row.full_name;
+        const companyName = field === 'company_name' ? value : row.company_name;
+
+        if (fullName && companyName) {
+          // Mark as triggered to prevent duplicate calls
+          enrichmentTriggeredRef.current.add(rowId);
+          setEnrichingRows(prev => new Set(prev).add(rowId));
+
+          // Try phone enrichment first
+          const phoneResult = await enrichProspectByName(
+            fullName,
+            companyName,
+            "PHONE_ONLY"
+          );
+
+          if (phoneResult.success && phoneResult.phone) {
+            setRows(prev => prev.map(r => 
+              r.id === rowId ? { ...r, prospect_number: phoneResult.phone || '' } : r
+            ));
+            toast.success("Phone number enriched successfully");
+          }
+
+          // Then try email enrichment
+          const emailResult = await enrichProspectByName(
+            fullName,
+            companyName,
+            "EMAIL_ONLY"
+          );
+
+          if (emailResult.success && emailResult.email) {
+            setRows(prev => prev.map(r => 
+              r.id === rowId ? { ...r, prospect_email: emailResult.email || '' } : r
+            ));
+            toast.success("Email enriched successfully");
+          }
+
+          setEnrichingRows(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(rowId);
+            return newSet;
+          });
+
+          if (!phoneResult.success && !emailResult.success) {
+            toast.error("No enrichment data found");
+            enrichmentTriggeredRef.current.delete(rowId);
+          }
+        }
+      }
+    }
+
     // Debounce the Supabase save
     const cellKey = `${rowId}-${field}`;
     if (saveTimeoutRef.current[cellKey]) {
@@ -197,34 +267,44 @@ const Rtne: React.FC = () => {
     }
 
     saveTimeoutRef.current[cellKey] = setTimeout(async () => {
-      const row = rows.find(r => r.id === rowId);
-      if (!row) return;
+      const currentRow = rows.find(r => r.id === rowId);
+      if (!currentRow) return;
 
       try {
+        // Get the updated value from the field
+        const updatedValue = field === 'prospect_linkedin' ? value :
+                            field === 'full_name' ? value :
+                            field === 'company_name' ? value :
+                            field === 'prospect_city' ? value :
+                            field === 'prospect_number' ? value :
+                            field === 'prospect_email' ? value :
+                            field === 'prospect_designation' ? value :
+                            (currentRow[field] as string);
+
         // Map RtneRow fields to rtne_requests columns
         const requestData: any = {
           project_name: projectName,
           user_id: user?.id,
           user_name: user?.fullName || user?.email?.split('@')[0] || 'Unknown',
-          linkedin_url: field === 'prospect_linkedin' ? value : row.prospect_linkedin,
-          full_name: field === 'full_name' ? value : row.full_name,
-          company_name: field === 'company_name' ? value : row.company_name,
-          city: field === 'prospect_city' ? value : row.prospect_city,
-          primary_phone: field === 'prospect_number' ? value : row.prospect_number,
-          email_address: field === 'prospect_email' ? value : row.prospect_email,
-          job_title: field === 'prospect_designation' ? value : row.prospect_designation,
+          linkedin_url: field === 'prospect_linkedin' ? value : currentRow.prospect_linkedin,
+          full_name: field === 'full_name' ? value : currentRow.full_name,
+          company_name: field === 'company_name' ? value : currentRow.company_name,
+          city: field === 'prospect_city' ? value : currentRow.prospect_city,
+          primary_phone: field === 'prospect_number' ? value : currentRow.prospect_number,
+          email_address: field === 'prospect_email' ? value : currentRow.prospect_email,
+          job_title: field === 'prospect_designation' ? value : currentRow.prospect_designation,
           row_number: rowId,
           status: 'pending',
           updated_at: new Date().toISOString()
         };
 
         // Check if row has a Supabase ID (existing record)
-        if ((row as any).supabaseId) {
+        if ((currentRow as any).supabaseId) {
           // Update existing record
           const { error } = await supabase
             .from('rtne_requests')
             .update(requestData)
-            .eq('id', (row as any).supabaseId);
+            .eq('id', (currentRow as any).supabaseId);
 
           if (error) throw error;
         } else {
@@ -478,7 +558,17 @@ const Rtne: React.FC = () => {
     addRows(count);
   };
 
-  const getStatusDisplay = (status?: string) => {
+  const getStatusDisplay = (status?: string, rowId?: number) => {
+    // Check if row is currently being enriched
+    if (rowId && enrichingRows.has(rowId)) {
+      return (
+        <div className="flex items-center space-x-2 text-blue-600">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Enriching...</span>
+        </div>
+      );
+    }
+
     switch (status) {
       case 'ready':
         return (
@@ -1161,7 +1251,7 @@ const Rtne: React.FC = () => {
                     );
                   })}
                   <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                    {getStatusDisplay(row.status)}
+                    {getStatusDisplay(row.status, row.id)}
                   </td>
                 </tr>
               ))}

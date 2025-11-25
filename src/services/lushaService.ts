@@ -100,7 +100,25 @@ export async function deleteLushaKey(id: string): Promise<void> {
 }
 
 /**
- * Enrich a prospect using Lusha API
+ * Helper function to split full name into first and last name
+ */
+function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const trimmedName = fullName.trim();
+  const firstSpaceIndex = trimmedName.indexOf(" ");
+  
+  if (firstSpaceIndex === -1) {
+    // Single word name
+    return { firstName: trimmedName, lastName: "" };
+  }
+  
+  return {
+    firstName: trimmedName.substring(0, firstSpaceIndex),
+    lastName: trimmedName.substring(firstSpaceIndex + 1),
+  };
+}
+
+/**
+ * Enrich a prospect using Lusha API (LinkedIn URL method)
  */
 export async function enrichProspect(
   linkedinUrl: string,
@@ -128,6 +146,48 @@ export async function enrichProspect(
     return data as LushaEnrichResult;
   } catch (err: any) {
     console.error("Error enriching prospect:", err);
+    return {
+      success: false,
+      error: "Network error",
+      message: err.message,
+    };
+  }
+}
+
+/**
+ * Enrich a prospect using Lusha API (Name + Company method)
+ */
+export async function enrichProspectByName(
+  fullName: string,
+  companyName: string,
+  category: LushaCategory,
+  masterProspectId?: string
+): Promise<LushaEnrichResult> {
+  try {
+    const { firstName, lastName } = splitFullName(fullName);
+    
+    const { data, error } = await supabase.functions.invoke("lusha-enrich", {
+      body: {
+        firstName,
+        lastName,
+        companyName,
+        category,
+        masterProspectId,
+      },
+    });
+
+    if (error) {
+      console.error("Error calling lusha-enrich function:", error);
+      return {
+        success: false,
+        error: "Function error",
+        message: error.message,
+      };
+    }
+
+    return data as LushaEnrichResult;
+  } catch (err: any) {
+    console.error("Error enriching prospect by name:", err);
     return {
       success: false,
       error: "Network error",
