@@ -331,6 +331,39 @@ export type Database = {
           },
         ]
       }
+      lusha_api_keys: {
+        Row: {
+          category: string
+          created_at: string | null
+          credits_remaining: number | null
+          id: string
+          is_active: boolean | null
+          key_value: string
+          last_used_at: string | null
+          status: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          credits_remaining?: number | null
+          id?: string
+          is_active?: boolean | null
+          key_value: string
+          last_used_at?: string | null
+          status?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          credits_remaining?: number | null
+          id?: string
+          is_active?: boolean | null
+          key_value?: string
+          last_used_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       master_prospects: {
         Row: {
           canonical_url: string
