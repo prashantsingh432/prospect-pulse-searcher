@@ -24,11 +24,19 @@ serve(async (req: Request): Promise<Response> => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
-    const { linkedinUrl, category, masterProspectId } = await req.json();
+    const { linkedinUrl, firstName, lastName, companyName, category, masterProspectId } = await req.json();
 
-    if (!linkedinUrl || !category) {
+    // Validate: Either linkedinUrl OR (firstName + companyName) must be present
+    if (!category) {
       return new Response(
-        JSON.stringify({ error: "linkedinUrl and category are required" }),
+        JSON.stringify({ error: "category is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!linkedinUrl && (!firstName || !companyName)) {
+      return new Response(
+        JSON.stringify({ error: "Either linkedinUrl OR (firstName + companyName) are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -43,7 +51,12 @@ serve(async (req: Request): Promise<Response> => {
     console.log(`[Lusha Enrich] Starting enrichment for category: ${category}`);
 
     // Attempt to enrich with retry logic
-    const result = await enrichWithRetry(supabaseAdmin, linkedinUrl, category, masterProspectId);
+    const result = await enrichWithRetry(
+      supabaseAdmin, 
+      { linkedinUrl, firstName, lastName, companyName }, 
+      category, 
+      masterProspectId
+    );
 
     return new Response(JSON.stringify(result), {
       status: result.success ? 200 : 500,
@@ -60,7 +73,7 @@ serve(async (req: Request): Promise<Response> => {
 
 async function enrichWithRetry(
   supabase: any,
-  linkedinUrl: string,
+  searchParams: { linkedinUrl?: string; firstName?: string; lastName?: string; companyName?: string },
   category: string,
   masterProspectId?: string,
   attempt = 1
@@ -98,6 +111,19 @@ async function enrichWithRetry(
 
   // Call Lusha API
   try {
+    // Build request body based on available parameters
+    const lushaProperties: any = {};
+    
+    if (searchParams.linkedinUrl) {
+      lushaProperties.linkedInUrl = searchParams.linkedinUrl;
+    } else if (searchParams.firstName || searchParams.companyName) {
+      if (searchParams.firstName) lushaProperties.firstName = searchParams.firstName;
+      if (searchParams.lastName) lushaProperties.lastName = searchParams.lastName;
+      if (searchParams.companyName) lushaProperties.company = searchParams.companyName;
+    }
+
+    console.log(`[Lusha Enrich] Request properties:`, lushaProperties);
+
     const lushaResponse = await fetch("https://api.lusha.com/person", {
       method: "POST",
       headers: {
@@ -105,9 +131,7 @@ async function enrichWithRetry(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        properties: {
-          linkedInUrl: linkedinUrl,
-        },
+        properties: lushaProperties,
       }),
     });
 
@@ -184,7 +208,7 @@ async function enrichWithRetry(
         .eq("id", key.id);
 
       if (attempt < maxAttempts) {
-        return await enrichWithRetry(supabase, linkedinUrl, category, masterProspectId, attempt + 1);
+        return await enrichWithRetry(supabase, searchParams, category, masterProspectId, attempt + 1);
       }
 
       return { success: false, error: "Rate limit", message: "All available keys are rate limited" };
@@ -197,7 +221,7 @@ async function enrichWithRetry(
         .eq("id", key.id);
 
       if (attempt < maxAttempts) {
-        return await enrichWithRetry(supabase, linkedinUrl, category, masterProspectId, attempt + 1);
+        return await enrichWithRetry(supabase, searchParams, category, masterProspectId, attempt + 1);
       }
 
       return { success: false, error: "Invalid key", message: "All available keys are invalid" };
