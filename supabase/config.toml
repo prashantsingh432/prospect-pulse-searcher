@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.chrome-extension-prospects]
 verify_jwt = false
+
+[functions.lusha-enrich]
+verify_jwt = true

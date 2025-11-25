@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, CheckCircle, Star, Share } from "lucide-react";
+import { ArrowLeft, Loader2, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, CheckCircle, Star, Share, Sparkles } from "lucide-react";
 import RowContextMenu from "@/components/RowContextMenu";
+import { enrichProspect } from "@/services/lushaService";
 
 interface RtneRequest {
   id: string;
@@ -46,6 +47,9 @@ export const RtnpProjectView: React.FC = () => {
   // Clipboard for copy/paste
   const [clipboardRow, setClipboardRow] = useState<RtneRequest | null>(null);
   const [cutRowId, setCutRowId] = useState<string | null>(null);
+  
+  // Lusha enrichment state
+  const [enrichingRows, setEnrichingRows] = useState<{[key: string]: 'phone' | 'email' | null}>({});
 
   const isRtnpUser = user?.email === 'realtimenumberprovider@amplior.com' || isAdmin();
 
@@ -343,6 +347,62 @@ export const RtnpProjectView: React.FC = () => {
 
   const isRowCut = (requestId: string) => cutRowId === requestId;
 
+  const handleLushaFetch = async (requestId: string, category: 'PHONE_ONLY' | 'EMAIL_ONLY') => {
+    const request = requests.find(r => r.id === requestId);
+    if (!request || !request.linkedin_url) {
+      toast({
+        title: "Error",
+        description: "LinkedIn URL is required for enrichment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEnrichingRows(prev => ({ ...prev, [requestId]: category === 'PHONE_ONLY' ? 'phone' : 'email' }));
+
+    try {
+      const result = await enrichProspect(request.linkedin_url, category);
+
+      if (result.success) {
+        // Update the local state with the fetched data
+        if (category === 'PHONE_ONLY' && result.phone) {
+          handleFieldChange(requestId, 'primary_phone', result.phone);
+          toast({
+            title: "Success",
+            description: `Phone number fetched: ${result.phone}`,
+          });
+        } else if (category === 'EMAIL_ONLY' && result.email) {
+          handleFieldChange(requestId, 'email_address', result.email);
+          toast({
+            title: "Success",
+            description: `Email fetched: ${result.email}`,
+          });
+        } else {
+          toast({
+            title: "No Data",
+            description: result.message || `No ${category === 'PHONE_ONLY' ? 'phone' : 'email'} found`,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Enrichment Failed",
+          description: result.message || result.error || "Failed to fetch data",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Lusha fetch error:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred during enrichment",
+        variant: "destructive",
+      });
+    } finally {
+      setEnrichingRows(prev => ({ ...prev, [requestId]: null }));
+    }
+  };
+
   if (!isRtnpUser) {
     return null;
   }
@@ -527,12 +587,44 @@ export const RtnpProjectView: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.linkedin_url}
-                        readOnly
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 cursor-not-allowed"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={request.linkedin_url}
+                          readOnly
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 cursor-not-allowed"
+                        />
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleLushaFetch(request.id, 'PHONE_ONLY')}
+                            disabled={request.status === 'completed' || enrichingRows[request.id] === 'phone'}
+                            className="h-8 px-2 text-xs"
+                            title="Fetch Phone with Lusha"
+                          >
+                            {enrichingRows[request.id] === 'phone' ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Phone className="h-3 w-3" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleLushaFetch(request.id, 'EMAIL_ONLY')}
+                            disabled={request.status === 'completed' || enrichingRows[request.id] === 'email'}
+                            className="h-8 px-2 text-xs"
+                            title="Fetch Email with Lusha"
+                          >
+                            {enrichingRows[request.id] === 'email' ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Mail className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
                       <input
