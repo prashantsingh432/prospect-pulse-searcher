@@ -5,7 +5,7 @@ import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle, Star, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, RotateCcw, RotateCw, Printer, Bold, Italic, Underline, Link, MessageSquare, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle } from "lucide-react";
 import RowContextMenu from "@/components/RowContextMenu";
-import { enrichProspectByName } from "@/services/lushaService";
+import { enrichProspectByName, enrichProspect } from "@/services/lushaService";
 import { toast } from "sonner";
 
 interface RtneRow {
@@ -62,6 +62,8 @@ const Rtne: React.FC = () => {
   const saveTimeoutRef = useRef<{[key: string]: NodeJS.Timeout}>({});
   const enrichmentTriggeredRef = useRef<Set<number>>(new Set());
   const [enrichingRows, setEnrichingRows] = useState<Set<number>>(new Set());
+  const [isBulkEnriching, setIsBulkEnriching] = useState(false);
+  const [bulkEnrichProgress, setBulkEnrichProgress] = useState({ current: 0, total: 0 });
   
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
@@ -95,16 +97,16 @@ const Rtne: React.FC = () => {
 
   // Define field order for navigation
   const fieldOrder: (keyof RtneRow)[] = [
+    'full_name',
+    'company_name',
     'prospect_linkedin',
     'prospect_number',
     'prospect_number2',
     'prospect_number3',
     'prospect_number4',
     'prospect_email',
-    'full_name', 
     'prospect_city',
-    'prospect_designation',
-    'company_name'
+    'prospect_designation'
   ];
 
   // Helper function to create empty row
@@ -197,64 +199,79 @@ const Rtne: React.FC = () => {
     // Check if we should trigger enrichment (only for direct user input, not programmatic updates)
     const row = rows.find(r => r.id === rowId);
     if (row) {
-      // Trigger enrichment when:
-      // 1. Full Name AND Company are both filled
-      // 2. No LinkedIn URL present
-      // 3. Phone/Email fields are empty
-      // 4. Not already enriched for this row
-      const shouldEnrich = 
+      // Condition B: Full Name AND Company are both filled (RTNE Spreadsheet Smart Search)
+      const shouldEnrichByName = 
         (field === 'full_name' || field === 'company_name') &&
-        !enrichmentTriggeredRef.current.has(rowId) &&
-        !row.prospect_linkedin &&
-        !row.prospect_number &&
-        !row.prospect_email;
+        !enrichmentTriggeredRef.current.has(rowId);
 
-      if (shouldEnrich) {
+      if (shouldEnrichByName) {
+        // Get the current values (use the new value if it's the field being edited)
         const fullName = field === 'full_name' ? value : row.full_name;
         const companyName = field === 'company_name' ? value : row.company_name;
 
+        // Only trigger if BOTH fields are filled
         if (fullName && companyName) {
-          // Mark as triggered to prevent duplicate calls
           enrichmentTriggeredRef.current.add(rowId);
           setEnrichingRows(prev => new Set(prev).add(rowId));
 
-          // Try phone enrichment first
-          const phoneResult = await enrichProspectByName(
-            fullName,
-            companyName,
-            "PHONE_ONLY"
-          );
+          try {
+            // Try phone enrichment first
+            const phoneResult = await enrichProspectByName(
+              fullName,
+              companyName,
+              "PHONE_ONLY"
+            );
 
-          if (phoneResult.success && phoneResult.phone) {
-            setRows(prev => prev.map(r => 
-              r.id === rowId ? { ...r, prospect_number: phoneResult.phone || '' } : r
-            ));
-            toast.success("Phone number enriched successfully");
-          }
+            if (phoneResult.success && phoneResult.phone) {
+              setRows(prev => prev.map(r => 
+                r.id === rowId ? { ...r, prospect_number: phoneResult.phone || '' } : r
+              ));
+              toast.success("Phone enriched!");
+            }
 
-          // Then try email enrichment
-          const emailResult = await enrichProspectByName(
-            fullName,
-            companyName,
-            "EMAIL_ONLY"
-          );
+            // Then try email enrichment
+            const emailResult = await enrichProspectByName(
+              fullName,
+              companyName,
+              "EMAIL_ONLY"
+            );
 
-          if (emailResult.success && emailResult.email) {
-            setRows(prev => prev.map(r => 
-              r.id === rowId ? { ...r, prospect_email: emailResult.email || '' } : r
-            ));
-            toast.success("Email enriched successfully");
-          }
+            if (emailResult.success && emailResult.email) {
+              setRows(prev => prev.map(r => 
+                r.id === rowId ? { ...r, prospect_email: emailResult.email || '' } : r
+              ));
+              toast.success("Email enriched!");
+            }
 
-          setEnrichingRows(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(rowId);
-            return newSet;
-          });
+            // Update other fields if available
+            if (phoneResult.success || emailResult.success) {
+              const enrichedData: any = {};
+              if (phoneResult.city) enrichedData.prospect_city = phoneResult.city;
+              if (phoneResult.title) enrichedData.prospect_designation = phoneResult.title;
+              if (emailResult.city) enrichedData.prospect_city = emailResult.city;
+              if (emailResult.title) enrichedData.prospect_designation = emailResult.title;
 
-          if (!phoneResult.success && !emailResult.success) {
-            toast.error("No enrichment data found");
+              if (Object.keys(enrichedData).length > 0) {
+                setRows(prev => prev.map(r => 
+                  r.id === rowId ? { ...r, ...enrichedData } : r
+                ));
+              }
+            }
+
+            if (!phoneResult.success && !emailResult.success) {
+              toast.error("No data found for this prospect");
+              enrichmentTriggeredRef.current.delete(rowId);
+            }
+          } catch (error) {
+            console.error("Enrichment error:", error);
+            toast.error("Enrichment failed");
             enrichmentTriggeredRef.current.delete(rowId);
+          } finally {
+            setEnrichingRows(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(rowId);
+              return newSet;
+            });
           }
         }
       }
@@ -360,6 +377,107 @@ const Rtne: React.FC = () => {
       }
     }
     setIsSubmitting(false);
+  };
+
+  // Bulk enrichment functions
+  const bulkEnrichPhones = async () => {
+    setIsBulkEnriching(true);
+    let successCount = 0;
+    let failedCount = 0;
+
+    // Get rows that need phone enrichment
+    const targetRows = rows.filter(row => 
+      !row.prospect_number && 
+      (row.prospect_linkedin || (row.full_name && row.company_name))
+    );
+
+    setBulkEnrichProgress({ current: 0, total: targetRows.length });
+
+    for (let i = 0; i < targetRows.length; i++) {
+      const row = targetRows[i];
+      setBulkEnrichProgress({ current: i + 1, total: targetRows.length });
+
+      try {
+        let result;
+        
+        if (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin)) {
+          // Use LinkedIn URL
+          result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
+        } else if (row.full_name && row.company_name) {
+          // Use Name + Company
+          result = await enrichProspectByName(row.full_name, row.company_name, "PHONE_ONLY");
+        } else {
+          continue;
+        }
+
+        if (result.success && result.phone) {
+          setRows(prev => prev.map(r => 
+            r.id === row.id ? { ...r, prospect_number: result.phone || '' } : r
+          ));
+          successCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (error) {
+        console.error("Bulk phone enrichment error:", error);
+        failedCount++;
+      }
+    }
+
+    setIsBulkEnriching(false);
+    setBulkEnrichProgress({ current: 0, total: 0 });
+    
+    toast.success(`Phone Enrichment Complete: ${successCount} found, ${failedCount} failed`);
+  };
+
+  const bulkEnrichEmails = async () => {
+    setIsBulkEnriching(true);
+    let successCount = 0;
+    let failedCount = 0;
+
+    // Get rows that need email enrichment
+    const targetRows = rows.filter(row => 
+      !row.prospect_email && 
+      (row.prospect_linkedin || (row.full_name && row.company_name))
+    );
+
+    setBulkEnrichProgress({ current: 0, total: targetRows.length });
+
+    for (let i = 0; i < targetRows.length; i++) {
+      const row = targetRows[i];
+      setBulkEnrichProgress({ current: i + 1, total: targetRows.length });
+
+      try {
+        let result;
+        
+        if (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin)) {
+          // Use LinkedIn URL
+          result = await enrichProspect(row.prospect_linkedin, "EMAIL_ONLY");
+        } else if (row.full_name && row.company_name) {
+          // Use Name + Company
+          result = await enrichProspectByName(row.full_name, row.company_name, "EMAIL_ONLY");
+        } else {
+          continue;
+        }
+
+        if (result.success && result.email) {
+          setRows(prev => prev.map(r => 
+            r.id === row.id ? { ...r, prospect_email: result.email || '' } : r
+          ));
+          successCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (error) {
+        console.error("Bulk email enrichment error:", error);
+        failedCount++;
+      }
+    }
+
+    setIsBulkEnriching(false);
+    setBulkEnrichProgress({ current: 0, total: 0 });
+    
+    toast.success(`Email Enrichment Complete: ${successCount} found, ${failedCount} failed`);
   };
 
   // Add rows function
@@ -1059,6 +1177,40 @@ const Rtne: React.FC = () => {
         </div>
       </header>
 
+      {/* Enrichment Toolbar */}
+      {!isLoadingData && (
+        <div className="bg-white border-b border-gray-300 p-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <span className="text-sm font-medium text-gray-700">Bulk Enrichment:</span>
+            <button
+              onClick={bulkEnrichPhones}
+              disabled={isBulkEnriching}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <Phone className="h-4 w-4" />
+              <span>📞 Enrich Phones</span>
+            </button>
+            <button
+              onClick={bulkEnrichEmails}
+              disabled={isBulkEnriching}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <Mail className="h-4 w-4" />
+              <span>📧 Enrich Emails</span>
+            </button>
+          </div>
+          
+          {isBulkEnriching && (
+            <div className="flex items-center space-x-3">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <span className="text-sm text-gray-600">
+                Enriching {bulkEnrichProgress.current}/{bulkEnrichProgress.total} rows...
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Spreadsheet Table */}
       <main className="max-w-full mx-auto p-0">
         {isLoadingData ? (
@@ -1067,11 +1219,23 @@ const Rtne: React.FC = () => {
             <span className="ml-2 text-gray-600">Loading your data...</span>
           </div>
         ) : (
-          <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+          <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
           <table className="w-full border-collapse border border-gray-300">
             <thead className="bg-gray-200">
               <tr>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 w-12 sticky left-0 z-10 text-gray-500">#</th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <User className="h-4 w-4 mr-2 text-gray-600" />
+                    Full Name
+                  </div>
+                </th>
+                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                  <div className="flex items-center">
+                    <Building className="h-4 w-4 mr-2 text-gray-600" />
+                    Company Name
+                  </div>
+                </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[300px]">
                   <div className="flex items-center">
                     <svg className="w-4 h-4 mr-2 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
@@ -1112,18 +1276,6 @@ const Rtne: React.FC = () => {
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
                   <div className="flex items-center">
-                    <CheckCircle className="h-4 w-4 mr-2 text-gray-600" />
-                    Status
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <User className="h-4 w-4 mr-2 text-gray-600" />
-                    Full Name
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
-                  <div className="flex items-center">
                     <MapPin className="h-4 w-4 mr-2 text-gray-600" />
                     City
                   </div>
@@ -1132,12 +1284,6 @@ const Rtne: React.FC = () => {
                   <div className="flex items-center">
                     <Briefcase className="h-4 w-4 mr-2 text-gray-600" />
                     Job Title
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <Building className="h-4 w-4 mr-2 text-gray-600" />
-                    Company Name
                   </div>
                 </th>
               </tr>
