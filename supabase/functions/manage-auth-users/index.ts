@@ -240,8 +240,9 @@ serve(async (req) => {
           const body = await req.json()
           userId = body?.userId ?? null
           console.log('Got userId from body:', userId)
-        } catch (e) {
-          console.log('No body or invalid JSON in DELETE request:', e.message)
+      } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+        console.log('No body or invalid JSON in DELETE request:', errorMessage)
         }
       }
 
@@ -301,8 +302,9 @@ serve(async (req) => {
 
       } catch (deleteError) {
         console.error('Unexpected error during user deletion:', deleteError)
+        const errorMessage = deleteError instanceof Error ? deleteError.message : 'Unknown error';
         return new Response(JSON.stringify({ 
-          error: `Database error deleting user: ${deleteError.message}` 
+          error: `Database error deleting user: ${errorMessage}` 
         }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -317,7 +319,8 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error:', error)
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })

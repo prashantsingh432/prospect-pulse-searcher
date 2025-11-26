@@ -93,10 +93,11 @@ serve(async (req) => {
         }
       } catch (err) {
         console.error(`Exception creating user ${user.email}:`, err);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         results.push({
           email: user.email,
           success: false,
-          message: err.message || 'Unknown error'
+          message: errorMessage
         });
       }
     }
@@ -107,8 +108,9 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Exception in create-users function:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
