@@ -69,12 +69,13 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error(`❌ Error in lusha-enrich-proxy:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     return new Response(
       JSON.stringify({
         status: 0,
         data: null,
-        error: error.message,
+        error: errorMessage,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

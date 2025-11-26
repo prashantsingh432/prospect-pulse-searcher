@@ -246,9 +246,7 @@ const Rtne: React.FC = () => {
             // Update other fields if available
             if (phoneResult.success || emailResult.success) {
               const enrichedData: any = {};
-              if (phoneResult.city) enrichedData.prospect_city = phoneResult.city;
               if (phoneResult.title) enrichedData.prospect_designation = phoneResult.title;
-              if (emailResult.city) enrichedData.prospect_city = emailResult.city;
               if (emailResult.title) enrichedData.prospect_designation = emailResult.title;
 
               if (Object.keys(enrichedData).length > 0) {
@@ -404,6 +402,25 @@ const Rtne: React.FC = () => {
           // Use LinkedIn URL
           result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
         } else if (row.full_name && row.company_name) {
+          // Split the full name for debugging
+          const fullName = row.full_name.trim();
+          const firstSpaceIndex = fullName.indexOf(" ");
+          
+          let firstName = "";
+          let lastName = "";
+          
+          if (firstSpaceIndex === -1) {
+            // Case: Single word name (e.g., "Cher")
+            firstName = fullName;
+            lastName = "";
+          } else {
+            // Case: Normal name (e.g., "Nishtha Gupta")
+            firstName = fullName.substring(0, firstSpaceIndex).trim();
+            lastName = fullName.substring(firstSpaceIndex + 1).trim();
+          }
+          
+          console.log(`🚀 Enriching: First='${firstName}', Last='${lastName}', Company='${row.company_name}'`);
+          
           // Use Name + Company
           result = await enrichProspectByName(row.full_name, row.company_name, "PHONE_ONLY");
         } else {
@@ -454,6 +471,25 @@ const Rtne: React.FC = () => {
           // Use LinkedIn URL
           result = await enrichProspect(row.prospect_linkedin, "EMAIL_ONLY");
         } else if (row.full_name && row.company_name) {
+          // Split the full name for debugging
+          const fullName = row.full_name.trim();
+          const firstSpaceIndex = fullName.indexOf(" ");
+          
+          let firstName = "";
+          let lastName = "";
+          
+          if (firstSpaceIndex === -1) {
+            // Case: Single word name (e.g., "Cher")
+            firstName = fullName;
+            lastName = "";
+          } else {
+            // Case: Normal name (e.g., "Nishtha Gupta")
+            firstName = fullName.substring(0, firstSpaceIndex).trim();
+            lastName = fullName.substring(firstSpaceIndex + 1).trim();
+          }
+          
+          console.log(`🚀 Enriching: First='${firstName}', Last='${lastName}', Company='${row.company_name}'`);
+          
           // Use Name + Company
           result = await enrichProspectByName(row.full_name, row.company_name, "EMAIL_ONLY");
         } else {
