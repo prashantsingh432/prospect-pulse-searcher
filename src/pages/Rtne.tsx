@@ -402,27 +402,15 @@ const Rtne: React.FC = () => {
           // Use LinkedIn URL
           result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
         } else if (row.full_name && row.company_name) {
-          // Split the full name for debugging
-          const fullName = row.full_name.trim();
-          const firstSpaceIndex = fullName.indexOf(" ");
-          
-          let firstName = "";
-          let lastName = "";
-          
-          if (firstSpaceIndex === -1) {
-            // Case: Single word name (e.g., "Cher")
-            firstName = fullName;
-            lastName = "";
-          } else {
-            // Case: Normal name (e.g., "Nishtha Gupta")
-            firstName = fullName.substring(0, firstSpaceIndex).trim();
-            lastName = fullName.substring(firstSpaceIndex + 1).trim();
-          }
+          // Split the full name BEFORE calling service
+          const nameParts = row.full_name.trim().split(" ");
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(" ") || "";
           
           console.log(`🚀 Enriching: First='${firstName}', Last='${lastName}', Company='${row.company_name}'`);
           
-          // Use Name + Company
-          result = await enrichProspectByName(row.full_name, row.company_name, "PHONE_ONLY");
+          // Use Name + Company with pre-split names
+          result = await enrichProspectByName(firstName, lastName, row.company_name, "PHONE_ONLY");
         } else {
           continue;
         }
@@ -471,27 +459,15 @@ const Rtne: React.FC = () => {
           // Use LinkedIn URL
           result = await enrichProspect(row.prospect_linkedin, "EMAIL_ONLY");
         } else if (row.full_name && row.company_name) {
-          // Split the full name for debugging
-          const fullName = row.full_name.trim();
-          const firstSpaceIndex = fullName.indexOf(" ");
-          
-          let firstName = "";
-          let lastName = "";
-          
-          if (firstSpaceIndex === -1) {
-            // Case: Single word name (e.g., "Cher")
-            firstName = fullName;
-            lastName = "";
-          } else {
-            // Case: Normal name (e.g., "Nishtha Gupta")
-            firstName = fullName.substring(0, firstSpaceIndex).trim();
-            lastName = fullName.substring(firstSpaceIndex + 1).trim();
-          }
+          // Split the full name BEFORE calling service
+          const nameParts = row.full_name.trim().split(" ");
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(" ") || "";
           
           console.log(`🚀 Enriching: First='${firstName}', Last='${lastName}', Company='${row.company_name}'`);
           
-          // Use Name + Company
-          result = await enrichProspectByName(row.full_name, row.company_name, "EMAIL_ONLY");
+          // Use Name + Company with pre-split names
+          result = await enrichProspectByName(firstName, lastName, row.company_name, "EMAIL_ONLY");
         } else {
           continue;
         }

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchLushaKeys,
@@ -13,10 +14,12 @@ import {
   toggleLushaKeyStatus,
   deleteLushaKey,
   getLushaKeyStats,
+  enrichProspect,
+  enrichProspectByName,
   LushaApiKey,
   LushaCategory,
 } from "@/services/lushaService";
-import { Loader2, Plus, Trash2, Key, TrendingUp, AlertCircle } from "lucide-react";
+import { Loader2, Plus, Trash2, Key, TrendingUp, AlertCircle, TestTube, CheckCircle, XCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const LushaApiManager = () => {
@@ -30,6 +33,16 @@ export const LushaApiManager = () => {
     phone: { total: 0, active: 0, exhausted: 0, invalid: 0, suspended: 0, totalCredits: 0 },
     email: { total: 0, active: 0, exhausted: 0, invalid: 0, suspended: 0, totalCredits: 0 },
   });
+
+  // API Test State
+  const [testMode, setTestMode] = useState<"linkedin" | "name">("linkedin");
+  const [testLinkedInUrl, setTestLinkedInUrl] = useState("");
+  const [testFirstName, setTestFirstName] = useState("");
+  const [testLastName, setTestLastName] = useState("");
+  const [testCompanyName, setTestCompanyName] = useState("");
+  const [testCategory, setTestCategory] = useState<LushaCategory>("PHONE_ONLY");
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   useEffect(() => {
     loadKeys();
@@ -141,6 +154,74 @@ export const LushaApiManager = () => {
     }
   };
 
+  const handleTestApi = async () => {
+    if (testMode === "linkedin" && !testLinkedInUrl.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a LinkedIn URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (testMode === "name" && (!testFirstName.trim() || !testCompanyName.trim())) {
+      toast({
+        title: "Error",
+        description: "Please enter First Name and Company Name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setTestLoading(true);
+      setTestResult(null);
+
+      console.log("🧪 Starting API Test...");
+      console.log(`📋 Mode: ${testMode}`);
+      console.log(`🔍 Category: ${testCategory}`);
+
+      let result;
+      if (testMode === "linkedin") {
+        console.log(`🔗 Testing with LinkedIn URL: ${testLinkedInUrl}`);
+        result = await enrichProspect(testLinkedInUrl, testCategory);
+      } else {
+        console.log(`👤 Testing with Name: ${testFirstName} ${testLastName}, Company: ${testCompanyName}`);
+        result = await enrichProspectByName(testFirstName, testLastName, testCompanyName, testCategory);
+      }
+
+      console.log("📊 Test Result:", result);
+      setTestResult(result);
+
+      if (result.success) {
+        toast({
+          title: "✅ API Test Successful!",
+          description: `Found ${result.phone ? "phone" : ""}${result.phone && result.email ? " and " : ""}${result.email ? "email" : ""}`,
+        });
+      } else {
+        toast({
+          title: "❌ API Test Failed",
+          description: result.message || result.error || "Unknown error",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("❌ Test Error:", error);
+      setTestResult({
+        success: false,
+        error: "Test Error",
+        message: error.message,
+      });
+      toast({
+        title: "Error",
+        description: "Test failed: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       ACTIVE: "default",
@@ -231,6 +312,191 @@ export const LushaApiManager = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* API Test Section */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-900">
+            <TestTube className="h-5 w-5" />
+            API Test Tool
+          </CardTitle>
+          <CardDescription className="text-blue-800">
+            Test if the Lusha API is working before running enrichment
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Test Mode Selection */}
+          <div className="flex gap-2">
+            <Button
+              variant={testMode === "linkedin" ? "default" : "outline"}
+              onClick={() => setTestMode("linkedin")}
+              disabled={testLoading}
+            >
+              Test with LinkedIn URL
+            </Button>
+            <Button
+              variant={testMode === "name" ? "default" : "outline"}
+              onClick={() => setTestMode("name")}
+              disabled={testLoading}
+            >
+              Test with Name + Company
+            </Button>
+          </div>
+
+          {/* Category Selection */}
+          <div className="flex gap-2">
+            <Button
+              variant={testCategory === "PHONE_ONLY" ? "default" : "outline"}
+              onClick={() => setTestCategory("PHONE_ONLY")}
+              disabled={testLoading}
+              size="sm"
+            >
+              Phone Only
+            </Button>
+            <Button
+              variant={testCategory === "EMAIL_ONLY" ? "default" : "outline"}
+              onClick={() => setTestCategory("EMAIL_ONLY")}
+              disabled={testLoading}
+              size="sm"
+            >
+              Email Only
+            </Button>
+          </div>
+
+          {/* Test Input Fields */}
+          {testMode === "linkedin" ? (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">LinkedIn URL</label>
+              <Input
+                placeholder="https://www.linkedin.com/in/username/"
+                value={testLinkedInUrl}
+                onChange={(e) => setTestLinkedInUrl(e.target.value)}
+                disabled={testLoading}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">First Name</label>
+                <Input
+                  placeholder="John"
+                  value={testFirstName}
+                  onChange={(e) => setTestFirstName(e.target.value)}
+                  disabled={testLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Last Name</label>
+                <Input
+                  placeholder="Smith"
+                  value={testLastName}
+                  onChange={(e) => setTestLastName(e.target.value)}
+                  disabled={testLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Company Name</label>
+                <Input
+                  placeholder="Google"
+                  value={testCompanyName}
+                  onChange={(e) => setTestCompanyName(e.target.value)}
+                  disabled={testLoading}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Test Button */}
+          <Button onClick={handleTestApi} disabled={testLoading} className="w-full">
+            {testLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Testing API...
+              </>
+            ) : (
+              <>
+                <TestTube className="mr-2 h-4 w-4" />
+                Run API Test
+              </>
+            )}
+          </Button>
+
+          {/* Test Result */}
+          {testResult && (
+            <div className={`p-4 rounded-lg border-2 ${testResult.success ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"}`}>
+              <div className="flex items-start gap-3">
+                {testResult.success ? (
+                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                )}
+                <div className="flex-1">
+                  <h4 className={`font-semibold ${testResult.success ? "text-green-900" : "text-red-900"}`}>
+                    {testResult.success ? "✅ Test Successful!" : "❌ Test Failed"}
+                  </h4>
+                  <p className={`text-sm mt-1 ${testResult.success ? "text-green-800" : "text-red-800"}`}>
+                    {testResult.message || testResult.error || "No message"}
+                  </p>
+
+                  {/* Show extracted data if successful */}
+                  {testResult.success && (
+                    <div className="mt-3 space-y-1 text-sm">
+                      {testResult.phone && (
+                        <div className="flex justify-between">
+                          <span className="font-medium">Phone:</span>
+                          <span className="font-mono">{testResult.phone}</span>
+                        </div>
+                      )}
+                      {testResult.email && (
+                        <div className="flex justify-between">
+                          <span className="font-medium">Email:</span>
+                          <span className="font-mono">{testResult.email}</span>
+                        </div>
+                      )}
+                      {testResult.fullName && (
+                        <div className="flex justify-between">
+                          <span className="font-medium">Name:</span>
+                          <span>{testResult.fullName}</span>
+                        </div>
+                      )}
+                      {testResult.company && (
+                        <div className="flex justify-between">
+                          <span className="font-medium">Company:</span>
+                          <span>{testResult.company}</span>
+                        </div>
+                      )}
+                      {testResult.title && (
+                        <div className="flex justify-between">
+                          <span className="font-medium">Title:</span>
+                          <span>{testResult.title}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show error details if failed */}
+                  {!testResult.success && testResult.rawData && (
+                    <details className="mt-2 text-xs">
+                      <summary className="cursor-pointer font-medium">View Details</summary>
+                      <pre className="mt-1 p-2 bg-gray-100 rounded overflow-auto max-h-40">
+                        {JSON.stringify(testResult.rawData, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Instructions */}
+          <Alert className="bg-blue-100 border-blue-300">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-900">
+              <strong>How to use:</strong> Enter test data and click "Run API Test" to verify the API is working. Check the browser console (F12) for detailed logs.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
 
       {/* Add Keys Section */}
       <Card>

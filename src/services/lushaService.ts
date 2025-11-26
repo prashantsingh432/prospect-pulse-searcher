@@ -26,6 +26,9 @@ export interface LushaEnrichResult {
   rawData?: any;
 }
 
+// Lusha API endpoint
+const LUSHA_API_BASE = "https://api.lusha.com/v2/person";
+
 /**
  * Fetch all Lusha API keys (Admin only)
  */
@@ -168,7 +171,7 @@ async function updateKeyLastUsed(keyId: string): Promise<void> {
 
 /**
  * Make API call to Lusha via Supabase Edge Function (server-side proxy)
- * This avoids CORS issues and provides server-side control
+ * This bypasses CORS issues by routing through our backend
  */
 async function makeLushaApiCall(
   apiKey: string,
@@ -184,33 +187,45 @@ async function makeLushaApiCall(
     console.log(`🔑 Using API key ending in ...${apiKey.slice(-4)}`);
     console.log(`📋 Parameters:`, params);
 
-    // Call Supabase Edge Function which will make the actual API call
-    const { data, error } = await supabase.functions.invoke("lusha-enrich-proxy", {
-      body: {
-        apiKey: apiKey,
-        params: params,
-      },
-    });
+    // ✅ DEBUG: Log the exact function being called
+    const functionName = "lusha-enrich-proxy";
+    console.log(`🎯 Calling Edge Function: ${functionName}`);
 
-    if (error) {
-      console.error(`❌ Edge Function Error:`, error);
+    // Call the Supabase Edge Function (server-side proxy)
+    const { data: responseData, error: functionError } = await supabase.functions.invoke(
+      functionName,
+      {
+        body: {
+          apiKey: apiKey,
+          params: params,
+        },
+      }
+    );
+
+    if (functionError) {
+      console.error(`❌ Edge Function Error:`, functionError);
+      console.error(`📋 Error Details:`, {
+        message: functionError.message,
+        context: functionError.context,
+      });
       return {
         status: 0,
         data: null,
-        error: error.message,
+        error: functionError.message,
       };
     }
 
-    console.log(`📊 Response Status: ${data?.status}`);
-    console.log(`📊 Response Data:`, data?.data);
+    console.log(`� Responsee Status: ${responseData?.status}`);
+    console.log(`📊 Response Data:`, responseData?.data);
 
     return {
-      status: data?.status || 0,
-      data: data?.data,
-      error: data?.error,
+      status: responseData?.status || 0,
+      data: responseData?.data,
+      error: responseData?.error,
     };
   } catch (err: any) {
     console.error(`❌ Network Error:`, err.message);
+    console.error(`📋 Error Stack:`, err.stack);
     return {
       status: 0,
       data: null,
@@ -276,6 +291,15 @@ function parseLushaResponse(data: any): LushaEnrichResult {
 /**
  * Smart Rotation: Try each key until one works (Python-style infinite retry)
  * RE-FETCHES keys from database on EVERY iteration (not just once at the start)
+ * 
+ * PYTHON LOGIC MIRRORED:
+ * 1. Fetch all active keys for category
+ * 2. Loop through keys
+ * 3. Try API call with current key
+ * 4. If 429/401: Mark dead, continue to next key
+ * 5. If 200: Parse and return
+ * 6. If 404: Return not found (don't retry)
+ * 7. Otherwise: Continue to next key
  */
 async function enrichWithSmartRotation(
   params: {
@@ -288,14 +312,14 @@ async function enrichWithSmartRotation(
 ): Promise<LushaEnrichResult> {
   console.log(`\n🚀 Starting enrichment with ${category} pool...`);
   
-  const MAX_ATTEMPTS = 50; // Safety limit to prevent infinite loops
+  const MAX_ATTEMPTS = 3; // ✅ REDUCED: Only try 3 times max (not 50)
   let attempt = 0;
 
   while (attempt < MAX_ATTEMPTS) {
     attempt++;
     
-    // 🔥 CRITICAL: Re-fetch keys on EVERY iteration (like Python script)
-    console.log(`\n🔎 [Attempt ${attempt}] Fetching FRESH list of active ${category} keys...`);
+    // Fetch keys on each iteration
+    console.log(`\n🔎 [Attempt ${attempt}/${MAX_ATTEMPTS}] Fetching active ${category} keys...`);
     const keys = await getActiveKeysForCategory(category);
 
     if (keys.length === 0) {
@@ -311,39 +335,13 @@ async function enrichWithSmartRotation(
     const key = keys[0];
     const keyEndsWith = key.key_value.slice(-4);
 
-    console.log(`🔑 [${attempt}/${MAX_ATTEMPTS}] Trying key ending in ...${keyEndsWith} (${keys.length} total keys available)`);
+    console.log(`🔑 [${attempt}/${MAX_ATTEMPTS}] Trying key ending in ...${keyEndsWith}`);
 
     try {
-      // Make API call via Supabase Edge Function
+      // Make API call to Lusha
       const response = await makeLushaApiCall(key.key_value, params);
 
       console.log(`📡 Response Status: ${response.status}`);
-
-      // Handle 429: Out of Credits - Mark as EXHAUSTED and IMMEDIATELY retry
-      if (response.status === 429) {
-        console.warn(`⛔ Key (...${keyEndsWith}) is OUT OF CREDITS (HTTP 429)`);
-        await markKeyAsDead(key.id, "EXHAUSTED");
-        console.log(`🔄 Marked as EXHAUSTED. Retrying with next key...`);
-        continue; // Loop back immediately (refetch keys)
-      }
-
-      // Handle 401: Invalid Key - Mark as INVALID and IMMEDIATELY retry
-      if (response.status === 401) {
-        console.warn(`⛔ Key (...${keyEndsWith}) is INVALID/EXPIRED (HTTP 401)`);
-        await markKeyAsDead(key.id, "INVALID");
-        console.log(`🔄 Marked as INVALID. Retrying with next key...`);
-        continue; // Loop back immediately (refetch keys)
-      }
-
-      // Handle 404: Not Found (Valid response, just no match in database)
-      if (response.status === 404) {
-        console.log(`❌ Profile not found in Lusha database (HTTP 404)`);
-        return {
-          success: false,
-          error: "Not found",
-          message: "Profile does not exist in Lusha database",
-        };
-      }
 
       // Handle 200: SUCCESS!
       if (response.status === 200) {
@@ -358,37 +356,69 @@ async function enrichWithSmartRotation(
           // Update last_used_at timestamp
           await updateKeyLastUsed(key.id);
           
-          // Check if credits are 0 from headers (if available in response)
-          // Note: The edge function should return this info
-          if (response.data?.creditsLeft === 0 || response.data?.creditsLeft === "0") {
-            console.warn(`⚠️ Key (...${keyEndsWith}) now has 0 credits. Marking as EXHAUSTED.`);
-            await markKeyAsDead(key.id, "EXHAUSTED");
-          }
-          
           return result;
         } else {
-          console.log(`⚠️ Got 200 response but no contact data extracted. Retrying with next key...`);
-          continue;
+          console.log(`⚠️ Got 200 response but no contact data extracted`);
+          return {
+            success: false,
+            error: "No data found",
+            message: "Profile not found in Lusha database",
+          };
         }
       }
 
-      // Handle other status codes (500, 502, etc.)
-      console.warn(`⚠️ Key (...${keyEndsWith}) returned unexpected status ${response.status}. Retrying with next key...`);
-      continue;
+      // Handle 401: Invalid Key - Mark as INVALID and retry with next key
+      if (response.status === 401) {
+        console.warn(`⛔ Key (...${keyEndsWith}) is INVALID/EXPIRED (HTTP 401)`);
+        await markKeyAsDead(key.id, "INVALID");
+        console.log(`🔄 Marked as INVALID. Trying next key...`);
+        continue; // Try next key
+      }
+
+      // Handle 429: Out of Credits - Mark as EXHAUSTED and retry with next key
+      if (response.status === 429) {
+        console.warn(`⛔ Key (...${keyEndsWith}) is OUT OF CREDITS (HTTP 429)`);
+        await markKeyAsDead(key.id, "EXHAUSTED");
+        console.log(`🔄 Marked as EXHAUSTED. Trying next key...`);
+        continue; // Try next key
+      }
+
+      // Handle 404: Not Found (Valid response, just no match in database)
+      if (response.status === 404) {
+        console.log(`❌ Profile not found in Lusha database (HTTP 404)`);
+        return {
+          success: false,
+          error: "Not found",
+          message: "Profile does not exist in Lusha database",
+        };
+      }
+
+      // Handle other errors - show the real error
+      console.error(`❌ API Error: HTTP ${response.status}`);
+      console.error(`📋 Error Details:`, response.data);
+      return {
+        success: false,
+        error: `HTTP ${response.status}`,
+        message: response.data?.message || response.error || `API returned status ${response.status}`,
+        rawData: response.data,
+      };
 
     } catch (err: any) {
-      console.error(`❌ Network/System Error with key (...${keyEndsWith}):`, err.message);
-      // Don't mark key as dead for network errors - might be temporary
-      continue; // Try next iteration (will refetch keys)
+      console.error(`❌ Network/System Error:`, err.message);
+      return {
+        success: false,
+        error: "Network Error",
+        message: err.message,
+      };
     }
   }
 
   // Reached max attempts
-  console.error(`❌ Reached maximum ${MAX_ATTEMPTS} attempts. All keys have been tried.`);
+  console.error(`❌ Reached maximum ${MAX_ATTEMPTS} attempts.`);
   return {
     success: false,
     error: "Max attempts reached",
-    message: `Tried ${MAX_ATTEMPTS} times but all keys are exhausted or invalid. Please add more API keys.`,
+    message: `Tried ${MAX_ATTEMPTS} times but all keys failed. Check console logs for details.`,
   };
 }
 
@@ -415,15 +445,16 @@ export async function enrichProspect(
 /**
  * Enrich a prospect using Lusha API (Name + Company method)
  * Uses smart key rotation to try multiple keys
- * HARD FIX: Direct HTTP calls to Lusha API
+ * 
+ * NOTE: firstName and lastName should be pre-split by the caller (Rtne.tsx)
+ * This ensures consistent name splitting logic across the app
  */
 export async function enrichProspectByName(
-  fullName: string,
+  firstName: string,
+  lastName: string,
   companyName: string,
   category: LushaCategory
 ): Promise<LushaEnrichResult> {
-  const { firstName, lastName } = splitFullName(fullName);
-
   console.log(`\n👤 Starting Name+Company enrichment (${category})`);
   console.log(`📋 Name: ${firstName} ${lastName}`);
   console.log(`🏢 Company: ${companyName}`);
