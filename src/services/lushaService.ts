@@ -119,6 +119,7 @@ function splitFullName(fullName: string): { firstName: string; lastName: string 
 
 /**
  * Smart Key Rotation: Fetch all active keys for a category
+ * Orders by last_used_at (null first) to implement round-robin like Python script
  */
 async function getActiveKeysForCategory(category: LushaCategory): Promise<LushaApiKey[]> {
   const { data, error } = await supabase
@@ -126,7 +127,8 @@ async function getActiveKeysForCategory(category: LushaCategory): Promise<LushaA
     .select("*")
     .eq("category", category)
     .eq("is_active", true)
-    .order("created_at", { ascending: true });
+    .eq("status", "ACTIVE") // 🔥 CRITICAL: Only fetch keys with ACTIVE status
+    .order("last_used_at", { ascending: true, nullsFirst: true }); // 🔥 Least recently used first
 
   if (error) {
     console.error(`❌ Error fetching ${category} keys:`, error);
@@ -272,8 +274,8 @@ function parseLushaResponse(data: any): LushaEnrichResult {
 }
 
 /**
- * Smart Rotation: Try each key until one works
- * HARD FIX: Direct HTTP calls to Lusha API
+ * Smart Rotation: Try each key until one works (Python-style infinite retry)
+ * RE-FETCHES keys from database on EVERY iteration (not just once at the start)
  */
 async function enrichWithSmartRotation(
   params: {
@@ -284,53 +286,58 @@ async function enrichWithSmartRotation(
   },
   category: LushaCategory
 ): Promise<LushaEnrichResult> {
-  // Step 1: Fetch ALL active keys for this category (FRESH fetch every time)
-  console.log(`\n🔎 Fetching active ${category} keys from database...`);
-  const keys = await getActiveKeysForCategory(category);
+  console.log(`\n🚀 Starting enrichment with ${category} pool...`);
+  
+  const MAX_ATTEMPTS = 50; // Safety limit to prevent infinite loops
+  let attempt = 0;
 
-  if (keys.length === 0) {
-    console.error(`❌ No active ${category} keys available`);
-    return {
-      success: false,
-      error: "No API keys",
-      message: `All ${category} keys are exhausted or invalid`,
-    };
-  }
+  while (attempt < MAX_ATTEMPTS) {
+    attempt++;
+    
+    // 🔥 CRITICAL: Re-fetch keys on EVERY iteration (like Python script)
+    console.log(`\n🔎 [Attempt ${attempt}] Fetching FRESH list of active ${category} keys...`);
+    const keys = await getActiveKeysForCategory(category);
 
-  console.log(`✅ Found ${keys.length} active ${category} keys`);
-  console.log(`🔎 Starting enrichment loop...`);
+    if (keys.length === 0) {
+      console.error(`❌ No active ${category} keys available`);
+      return {
+        success: false,
+        error: "No API keys",
+        message: `All ${category} keys are exhausted or invalid. Please add more API keys in Admin Panel.`,
+      };
+    }
 
-  // Step 2: Loop through each key
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
+    // Get the FIRST key from the fresh list (least recently used)
+    const key = keys[0];
     const keyEndsWith = key.key_value.slice(-4);
 
-    console.log(`\n🔑 [${i + 1}/${keys.length}] Attempting with key ending in ...${keyEndsWith}`);
+    console.log(`🔑 [${attempt}/${MAX_ATTEMPTS}] Trying key ending in ...${keyEndsWith} (${keys.length} total keys available)`);
 
     try {
-      // Step 3: Make API call via Supabase Edge Function
+      // Make API call via Supabase Edge Function
       const response = await makeLushaApiCall(key.key_value, params);
 
-      // Step 4: Handle different HTTP status codes
+      console.log(`📡 Response Status: ${response.status}`);
+
+      // Handle 429: Out of Credits - Mark as EXHAUSTED and IMMEDIATELY retry
       if (response.status === 429) {
-        // Rate Limited (Out of Credits)
-        console.warn(`⛔ Key (...${keyEndsWith}) is OUT OF CREDITS (Status 429)`);
+        console.warn(`⛔ Key (...${keyEndsWith}) is OUT OF CREDITS (HTTP 429)`);
         await markKeyAsDead(key.id, "EXHAUSTED");
-        console.log(`🔄 Marked as EXHAUSTED. Trying next key...`);
-        continue; // IMMEDIATELY loop to next key
+        console.log(`🔄 Marked as EXHAUSTED. Retrying with next key...`);
+        continue; // Loop back immediately (refetch keys)
       }
 
+      // Handle 401: Invalid Key - Mark as INVALID and IMMEDIATELY retry
       if (response.status === 401) {
-        // Unauthorized (Invalid Key)
-        console.warn(`⛔ Key (...${keyEndsWith}) is INVALID/EXPIRED (Status 401)`);
+        console.warn(`⛔ Key (...${keyEndsWith}) is INVALID/EXPIRED (HTTP 401)`);
         await markKeyAsDead(key.id, "INVALID");
-        console.log(`🔄 Marked as INVALID. Trying next key...`);
-        continue; // IMMEDIATELY loop to next key
+        console.log(`🔄 Marked as INVALID. Retrying with next key...`);
+        continue; // Loop back immediately (refetch keys)
       }
 
+      // Handle 404: Not Found (Valid response, just no match in database)
       if (response.status === 404) {
-        // Not Found (Valid response, no match)
-        console.log(`❌ Profile not found in Lusha database (Status 404)`);
+        console.log(`❌ Profile not found in Lusha database (HTTP 404)`);
         return {
           success: false,
           error: "Not found",
@@ -338,38 +345,50 @@ async function enrichWithSmartRotation(
         };
       }
 
+      // Handle 200: SUCCESS!
       if (response.status === 200) {
-        // SUCCESS!
-        console.log(`✅ Success! Got response from Lusha API (Status 200)`);
+        console.log(`✅ Success! Got data from Lusha API (HTTP 200)`);
         
         // Parse the response
         const result = parseLushaResponse(response.data);
         
         if (result.success || result.phone || result.email) {
-          console.log(`✅ Successfully extracted data with key (...${keyEndsWith})`);
+          console.log(`✅ Successfully extracted contact data with key (...${keyEndsWith})`);
+          
+          // Update last_used_at timestamp
           await updateKeyLastUsed(key.id);
+          
+          // Check if credits are 0 from headers (if available in response)
+          // Note: The edge function should return this info
+          if (response.data?.creditsLeft === 0 || response.data?.creditsLeft === "0") {
+            console.warn(`⚠️ Key (...${keyEndsWith}) now has 0 credits. Marking as EXHAUSTED.`);
+            await markKeyAsDead(key.id, "EXHAUSTED");
+          }
+          
           return result;
         } else {
-          console.log(`⚠️ Got 200 response but no data extracted. Trying next key...`);
+          console.log(`⚠️ Got 200 response but no contact data extracted. Retrying with next key...`);
           continue;
         }
       }
 
-      // Other status codes
-      console.warn(`⚠️ Key (...${keyEndsWith}) returned status ${response.status}. Trying next key...`);
+      // Handle other status codes (500, 502, etc.)
+      console.warn(`⚠️ Key (...${keyEndsWith}) returned unexpected status ${response.status}. Retrying with next key...`);
       continue;
+
     } catch (err: any) {
-      console.error(`❌ Error with Key (...${keyEndsWith}):`, err.message);
-      continue; // Try next key
+      console.error(`❌ Network/System Error with key (...${keyEndsWith}):`, err.message);
+      // Don't mark key as dead for network errors - might be temporary
+      continue; // Try next iteration (will refetch keys)
     }
   }
 
-  // Step 5: All keys failed
-  console.error(`❌ All ${keys.length} ${category} keys have been tried and failed`);
+  // Reached max attempts
+  console.error(`❌ Reached maximum ${MAX_ATTEMPTS} attempts. All keys have been tried.`);
   return {
     success: false,
-    error: "All keys exhausted",
-    message: `All ${keys.length} ${category} keys are exhausted or invalid. Please add more API keys.`,
+    error: "Max attempts reached",
+    message: `Tried ${MAX_ATTEMPTS} times but all keys are exhausted or invalid. Please add more API keys.`,
   };
 }
 
