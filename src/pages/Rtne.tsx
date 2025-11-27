@@ -64,8 +64,6 @@ const Rtne: React.FC = () => {
   const [enrichingRows, setEnrichingRows] = useState<Set<number>>(new Set());
   const [isBulkEnriching, setIsBulkEnriching] = useState(false);
   const [bulkEnrichProgress, setBulkEnrichProgress] = useState({ current: 0, total: 0 });
-  const [enrichingColumn, setEnrichingColumn] = useState<string | null>(null);
-  const [columnEnrichProgress, setColumnEnrichProgress] = useState({ current: 0, total: 0 });
   
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
@@ -552,77 +550,65 @@ const Rtne: React.FC = () => {
     toast.success(`Email Enrichment Complete: ${successCount} found, ${failedCount} failed`);
   };
 
-  // Column-specific enrichment function
-  const enrichColumn = async (columnName: 'prospect_number' | 'prospect_number2' | 'prospect_number3' | 'prospect_number4' | 'prospect_email') => {
-    setEnrichingColumn(columnName);
-    let successCount = 0;
-    let failedCount = 0;
+  // Single row enrichment function
+  const enrichSingleRow = async (rowId: number, category: 'PHONE_ONLY' | 'EMAIL_ONLY') => {
+    const row = rows.find(r => r.id === rowId);
+    if (!row) return;
 
-    // Determine if this is a phone or email column
-    const isEmailColumn = columnName === 'prospect_email';
-    const category = isEmailColumn ? "EMAIL_ONLY" : "PHONE_ONLY";
+    // Add row to enriching set
+    setEnrichingRows(prev => new Set(prev).add(rowId));
 
-    // Get all rows with LinkedIn URLs or Name+Company
-    const targetRows = rows.filter(row => 
-      row.prospect_linkedin || (row.full_name && row.company_name)
-    );
-
-    setColumnEnrichProgress({ current: 0, total: targetRows.length });
-
-    for (let i = 0; i < targetRows.length; i++) {
-      const row = targetRows[i];
-      setColumnEnrichProgress({ current: i + 1, total: targetRows.length });
-
-      try {
-        let result;
+    try {
+      let result;
+      
+      if (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin)) {
+        // Use LinkedIn URL
+        result = await enrichProspect(row.prospect_linkedin, category);
+      } else if (row.full_name && row.company_name) {
+        // Split the full name
+        const nameParts = row.full_name.trim().split(" ");
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(" ") || "";
         
-        if (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin)) {
-          // Use LinkedIn URL
-          result = await enrichProspect(row.prospect_linkedin, category);
-        } else if (row.full_name && row.company_name) {
-          // Split the full name
-          const nameParts = row.full_name.trim().split(" ");
-          const firstName = nameParts[0];
-          const lastName = nameParts.slice(1).join(" ") || "";
-          
-          // Use Name + Company
-          result = await enrichProspectByName(firstName, lastName, row.company_name, category);
-        } else {
-          continue;
-        }
-
-        if (result.success) {
-          setRows(prev => prev.map(r => 
-            r.id === row.id ? { 
-              ...r, 
-              prospect_number: result.phone || r.prospect_number,
-              prospect_number2: result.phone2 || r.prospect_number2,
-              prospect_number3: result.phone3 || r.prospect_number3,
-              prospect_number4: result.phone4 || r.prospect_number4,
-              prospect_email: result.email || r.prospect_email,
-              full_name: result.fullName || r.full_name,
-              company_name: result.company || r.company_name,
-            } : r
-          ));
-          successCount++;
-        } else {
-          failedCount++;
-        }
-      } catch (error) {
-        console.error(`Column enrichment error for ${columnName}:`, error);
-        failedCount++;
+        // Use Name + Company
+        result = await enrichProspectByName(firstName, lastName, row.company_name, category);
+      } else {
+        toast.error("Need LinkedIn URL or Full Name + Company to enrich");
+        setEnrichingRows(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(rowId);
+          return newSet;
+        });
+        return;
       }
-    }
 
-    setEnrichingColumn(null);
-    setColumnEnrichProgress({ current: 0, total: 0 });
-    
-    const columnLabel = columnName === 'prospect_email' ? 'Email' : 
-                       columnName === 'prospect_number' ? 'Primary Phone' :
-                       columnName === 'prospect_number2' ? 'Phone 2' :
-                       columnName === 'prospect_number3' ? 'Phone 3' : 'Phone 4';
-    
-    toast.success(`${columnLabel} Enrichment Complete: ${successCount} found, ${failedCount} failed`);
+      if (result.success) {
+        setRows(prev => prev.map(r => 
+          r.id === rowId ? { 
+            ...r, 
+            prospect_number: result.phone || r.prospect_number,
+            prospect_number2: result.phone2 || r.prospect_number2,
+            prospect_number3: result.phone3 || r.prospect_number3,
+            prospect_number4: result.phone4 || r.prospect_number4,
+            prospect_email: result.email || r.prospect_email,
+            full_name: result.fullName || r.full_name,
+            company_name: result.company || r.company_name,
+          } : r
+        ));
+        toast.success(`Enrichment successful`);
+      } else {
+        toast.error(result.message || "Enrichment failed");
+      }
+    } catch (error) {
+      console.error(`Single row enrichment error:`, error);
+      toast.error("Enrichment failed");
+    } finally {
+      setEnrichingRows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(rowId);
+        return newSet;
+      });
+    }
   };
 
   // Add rows function
@@ -1329,7 +1315,7 @@ const Rtne: React.FC = () => {
             <span className="text-sm font-medium text-gray-700">Bulk Enrichment:</span>
             <button
               onClick={bulkEnrichPhones}
-              disabled={isBulkEnriching || enrichingColumn !== null}
+              disabled={isBulkEnriching}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <Phone className="h-4 w-4" />
@@ -1337,7 +1323,7 @@ const Rtne: React.FC = () => {
             </button>
             <button
               onClick={bulkEnrichEmails}
-              disabled={isBulkEnriching || enrichingColumn !== null}
+              disabled={isBulkEnriching}
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <Mail className="h-4 w-4" />
@@ -1350,15 +1336,6 @@ const Rtne: React.FC = () => {
               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
               <span className="text-sm text-gray-600">
                 Enriching {bulkEnrichProgress.current}/{bulkEnrichProgress.total} rows...
-              </span>
-            </div>
-          )}
-
-          {enrichingColumn && (
-            <div className="flex items-center space-x-3">
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-              <span className="text-sm text-gray-600">
-                Enriching column {columnEnrichProgress.current}/{columnEnrichProgress.total} rows...
               </span>
             </div>
           )}
@@ -1399,103 +1376,33 @@ const Rtne: React.FC = () => {
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center justify-between group">
-                    <div className="flex items-center">
-                      <Phone className="h-4 w-4 mr-2 text-gray-600" />
-                      Primary Phone
-                    </div>
-                    <button
-                      onClick={() => enrichColumn('prospect_number')}
-                      disabled={enrichingColumn !== null}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Enrich this column for all rows"
-                    >
-                      {enrichingColumn === 'prospect_number' ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                      ) : (
-                        <Play className="h-3.5 w-3.5 text-green-600" />
-                      )}
-                    </button>
+                  <div className="flex items-center">
+                    <Phone className="h-4 w-4 mr-2 text-gray-600" />
+                    Primary Phone
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center justify-between group">
-                    <div className="flex items-center">
-                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                      Phone 2
-                    </div>
-                    <button
-                      onClick={() => enrichColumn('prospect_number2')}
-                      disabled={enrichingColumn !== null}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Enrich this column for all rows"
-                    >
-                      {enrichingColumn === 'prospect_number2' ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                      ) : (
-                        <Play className="h-3.5 w-3.5 text-green-600" />
-                      )}
-                    </button>
+                  <div className="flex items-center">
+                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                    Phone 2
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center justify-between group">
-                    <div className="flex items-center">
-                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                      Phone 3
-                    </div>
-                    <button
-                      onClick={() => enrichColumn('prospect_number3')}
-                      disabled={enrichingColumn !== null}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Enrich this column for all rows"
-                    >
-                      {enrichingColumn === 'prospect_number3' ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                      ) : (
-                        <Play className="h-3.5 w-3.5 text-green-600" />
-                      )}
-                    </button>
+                  <div className="flex items-center">
+                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                    Phone 3
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center justify-between group">
-                    <div className="flex items-center">
-                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                      Phone 4
-                    </div>
-                    <button
-                      onClick={() => enrichColumn('prospect_number4')}
-                      disabled={enrichingColumn !== null}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Enrich this column for all rows"
-                    >
-                      {enrichingColumn === 'prospect_number4' ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                      ) : (
-                        <Play className="h-3.5 w-3.5 text-green-600" />
-                      )}
-                    </button>
+                  <div className="flex items-center">
+                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                    Phone 4
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
-                  <div className="flex items-center justify-between group">
-                    <div className="flex items-center">
-                      <Mail className="h-4 w-4 mr-2 text-gray-600" />
-                      Email Address
-                    </div>
-                    <button
-                      onClick={() => enrichColumn('prospect_email')}
-                      disabled={enrichingColumn !== null}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Enrich this column for all rows"
-                    >
-                      {enrichingColumn === 'prospect_email' ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                      ) : (
-                        <Play className="h-3.5 w-3.5 text-green-600" />
-                      )}
-                    </button>
+                  <div className="flex items-center">
+                    <Mail className="h-4 w-4 mr-2 text-gray-600" />
+                    Email Address
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
@@ -1568,56 +1475,80 @@ const Rtne: React.FC = () => {
                         onMouseUp={() => {
                           setIsDragging(false);
                         }}
-                      >
-                        <input
-                          data-cell={`${row.id}-${field}`}
-                          className="w-full border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                          type={field === 'prospect_email' ? 'email' : 'text'}
-                          value={cellValue}
-                          onChange={(e) => handleChange(row.id, field, e.target.value)}
-                          onFocus={() => {
-                            setSelectedCell({ rowId: row.id, field });
-                            setSelectionStart({ rowId: row.id, field });
-                            setIsEditing(true);
-                          }}
-                          onBlur={(e) => {
-                            // Only blur if not moving to another input
-                            const relatedTarget = e.relatedTarget as HTMLElement;
-                            if (!relatedTarget || !relatedTarget.hasAttribute('data-cell')) {
-                              setIsEditing(false);
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            // Stop propagation to prevent global handler from interfering
-                            e.stopPropagation();
-                            
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              setIsEditing(false);
-                              setTimeout(() => {
-                                if (e.shiftKey) {
-                                  moveSelection('up');
-                                } else {
-                                  moveSelection('down');
-                                }
-                              }, 0);
-                            } else if (e.key === 'Tab') {
-                              e.preventDefault();
-                              setIsEditing(false);
-                              setTimeout(() => {
-                                if (e.shiftKey) {
-                                  moveSelection('left');
-                                } else {
-                                  moveSelection('right');
-                                }
-                              }, 0);
-                            } else if (e.key === 'Escape') {
-                              e.preventDefault();
-                              setIsEditing(false);
-                            }
-                          }}
-                        />
-                      </td>
+                       >
+                         {/* Cell content with enrichment button for phone/email fields */}
+                         <div className="flex items-center gap-1 w-full">
+                           <input
+                             data-cell={`${row.id}-${field}`}
+                             className="flex-1 border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
+                             type={field === 'prospect_email' ? 'email' : 'text'}
+                             value={cellValue}
+                             onChange={(e) => handleChange(row.id, field, e.target.value)}
+                             onFocus={() => {
+                               setSelectedCell({ rowId: row.id, field });
+                               setSelectionStart({ rowId: row.id, field });
+                               setIsEditing(true);
+                             }}
+                             onBlur={(e) => {
+                               // Only blur if not moving to another input
+                               const relatedTarget = e.relatedTarget as HTMLElement;
+                               if (!relatedTarget || !relatedTarget.hasAttribute('data-cell')) {
+                                 setIsEditing(false);
+                               }
+                             }}
+                             onKeyDown={(e) => {
+                               // Stop propagation to prevent global handler from interfering
+                               e.stopPropagation();
+                               
+                               if (e.key === 'Enter') {
+                                 e.preventDefault();
+                                 setIsEditing(false);
+                                 setTimeout(() => {
+                                   if (e.shiftKey) {
+                                     moveSelection('up');
+                                   } else {
+                                     moveSelection('down');
+                                   }
+                                 }, 0);
+                               } else if (e.key === 'Tab') {
+                                 e.preventDefault();
+                                 setIsEditing(false);
+                                 setTimeout(() => {
+                                   if (e.shiftKey) {
+                                     moveSelection('left');
+                                   } else {
+                                     moveSelection('right');
+                                   }
+                                 }, 0);
+                               } else if (e.key === 'Escape') {
+                                 e.preventDefault();
+                                 setIsEditing(false);
+                               }
+                             }}
+                           />
+                           {/* Add enrichment button for phone and email fields */}
+                           {(field === 'prospect_number' || field === 'prospect_number2' || 
+                             field === 'prospect_number3' || field === 'prospect_number4' || 
+                             field === 'prospect_email') && (
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 const category = field === 'prospect_email' ? 'EMAIL_ONLY' : 'PHONE_ONLY';
+                                 enrichSingleRow(row.id, category);
+                               }}
+                               disabled={enrichingRows.has(row.id)}
+                               className="flex-shrink-0 p-1 hover:bg-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                               title={`Enrich ${field === 'prospect_email' ? 'email' : 'phone'} for this row`}
+                             >
+                               {enrichingRows.has(row.id) ? (
+                                 <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                               ) : (
+                                 <Play className="h-3.5 w-3.5 text-green-600" />
+                               )}
+                             </button>
+                           )}
+                         </div>
+                       </td>
                     );
                   })}
                   <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
