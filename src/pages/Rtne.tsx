@@ -244,9 +244,18 @@ const Rtne: React.FC = () => {
 
             if (phoneResult.success && phoneResult.phone) {
               setRows(prev => prev.map(r => 
-                r.id === rowId ? { ...r, prospect_number: phoneResult.phone || '' } : r
+                r.id === rowId ? { 
+                  ...r, 
+                  prospect_number: phoneResult.phone || '',
+                  prospect_number2: phoneResult.phone2 || '',
+                  prospect_number3: phoneResult.phone3 || '',
+                  prospect_number4: phoneResult.phone4 || '',
+                  full_name: phoneResult.fullName || r.full_name,
+                  company_name: phoneResult.company || r.company_name,
+                } : r
               ));
-              toast.success("Phone enriched!");
+              const phoneCount = [phoneResult.phone, phoneResult.phone2, phoneResult.phone3, phoneResult.phone4].filter(Boolean).length;
+              toast.success(`${phoneCount} phone(s) enriched!`);
             }
 
             // Then try email enrichment
@@ -259,7 +268,12 @@ const Rtne: React.FC = () => {
 
             if (emailResult.success && emailResult.email) {
               setRows(prev => prev.map(r => 
-                r.id === rowId ? { ...r, prospect_email: emailResult.email || '' } : r
+                r.id === rowId ? { 
+                  ...r, 
+                  prospect_email: emailResult.email || '',
+                  full_name: emailResult.fullName || r.full_name,
+                  company_name: emailResult.company || r.company_name,
+                } : r
               ));
               toast.success("Email enriched!");
             }
@@ -438,7 +452,15 @@ const Rtne: React.FC = () => {
 
         if (result.success && result.phone) {
           setRows(prev => prev.map(r => 
-            r.id === row.id ? { ...r, prospect_number: result.phone || '' } : r
+            r.id === row.id ? { 
+              ...r, 
+              prospect_number: result.phone || '',
+              prospect_number2: result.phone2 || '',
+              prospect_number3: result.phone3 || '',
+              prospect_number4: result.phone4 || '',
+              full_name: result.fullName || r.full_name,
+              company_name: result.company || r.company_name,
+            } : r
           ));
           successCount++;
         } else {
@@ -495,7 +517,12 @@ const Rtne: React.FC = () => {
 
         if (result.success && result.email) {
           setRows(prev => prev.map(r => 
-            r.id === row.id ? { ...r, prospect_email: result.email || '' } : r
+            r.id === row.id ? { 
+              ...r, 
+              prospect_email: result.email || '',
+              full_name: result.fullName || r.full_name,
+              company_name: result.company || r.company_name,
+            } : r
           ));
           successCount++;
         } else {
