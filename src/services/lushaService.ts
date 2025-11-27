@@ -17,6 +17,9 @@ export interface LushaApiKey {
 export interface LushaEnrichResult {
   success: boolean;
   phone?: string | null;
+  phone2?: string | null;
+  phone3?: string | null;
+  phone4?: string | null;
   email?: string | null;
   fullName?: string | null;
   company?: string | null;
@@ -291,13 +294,30 @@ function parseLushaResponse(data: any): LushaEnrichResult {
       };
     }
 
-    // Extract phone numbers
+    // Extract ALL phone numbers (up to 4)
     let phone: string | null = null;
+    let phone2: string | null = null;
+    let phone3: string | null = null;
+    let phone4: string | null = null;
+    
     const phones = contact.phoneNumbers || [];
     console.log("🔍 [parseLushaResponse] Phone numbers array:", phones);
+    
     if (phones.length > 0) {
       phone = phones[0].internationalNumber || phones[0].number || null;
-      console.log("🔍 [parseLushaResponse] Extracted phone:", phone);
+      console.log("🔍 [parseLushaResponse] Extracted phone 1:", phone);
+    }
+    if (phones.length > 1) {
+      phone2 = phones[1].internationalNumber || phones[1].number || null;
+      console.log("🔍 [parseLushaResponse] Extracted phone 2:", phone2);
+    }
+    if (phones.length > 2) {
+      phone3 = phones[2].internationalNumber || phones[2].number || null;
+      console.log("🔍 [parseLushaResponse] Extracted phone 3:", phone3);
+    }
+    if (phones.length > 3) {
+      phone4 = phones[3].internationalNumber || phones[3].number || null;
+      console.log("🔍 [parseLushaResponse] Extracted phone 4:", phone4);
     }
 
 
@@ -320,6 +340,9 @@ function parseLushaResponse(data: any): LushaEnrichResult {
     const result = {
       success: hasData,
       phone: phone || undefined,
+      phone2: phone2 || undefined,
+      phone3: phone3 || undefined,
+      phone4: phone4 || undefined,
       email: email || undefined,
       fullName: fullName || undefined,
       company: company || undefined,
