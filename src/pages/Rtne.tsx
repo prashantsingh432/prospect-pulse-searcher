@@ -64,6 +64,8 @@ const Rtne: React.FC = () => {
   const [enrichingRows, setEnrichingRows] = useState<Set<number>>(new Set());
   const [isBulkEnriching, setIsBulkEnriching] = useState(false);
   const [bulkEnrichProgress, setBulkEnrichProgress] = useState({ current: 0, total: 0 });
+  const [enrichingColumn, setEnrichingColumn] = useState<string | null>(null);
+  const [columnEnrichProgress, setColumnEnrichProgress] = useState({ current: 0, total: 0 });
   
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
@@ -548,6 +550,79 @@ const Rtne: React.FC = () => {
     setBulkEnrichProgress({ current: 0, total: 0 });
     
     toast.success(`Email Enrichment Complete: ${successCount} found, ${failedCount} failed`);
+  };
+
+  // Column-specific enrichment function
+  const enrichColumn = async (columnName: 'prospect_number' | 'prospect_number2' | 'prospect_number3' | 'prospect_number4' | 'prospect_email') => {
+    setEnrichingColumn(columnName);
+    let successCount = 0;
+    let failedCount = 0;
+
+    // Determine if this is a phone or email column
+    const isEmailColumn = columnName === 'prospect_email';
+    const category = isEmailColumn ? "EMAIL_ONLY" : "PHONE_ONLY";
+
+    // Get all rows with LinkedIn URLs or Name+Company
+    const targetRows = rows.filter(row => 
+      row.prospect_linkedin || (row.full_name && row.company_name)
+    );
+
+    setColumnEnrichProgress({ current: 0, total: targetRows.length });
+
+    for (let i = 0; i < targetRows.length; i++) {
+      const row = targetRows[i];
+      setColumnEnrichProgress({ current: i + 1, total: targetRows.length });
+
+      try {
+        let result;
+        
+        if (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin)) {
+          // Use LinkedIn URL
+          result = await enrichProspect(row.prospect_linkedin, category);
+        } else if (row.full_name && row.company_name) {
+          // Split the full name
+          const nameParts = row.full_name.trim().split(" ");
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(" ") || "";
+          
+          // Use Name + Company
+          result = await enrichProspectByName(firstName, lastName, row.company_name, category);
+        } else {
+          continue;
+        }
+
+        if (result.success) {
+          setRows(prev => prev.map(r => 
+            r.id === row.id ? { 
+              ...r, 
+              prospect_number: result.phone || r.prospect_number,
+              prospect_number2: result.phone2 || r.prospect_number2,
+              prospect_number3: result.phone3 || r.prospect_number3,
+              prospect_number4: result.phone4 || r.prospect_number4,
+              prospect_email: result.email || r.prospect_email,
+              full_name: result.fullName || r.full_name,
+              company_name: result.company || r.company_name,
+            } : r
+          ));
+          successCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (error) {
+        console.error(`Column enrichment error for ${columnName}:`, error);
+        failedCount++;
+      }
+    }
+
+    setEnrichingColumn(null);
+    setColumnEnrichProgress({ current: 0, total: 0 });
+    
+    const columnLabel = columnName === 'prospect_email' ? 'Email' : 
+                       columnName === 'prospect_number' ? 'Primary Phone' :
+                       columnName === 'prospect_number2' ? 'Phone 2' :
+                       columnName === 'prospect_number3' ? 'Phone 3' : 'Phone 4';
+    
+    toast.success(`${columnLabel} Enrichment Complete: ${successCount} found, ${failedCount} failed`);
   };
 
   // Add rows function
@@ -1254,7 +1329,7 @@ const Rtne: React.FC = () => {
             <span className="text-sm font-medium text-gray-700">Bulk Enrichment:</span>
             <button
               onClick={bulkEnrichPhones}
-              disabled={isBulkEnriching}
+              disabled={isBulkEnriching || enrichingColumn !== null}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <Phone className="h-4 w-4" />
@@ -1262,7 +1337,7 @@ const Rtne: React.FC = () => {
             </button>
             <button
               onClick={bulkEnrichEmails}
-              disabled={isBulkEnriching}
+              disabled={isBulkEnriching || enrichingColumn !== null}
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <Mail className="h-4 w-4" />
@@ -1275,6 +1350,15 @@ const Rtne: React.FC = () => {
               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
               <span className="text-sm text-gray-600">
                 Enriching {bulkEnrichProgress.current}/{bulkEnrichProgress.total} rows...
+              </span>
+            </div>
+          )}
+
+          {enrichingColumn && (
+            <div className="flex items-center space-x-3">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <span className="text-sm text-gray-600">
+                Enriching column {columnEnrichProgress.current}/{columnEnrichProgress.total} rows...
               </span>
             </div>
           )}
@@ -1315,33 +1399,103 @@ const Rtne: React.FC = () => {
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <Phone className="h-4 w-4 mr-2 text-gray-600" />
-                    Primary Phone
+                  <div className="flex items-center justify-between group">
+                    <div className="flex items-center">
+                      <Phone className="h-4 w-4 mr-2 text-gray-600" />
+                      Primary Phone
+                    </div>
+                    <button
+                      onClick={() => enrichColumn('prospect_number')}
+                      disabled={enrichingColumn !== null}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Enrich this column for all rows"
+                    >
+                      {enrichingColumn === 'prospect_number' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                      ) : (
+                        <Play className="h-3.5 w-3.5 text-green-600" />
+                      )}
+                    </button>
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                    Phone 2
+                  <div className="flex items-center justify-between group">
+                    <div className="flex items-center">
+                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                      Phone 2
+                    </div>
+                    <button
+                      onClick={() => enrichColumn('prospect_number2')}
+                      disabled={enrichingColumn !== null}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Enrich this column for all rows"
+                    >
+                      {enrichingColumn === 'prospect_number2' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                      ) : (
+                        <Play className="h-3.5 w-3.5 text-green-600" />
+                      )}
+                    </button>
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                    Phone 3
+                  <div className="flex items-center justify-between group">
+                    <div className="flex items-center">
+                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                      Phone 3
+                    </div>
+                    <button
+                      onClick={() => enrichColumn('prospect_number3')}
+                      disabled={enrichingColumn !== null}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Enrich this column for all rows"
+                    >
+                      {enrichingColumn === 'prospect_number3' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                      ) : (
+                        <Play className="h-3.5 w-3.5 text-green-600" />
+                      )}
+                    </button>
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                    Phone 4
+                  <div className="flex items-center justify-between group">
+                    <div className="flex items-center">
+                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                      Phone 4
+                    </div>
+                    <button
+                      onClick={() => enrichColumn('prospect_number4')}
+                      disabled={enrichingColumn !== null}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Enrich this column for all rows"
+                    >
+                      {enrichingColumn === 'prospect_number4' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                      ) : (
+                        <Play className="h-3.5 w-3.5 text-green-600" />
+                      )}
+                    </button>
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 mr-2 text-gray-600" />
-                    Email Address
+                  <div className="flex items-center justify-between group">
+                    <div className="flex items-center">
+                      <Mail className="h-4 w-4 mr-2 text-gray-600" />
+                      Email Address
+                    </div>
+                    <button
+                      onClick={() => enrichColumn('prospect_email')}
+                      disabled={enrichingColumn !== null}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Enrich this column for all rows"
+                    >
+                      {enrichingColumn === 'prospect_email' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                      ) : (
+                        <Play className="h-3.5 w-3.5 text-green-600" />
+                      )}
+                    </button>
                   </div>
                 </th>
                 <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
