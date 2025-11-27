@@ -18,34 +18,33 @@ serve(async (req) => {
     console.log(`🔑 Received API key ending in ...${apiKey.slice(-4)}`);
     console.log(`📋 Parameters:`, params);
 
-    // Build request body for Lusha API
-    const requestBody: any = {
-      revealPhones: true,
-      revealEmails: true,
-    };
+    // Build query parameters for Lusha API v2 (GET method, not POST!)
+    const queryParams: Record<string, string> = {};
 
     // Add parameters based on what's provided
     if (params.linkedinUrl) {
-      requestBody.linkedinUrl = params.linkedinUrl;
+      queryParams.linkedinUrl = params.linkedinUrl;
       console.log(`🔗 Using LinkedIn URL: ${params.linkedinUrl}`);
     } else if (params.firstName || params.lastName || params.companyName) {
       // For name + company search
-      if (params.firstName) requestBody.firstName = params.firstName;
-      if (params.lastName) requestBody.lastName = params.lastName;
-      if (params.companyName) requestBody.company = params.companyName; // ✅ CORRECT: "company" not "companyName"
+      if (params.firstName) queryParams.firstName = params.firstName;
+      if (params.lastName) queryParams.lastName = params.lastName;
+      if (params.companyName) queryParams.companyName = params.companyName;
       console.log(`👤 Using Name + Company: ${params.firstName} ${params.lastName} @ ${params.companyName}`);
     }
 
-    console.log(`📤 Request Body:`, requestBody);
+    // Build URL with query parameters
+    const searchParams = new URLSearchParams(queryParams);
+    const lushaUrl = `https://api.lusha.com/v2/person?${searchParams}`;
 
-    // ✅ CORRECT: POST to /person/contact endpoint with JSON body
-    const lushaResponse = await fetch("https://api.lusha.com/person/contact", {
-      method: "POST",  // ✅ CORRECT: POST not GET
+    console.log(`📤 Request URL:`, lushaUrl);
+
+    // ✅ FIXED: GET request to /v2/person with query parameters
+    const lushaResponse = await fetch(lushaUrl, {
+      method: "GET",  // ✅ FIXED: GET not POST!
       headers: {
-        "Authorization": apiKey,  // ✅ CORRECT: "Authorization" not "api_key"
-        "Content-Type": "application/json",
+        "api_key": apiKey,  // ✅ CORRECT: Lusha requires "api_key" header
       },
-      body: JSON.stringify(requestBody),  // ✅ CORRECT: Send as JSON body
     });
 
     const responseData = await lushaResponse.json();

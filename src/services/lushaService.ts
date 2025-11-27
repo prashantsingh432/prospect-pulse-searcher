@@ -122,6 +122,9 @@ function splitFullName(fullName: string): { firstName: string; lastName: string 
  * Orders by last_used_at (null first) to implement round-robin like Python script
  */
 async function getActiveKeysForCategory(category: LushaCategory): Promise<LushaApiKey[]> {
+  console.log(`\n🔍 [getActiveKeysForCategory] Fetching keys for category: ${category}`);
+  console.log(`🔍 [getActiveKeysForCategory] Query filters: category=${category}, is_active=true, status=ACTIVE`);
+
   const { data, error } = await supabase
     .from("lusha_api_keys")
     .select("*")
@@ -133,6 +136,17 @@ async function getActiveKeysForCategory(category: LushaCategory): Promise<LushaA
   if (error) {
     console.error(`❌ Error fetching ${category} keys:`, error);
     return [];
+  }
+
+  console.log(`🔍 [getActiveKeysForCategory] Found ${data?.length || 0} keys`);
+  if (data && data.length > 0) {
+    console.log(`🔍 [getActiveKeysForCategory] Keys:`, data.map(k => ({
+      ending: k.key_value.slice(-4),
+      category: k.category,
+      status: k.status,
+      is_active: k.is_active,
+      credits: k.credits_remaining
+    })));
   }
 
   return (data || []) as LushaApiKey[];
@@ -181,7 +195,7 @@ async function makeLushaApiCall(
 ): Promise<{ status: number; data: any; error?: string }> {
   // 🔥 HARDCODED PRODUCTION URL - DO NOT USE supabase.functions.invoke()
   const EDGE_FUNCTION_URL = "https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/lusha-enrich-proxy";
-  
+
   try {
     console.log(`\n📡 Calling Lusha API via Direct Fetch to Edge Function`);
     console.log(`🌐 URL: ${EDGE_FUNCTION_URL}`);
@@ -192,15 +206,19 @@ async function makeLushaApiCall(
       apiKey: apiKey,
       params: params,
     };
-    
-    console.log(`📤 Sending payload:`, JSON.stringify(payload, null, 2));
+
+    try {
+      console.log(`📤 Sending payload:`, JSON.stringify(payload, null, 2));
+    } catch {
+      console.log(`📤 Sending payload: [Unable to stringify]`);
+    }
 
     // Direct fetch() call to production edge function
+    // 🔥 CRITICAL: Only Content-Type header - no Authorization/apikey to avoid CORS preflight
     const response = await fetch(EDGE_FUNCTION_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvZHBvZXB5bHlnc3J5amRrcWpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYyMDM3NzIsImV4cCI6MjA2MTc3OTc3Mn0.RUoYlrKR4D2wwzDSTU7rGp9Xg1wvG-Mz2i9wk94DHlw",
       },
       body: JSON.stringify(payload),
     });
@@ -219,7 +237,11 @@ async function makeLushaApiCall(
     }
 
     const responseData = await response.json();
-    console.log(`📊 Response Data:`, responseData);
+    try {
+      console.log(`📊 Response Data:`, JSON.stringify(responseData, null, 2));
+    } catch {
+      console.log(`📊 Response Data: [Unable to stringify - showing type]`, typeof responseData);
+    }
 
     return {
       status: responseData?.status || response.status,
@@ -243,8 +265,23 @@ async function makeLushaApiCall(
  */
 function parseLushaResponse(data: any): LushaEnrichResult {
   try {
+    // Safe logging - prevent crash if data is circular or undefined
+    try {
+      console.log("🔍 [parseLushaResponse] Raw data:", JSON.stringify(data, null, 2));
+    } catch (logError) {
+      console.log("🔍 [parseLushaResponse] Raw data: [Unable to stringify - circular reference or error]");
+      console.log("🔍 [parseLushaResponse] Data type:", typeof data);
+    }
+
     // Lusha returns contact data in different formats
     const contact = data?.contact?.data || data?.data || data;
+
+    console.log("🔍 [parseLushaResponse] Extracted contact:", contact ? "EXISTS" : "NULL");
+    try {
+      console.log("🔍 [parseLushaResponse] Contact keys:", contact ? Object.keys(contact) : "N/A");
+    } catch {
+      console.log("🔍 [parseLushaResponse] Contact keys: [Error getting keys]");
+    }
 
     if (!contact) {
       return {
@@ -257,15 +294,20 @@ function parseLushaResponse(data: any): LushaEnrichResult {
     // Extract phone numbers
     let phone: string | null = null;
     const phones = contact.phoneNumbers || [];
+    console.log("🔍 [parseLushaResponse] Phone numbers array:", phones);
     if (phones.length > 0) {
       phone = phones[0].internationalNumber || phones[0].number || null;
+      console.log("🔍 [parseLushaResponse] Extracted phone:", phone);
     }
+
 
     // Extract email addresses
     let email: string | null = null;
     const emails = contact.emailAddresses || [];
+    console.log("🔍 [parseLushaResponse] Email addresses array:", emails);
     if (emails.length > 0) {
       email = emails[0].email || null;
+      console.log("🔍 [parseLushaResponse] Extracted email:", email);
     }
 
     // Extract other fields
@@ -273,15 +315,21 @@ function parseLushaResponse(data: any): LushaEnrichResult {
     const company = contact.company?.name || null;
     const title = contact.jobTitle || null;
 
-    return {
-      success: !!(phone || email), // Success if we got at least one field
+    const hasData = !!(phone || email);
+
+    const result = {
+      success: hasData,
       phone: phone || undefined,
       email: email || undefined,
       fullName: fullName || undefined,
       company: company || undefined,
       title: title || undefined,
+      message: hasData ? "Successfully retrieved contact information from Lusha" : "No contact data available",
       rawData: contact,
     };
+
+    console.log("🔍 [parseLushaResponse] Final result:", result);
+    return result;
   } catch (err: any) {
     console.error(`❌ Error parsing Lusha response:`, err.message);
     return {
@@ -315,13 +363,13 @@ async function enrichWithSmartRotation(
   category: LushaCategory
 ): Promise<LushaEnrichResult> {
   console.log(`\n🚀 Starting enrichment with ${category} pool...`);
-  
+
   const MAX_ATTEMPTS = 3; // ✅ REDUCED: Only try 3 times max (not 50)
   let attempt = 0;
 
   while (attempt < MAX_ATTEMPTS) {
     attempt++;
-    
+
     // Fetch keys on each iteration
     console.log(`\n🔎 [Attempt ${attempt}/${MAX_ATTEMPTS}] Fetching active ${category} keys...`);
     const keys = await getActiveKeysForCategory(category);
@@ -350,16 +398,16 @@ async function enrichWithSmartRotation(
       // Handle 200: SUCCESS!
       if (response.status === 200) {
         console.log(`✅ Success! Got data from Lusha API (HTTP 200)`);
-        
+
         // Parse the response
         const result = parseLushaResponse(response.data);
-        
+
         if (result.success || result.phone || result.email) {
           console.log(`✅ Successfully extracted contact data with key (...${keyEndsWith})`);
-          
+
           // Update last_used_at timestamp
           await updateKeyLastUsed(key.id);
-          
+
           return result;
         } else {
           console.log(`⚠️ Got 200 response but no contact data extracted`);

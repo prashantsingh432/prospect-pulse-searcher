@@ -435,7 +435,7 @@ export const LushaApiManager = () => {
                     {testResult.success ? "✅ Test Successful!" : "❌ Test Failed"}
                   </h4>
                   <p className={`text-sm mt-1 ${testResult.success ? "text-green-800" : "text-red-800"}`}>
-                    {testResult.message || testResult.error || "No message"}
+                    {String(testResult.message || testResult.error || "No message")}
                   </p>
 
                   {/* Show extracted data if successful */}
@@ -444,31 +444,31 @@ export const LushaApiManager = () => {
                       {testResult.phone && (
                         <div className="flex justify-between">
                           <span className="font-medium">Phone:</span>
-                          <span className="font-mono">{testResult.phone}</span>
+                          <span className="font-mono">{String(testResult.phone)}</span>
                         </div>
                       )}
                       {testResult.email && (
                         <div className="flex justify-between">
                           <span className="font-medium">Email:</span>
-                          <span className="font-mono">{testResult.email}</span>
+                          <span className="font-mono">{String(testResult.email)}</span>
                         </div>
                       )}
                       {testResult.fullName && (
                         <div className="flex justify-between">
                           <span className="font-medium">Name:</span>
-                          <span>{testResult.fullName}</span>
+                          <span>{String(testResult.fullName)}</span>
                         </div>
                       )}
                       {testResult.company && (
                         <div className="flex justify-between">
                           <span className="font-medium">Company:</span>
-                          <span>{testResult.company}</span>
+                          <span>{String(testResult.company)}</span>
                         </div>
                       )}
                       {testResult.title && (
                         <div className="flex justify-between">
                           <span className="font-medium">Title:</span>
-                          <span>{testResult.title}</span>
+                          <span>{String(testResult.title)}</span>
                         </div>
                       )}
                     </div>
@@ -479,7 +479,13 @@ export const LushaApiManager = () => {
                     <details className="mt-2 text-xs">
                       <summary className="cursor-pointer font-medium">View Details</summary>
                       <pre className="mt-1 p-2 bg-gray-100 rounded overflow-auto max-h-40">
-                        {JSON.stringify(testResult.rawData, null, 2)}
+                        {(() => {
+                          try {
+                            return JSON.stringify(testResult.rawData, null, 2);
+                          } catch (e) {
+                            return `[Unable to display: ${e instanceof Error ? e.message : 'Circular reference or invalid data'}]`;
+                          }
+                        })()}
                       </pre>
                     </details>
                   )}
