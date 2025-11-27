@@ -26,9 +26,6 @@ export interface LushaEnrichResult {
   rawData?: any;
 }
 
-// Lusha API endpoint
-const LUSHA_API_BASE = "https://api.lusha.com/v2/person";
-
 /**
  * Fetch all Lusha API keys (Admin only)
  */
@@ -171,7 +168,7 @@ async function updateKeyLastUsed(keyId: string): Promise<void> {
 
 /**
  * Make API call to Lusha via Supabase Edge Function (server-side proxy)
- * This bypasses CORS issues by routing through our backend
+ * 🔥 HARDCODED PRODUCTION URL - Direct fetch to ensure it reaches the function
  */
 async function makeLushaApiCall(
   apiKey: string,
@@ -182,54 +179,61 @@ async function makeLushaApiCall(
     companyName?: string;
   }
 ): Promise<{ status: number; data: any; error?: string }> {
+  // 🔥 HARDCODED PRODUCTION URL - DO NOT USE supabase.functions.invoke()
+  const EDGE_FUNCTION_URL = "https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/lusha-enrich-proxy";
+  
   try {
-    console.log(`📡 Calling Lusha API via Supabase Edge Function...`);
+    console.log(`\n📡 Calling Lusha API via Direct Fetch to Edge Function`);
+    console.log(`🌐 URL: ${EDGE_FUNCTION_URL}`);
     console.log(`🔑 Using API key ending in ...${apiKey.slice(-4)}`);
     console.log(`📋 Parameters:`, params);
 
-    // ✅ DEBUG: Log the exact function being called
-    const functionName = "lusha-enrich-proxy";
-    console.log(`🎯 Calling Edge Function: ${functionName}`);
+    const payload = {
+      apiKey: apiKey,
+      params: params,
+    };
+    
+    console.log(`📤 Sending payload:`, JSON.stringify(payload, null, 2));
 
-    // Call the Supabase Edge Function (server-side proxy)
-    const { data: responseData, error: functionError } = await supabase.functions.invoke(
-      functionName,
-      {
-        body: {
-          apiKey: apiKey,
-          params: params,
-        },
-      }
-    );
+    // Direct fetch() call to production edge function
+    const response = await fetch(EDGE_FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvZHBvZXB5bHlnc3J5amRrcWpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYyMDM3NzIsImV4cCI6MjA2MTc3OTc3Mn0.RUoYlrKR4D2wwzDSTU7rGp9Xg1wvG-Mz2i9wk94DHlw",
+      },
+      body: JSON.stringify(payload),
+    });
 
-    if (functionError) {
-      console.error(`❌ Edge Function Error:`, functionError);
-      console.error(`📋 Error Details:`, {
-        message: functionError.message,
-        context: functionError.context,
-      });
+    console.log(`📊 Response Status: ${response.status}`);
+    console.log(`📊 Response OK: ${response.ok}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ HTTP Error ${response.status}:`, errorText);
       return {
-        status: 0,
+        status: response.status,
         data: null,
-        error: functionError.message,
+        error: `HTTP ${response.status}: ${errorText}`,
       };
     }
 
-    console.log(`� Responsee Status: ${responseData?.status}`);
-    console.log(`📊 Response Data:`, responseData?.data);
+    const responseData = await response.json();
+    console.log(`📊 Response Data:`, responseData);
 
     return {
-      status: responseData?.status || 0,
+      status: responseData?.status || response.status,
       data: responseData?.data,
       error: responseData?.error,
     };
   } catch (err: any) {
-    console.error(`❌ Network Error:`, err.message);
+    console.error(`❌ Network/Fetch Error:`, err);
+    console.error(`📋 Error Message:`, err.message);
     console.error(`📋 Error Stack:`, err.stack);
     return {
       status: 0,
       data: null,
-      error: err.message,
+      error: `Network Error: ${err.message}`,
     };
   }
 }
