@@ -215,9 +215,29 @@ const Rtne: React.FC = () => {
           setEnrichingRows(prev => new Set(prev).add(rowId));
 
           try {
+            // 🔥 CRITICAL: Split the full name BEFORE calling the API
+            const trimmedName = fullName.trim();
+            const firstSpaceIndex = trimmedName.indexOf(" ");
+            
+            let firstName = "";
+            let lastName = "";
+            
+            if (firstSpaceIndex === -1) {
+              // Case: Single word name (e.g., "Cher")
+              firstName = trimmedName;
+              lastName = "";
+            } else {
+              // Case: Normal name (e.g., "Nishtha Gupta")
+              firstName = trimmedName.substring(0, firstSpaceIndex).trim();
+              lastName = trimmedName.substring(firstSpaceIndex + 1).trim();
+            }
+
+            console.log(`🚀 Enriching: First='${firstName}', Last='${lastName}', Company='${companyName}'`);
+
             // Try phone enrichment first
             const phoneResult = await enrichProspectByName(
-              fullName,
+              firstName,
+              lastName,
               companyName,
               "PHONE_ONLY"
             );
@@ -231,7 +251,8 @@ const Rtne: React.FC = () => {
 
             // Then try email enrichment
             const emailResult = await enrichProspectByName(
-              fullName,
+              firstName,
+              lastName,
               companyName,
               "EMAIL_ONLY"
             );

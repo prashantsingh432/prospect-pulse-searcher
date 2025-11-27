@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.lusha-enrich]
 verify_jwt = true
+
+[functions.lusha-enrich-proxy]
+verify_jwt = true
