@@ -250,6 +250,7 @@ const Rtne: React.FC = () => {
                   prospect_number2: phoneResult.phone2 || '',
                   prospect_number3: phoneResult.phone3 || '',
                   prospect_number4: phoneResult.phone4 || '',
+                  prospect_email: phoneResult.email || r.prospect_email,
                   full_name: phoneResult.fullName || r.full_name,
                   company_name: phoneResult.company || r.company_name,
                 } : r
@@ -270,6 +271,10 @@ const Rtne: React.FC = () => {
               setRows(prev => prev.map(r => 
                 r.id === rowId ? { 
                   ...r, 
+                  prospect_number: emailResult.phone || r.prospect_number,
+                  prospect_number2: emailResult.phone2 || r.prospect_number2,
+                  prospect_number3: emailResult.phone3 || r.prospect_number3,
+                  prospect_number4: emailResult.phone4 || r.prospect_number4,
                   prospect_email: emailResult.email || '',
                   full_name: emailResult.fullName || r.full_name,
                   company_name: emailResult.company || r.company_name,
@@ -458,6 +463,7 @@ const Rtne: React.FC = () => {
               prospect_number2: result.phone2 || '',
               prospect_number3: result.phone3 || '',
               prospect_number4: result.phone4 || '',
+              prospect_email: result.email || r.prospect_email,
               full_name: result.fullName || r.full_name,
               company_name: result.company || r.company_name,
             } : r
@@ -519,6 +525,10 @@ const Rtne: React.FC = () => {
           setRows(prev => prev.map(r => 
             r.id === row.id ? { 
               ...r, 
+              prospect_number: result.phone || r.prospect_number,
+              prospect_number2: result.phone2 || r.prospect_number2,
+              prospect_number3: result.phone3 || r.prospect_number3,
+              prospect_number4: result.phone4 || r.prospect_number4,
               prospect_email: result.email || '',
               full_name: result.fullName || r.full_name,
               company_name: result.company || r.company_name,
