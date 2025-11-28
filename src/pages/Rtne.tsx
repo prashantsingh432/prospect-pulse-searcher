@@ -200,7 +200,7 @@ const Rtne: React.FC = () => {
   useEffect(() => {
     const updateScrollWidth = () => {
       if (tableElementRef.current && scrollInnerRef.current) {
-        const width = tableElementRef.current.scrollWidth;
+        const width = tableElementRef.current.scrollWidth || 2000;
         scrollInnerRef.current.style.width = `${width}px`;
         setTableContentWidth(width);
       }
@@ -222,35 +222,33 @@ const Rtne: React.FC = () => {
 
   // Sync scroll between table and custom scrollbar
   useEffect(() => {
-    const tableContainer = tableScrollRef.current;
-    const scrollbarContainer = bottomScrollRef.current;
+    const grid = tableScrollRef.current;
+    const bottomBar = bottomScrollRef.current;
 
-    if (!tableContainer || !scrollbarContainer) return;
+    if (!grid || !bottomBar) return;
 
-    const handleTableScroll = () => {
-      if (isSyncing.current) return;
-      isSyncing.current = true;
-      scrollbarContainer.scrollLeft = tableContainer.scrollLeft;
-      requestAnimationFrame(() => {
-        isSyncing.current = false;
-      });
+    let isSyncing = false;
+
+    const handleBottomScroll = () => {
+      if (isSyncing) return;
+      isSyncing = true;
+      grid.scrollLeft = bottomBar.scrollLeft;
+      isSyncing = false;
     };
 
-    const handleScrollbarScroll = () => {
-      if (isSyncing.current) return;
-      isSyncing.current = true;
-      tableContainer.scrollLeft = scrollbarContainer.scrollLeft;
-      requestAnimationFrame(() => {
-        isSyncing.current = false;
-      });
+    const handleGridScroll = () => {
+      if (isSyncing) return;
+      isSyncing = true;
+      bottomBar.scrollLeft = grid.scrollLeft;
+      isSyncing = false;
     };
 
-    tableContainer.addEventListener('scroll', handleTableScroll);
-    scrollbarContainer.addEventListener('scroll', handleScrollbarScroll);
+    bottomBar.addEventListener('scroll', handleBottomScroll);
+    grid.addEventListener('scroll', handleGridScroll);
 
     return () => {
-      tableContainer.removeEventListener('scroll', handleTableScroll);
-      scrollbarContainer.removeEventListener('scroll', handleScrollbarScroll);
+      bottomBar.removeEventListener('scroll', handleBottomScroll);
+      grid.removeEventListener('scroll', handleGridScroll);
     };
   }, []);
 
@@ -1655,12 +1653,12 @@ const Rtne: React.FC = () => {
               style={{ 
                 position: 'sticky',
                 bottom: 0,
-                height: '16px',
+                height: '24px',
                 width: '100%',
                 zIndex: 999
               }}
             >
-              <div id="rtne-scroll-inner" ref={scrollInnerRef} style={{ height: '1px', width: '100%' }} />
+              <div id="rtne-scroll-inner" ref={scrollInnerRef} style={{ height: '1px', width: '2000px' }} />
             </div>
 
             {/* Row Management Controls */}
