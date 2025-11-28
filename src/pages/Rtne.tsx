@@ -33,7 +33,7 @@ const Rtne: React.FC = () => {
   // Generate 100 initial rows
   const generateInitialRows = (): RtneRow[] => {
     const initialRows: RtneRow[] = [];
-    
+
     // Add 100 empty rows
     for (let i = 1; i <= 100; i++) {
       initialRows.push({
@@ -59,20 +59,20 @@ const Rtne: React.FC = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingRowsCount, setPendingRowsCount] = useState(0);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const saveTimeoutRef = useRef<{[key: string]: NodeJS.Timeout}>({});
+  const saveTimeoutRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const enrichmentTriggeredRef = useRef<Set<number>>(new Set());
   const [enrichingRows, setEnrichingRows] = useState<Set<number>>(new Set());
   const [isBulkEnriching, setIsBulkEnriching] = useState(false);
   const [bulkEnrichProgress, setBulkEnrichProgress] = useState({ current: 0, total: 0 });
-  
+
   // Cell selection and navigation state
-  const [selectedCell, setSelectedCell] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
-  const [selectionStart, setSelectionStart] = useState<{rowId: number, field: keyof RtneRow} | null>(null);
+  const [selectionStart, setSelectionStart] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
   const [isShiftHeld, setIsShiftHeld] = useState(false);
-  
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
@@ -83,11 +83,11 @@ const Rtne: React.FC = () => {
     position: { x: 0, y: 0 },
     rowId: 0
   });
-  
+
   // Clipboard state for row operations
   const [clipboardRow, setClipboardRow] = useState<RtneRow | null>(null);
   const [clipboardOperation, setClipboardOperation] = useState<'copy' | 'cut' | null>(null);
-  
+
   // Visual feedback for cut rows
   const isRowCut = (rowId: number) => {
     return clipboardOperation === 'cut' && clipboardRow?.id === rowId;
@@ -192,7 +192,7 @@ const Rtne: React.FC = () => {
 
   const handleChange = async (rowId: number, field: keyof RtneRow, value: string) => {
     // Update local state immediately
-    setRows(prev => prev.map(row => 
+    setRows(prev => prev.map(row =>
       row.id === rowId ? { ...row, [field]: value } : row
     ));
 
@@ -200,7 +200,7 @@ const Rtne: React.FC = () => {
     const row = rows.find(r => r.id === rowId);
     if (row) {
       // Condition B: Full Name AND Company are both filled (RTNE Spreadsheet Smart Search)
-      const shouldEnrichByName = 
+      const shouldEnrichByName =
         (field === 'full_name' || field === 'company_name') &&
         !enrichmentTriggeredRef.current.has(rowId);
 
@@ -218,10 +218,10 @@ const Rtne: React.FC = () => {
             // 🔥 CRITICAL: Split the full name BEFORE calling the API
             const trimmedName = fullName.trim();
             const firstSpaceIndex = trimmedName.indexOf(" ");
-            
+
             let firstName = "";
             let lastName = "";
-            
+
             if (firstSpaceIndex === -1) {
               // Case: Single word name (e.g., "Cher")
               firstName = trimmedName;
@@ -243,9 +243,9 @@ const Rtne: React.FC = () => {
             );
 
             if (phoneResult.success && phoneResult.phone) {
-              setRows(prev => prev.map(r => 
-                r.id === rowId ? { 
-                  ...r, 
+              setRows(prev => prev.map(r =>
+                r.id === rowId ? {
+                  ...r,
                   prospect_number: phoneResult.phone || '',
                   prospect_number2: phoneResult.phone2 || '',
                   prospect_number3: phoneResult.phone3 || '',
@@ -268,9 +268,9 @@ const Rtne: React.FC = () => {
             );
 
             if (emailResult.success && emailResult.email) {
-              setRows(prev => prev.map(r => 
-                r.id === rowId ? { 
-                  ...r, 
+              setRows(prev => prev.map(r =>
+                r.id === rowId ? {
+                  ...r,
                   prospect_number: emailResult.phone || r.prospect_number,
                   prospect_number2: emailResult.phone2 || r.prospect_number2,
                   prospect_number3: emailResult.phone3 || r.prospect_number3,
@@ -290,7 +290,7 @@ const Rtne: React.FC = () => {
               if (emailResult.title) enrichedData.prospect_designation = emailResult.title;
 
               if (Object.keys(enrichedData).length > 0) {
-                setRows(prev => prev.map(r => 
+                setRows(prev => prev.map(r =>
                   r.id === rowId ? { ...r, ...enrichedData } : r
                 ));
               }
@@ -328,13 +328,13 @@ const Rtne: React.FC = () => {
       try {
         // Get the updated value from the field
         const updatedValue = field === 'prospect_linkedin' ? value :
-                            field === 'full_name' ? value :
-                            field === 'company_name' ? value :
-                            field === 'prospect_city' ? value :
-                            field === 'prospect_number' ? value :
-                            field === 'prospect_email' ? value :
-                            field === 'prospect_designation' ? value :
-                            (currentRow[field] as string);
+          field === 'full_name' ? value :
+            field === 'company_name' ? value :
+              field === 'prospect_city' ? value :
+                field === 'prospect_number' ? value :
+                  field === 'prospect_email' ? value :
+                    field === 'prospect_designation' ? value :
+                      (currentRow[field] as string);
 
         // Map RtneRow fields to rtne_requests columns
         const requestData: any = {
@@ -375,7 +375,7 @@ const Rtne: React.FC = () => {
 
             // Store the Supabase ID for future updates
             if (data) {
-              setRows(prev => prev.map(r => 
+              setRows(prev => prev.map(r =>
                 r.id === rowId ? { ...r, supabaseId: data.id } as any : r
               ));
             }
@@ -391,7 +391,7 @@ const Rtne: React.FC = () => {
     setIsSubmitting(true);
     // Process rows with LinkedIn URLs
     const validRows = rows.filter(row => row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin));
-    
+
     for (const row of validRows) {
       try {
         const { data, error } = await supabase.functions.invoke("rtne-check-or-create", {
@@ -403,13 +403,13 @@ const Rtne: React.FC = () => {
         }
 
         // Update row status to completed
-        setRows(prev => prev.map(r => 
+        setRows(prev => prev.map(r =>
           r.id === row.id ? { ...r, status: 'completed' } : r
         ));
       } catch (e: any) {
         console.error("RTNE error:", e);
         // Update row status to failed
-        setRows(prev => prev.map(r => 
+        setRows(prev => prev.map(r =>
           r.id === row.id ? { ...r, status: 'failed' } : r
         ));
       }
@@ -424,8 +424,8 @@ const Rtne: React.FC = () => {
     let failedCount = 0;
 
     // Get rows that need phone enrichment
-    const targetRows = rows.filter(row => 
-      !row.prospect_number && 
+    const targetRows = rows.filter(row =>
+      !row.prospect_number &&
       (row.prospect_linkedin || (row.full_name && row.company_name))
     );
 
@@ -437,7 +437,7 @@ const Rtne: React.FC = () => {
 
       try {
         let result;
-        
+
         if (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin)) {
           // Use LinkedIn URL
           result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
@@ -446,9 +446,9 @@ const Rtne: React.FC = () => {
           const nameParts = row.full_name.trim().split(" ");
           const firstName = nameParts[0];
           const lastName = nameParts.slice(1).join(" ") || "";
-          
+
           console.log(`🚀 Enriching: First='${firstName}', Last='${lastName}', Company='${row.company_name}'`);
-          
+
           // Use Name + Company with pre-split names
           result = await enrichProspectByName(firstName, lastName, row.company_name, "PHONE_ONLY");
         } else {
@@ -456,9 +456,9 @@ const Rtne: React.FC = () => {
         }
 
         if (result.success && result.phone) {
-          setRows(prev => prev.map(r => 
-            r.id === row.id ? { 
-              ...r, 
+          setRows(prev => prev.map(r =>
+            r.id === row.id ? {
+              ...r,
               prospect_number: result.phone || '',
               prospect_number2: result.phone2 || '',
               prospect_number3: result.phone3 || '',
@@ -480,7 +480,7 @@ const Rtne: React.FC = () => {
 
     setIsBulkEnriching(false);
     setBulkEnrichProgress({ current: 0, total: 0 });
-    
+
     toast.success(`Phone Enrichment Complete: ${successCount} found, ${failedCount} failed`);
   };
 
@@ -490,8 +490,8 @@ const Rtne: React.FC = () => {
     let failedCount = 0;
 
     // Get rows that need email enrichment
-    const targetRows = rows.filter(row => 
-      !row.prospect_email && 
+    const targetRows = rows.filter(row =>
+      !row.prospect_email &&
       (row.prospect_linkedin || (row.full_name && row.company_name))
     );
 
@@ -503,7 +503,7 @@ const Rtne: React.FC = () => {
 
       try {
         let result;
-        
+
         if (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin)) {
           // Use LinkedIn URL
           result = await enrichProspect(row.prospect_linkedin, "EMAIL_ONLY");
@@ -512,9 +512,9 @@ const Rtne: React.FC = () => {
           const nameParts = row.full_name.trim().split(" ");
           const firstName = nameParts[0];
           const lastName = nameParts.slice(1).join(" ") || "";
-          
+
           console.log(`🚀 Enriching: First='${firstName}', Last='${lastName}', Company='${row.company_name}'`);
-          
+
           // Use Name + Company with pre-split names
           result = await enrichProspectByName(firstName, lastName, row.company_name, "EMAIL_ONLY");
         } else {
@@ -522,9 +522,9 @@ const Rtne: React.FC = () => {
         }
 
         if (result.success && result.email) {
-          setRows(prev => prev.map(r => 
-            r.id === row.id ? { 
-              ...r, 
+          setRows(prev => prev.map(r =>
+            r.id === row.id ? {
+              ...r,
               prospect_number: result.phone || r.prospect_number,
               prospect_number2: result.phone2 || r.prospect_number2,
               prospect_number3: result.phone3 || r.prospect_number3,
@@ -546,7 +546,7 @@ const Rtne: React.FC = () => {
 
     setIsBulkEnriching(false);
     setBulkEnrichProgress({ current: 0, total: 0 });
-    
+
     toast.success(`Email Enrichment Complete: ${successCount} found, ${failedCount} failed`);
   };
 
@@ -560,7 +560,7 @@ const Rtne: React.FC = () => {
 
     try {
       let result;
-      
+
       if (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin)) {
         // Use LinkedIn URL
         result = await enrichProspect(row.prospect_linkedin, category);
@@ -569,7 +569,7 @@ const Rtne: React.FC = () => {
         const nameParts = row.full_name.trim().split(" ");
         const firstName = nameParts[0];
         const lastName = nameParts.slice(1).join(" ") || "";
-        
+
         // Use Name + Company
         result = await enrichProspectByName(firstName, lastName, row.company_name, category);
       } else {
@@ -583,9 +583,9 @@ const Rtne: React.FC = () => {
       }
 
       if (result.success) {
-        setRows(prev => prev.map(r => 
-          r.id === rowId ? { 
-            ...r, 
+        setRows(prev => prev.map(r =>
+          r.id === rowId ? {
+            ...r,
             prospect_number: result.phone || r.prospect_number,
             prospect_number2: result.phone2 || r.prospect_number2,
             prospect_number3: result.phone3 || r.prospect_number3,
@@ -617,13 +617,13 @@ const Rtne: React.FC = () => {
       alert("Cannot add more than 100,000 rows at once");
       return;
     }
-    
+
     if (count > 10000) {
       setPendingRowsCount(count);
       setShowConfirmation(true);
       return;
     }
-    
+
     executeAddRows(count);
   };
 
@@ -632,10 +632,10 @@ const Rtne: React.FC = () => {
     for (let i = 0; i < count; i++) {
       newRows.push(makeEmptyRow(nextIdRef.current++));
     }
-    
+
     const firstNewRowId = newRows[0]?.id;
     setRows(prev => [...prev, ...newRows]);
-    
+
     // Scroll to first new row after state update
     setTimeout(() => {
       const firstNewRowElement = document.querySelector(`[data-row-id="${firstNewRowId}"]`);
@@ -667,12 +667,12 @@ const Rtne: React.FC = () => {
       // Insert new row with the target row's number
       const newRow = makeEmptyRow(rows[targetIndex].id);
       newRows.splice(targetIndex, 0, newRow);
-      
+
       // Renumber subsequent rows
       for (let i = targetIndex + 1; i < newRows.length; i++) {
         newRows[i] = { ...newRows[i], id: newRows[i - 1].id + 1 };
       }
-      
+
       setRows(newRows);
       // Update nextIdRef to the highest ID + 1
       nextIdRef.current = Math.max(...newRows.map(r => r.id)) + 1;
@@ -687,12 +687,12 @@ const Rtne: React.FC = () => {
       // Insert new row with the next sequential number
       const newRow = makeEmptyRow(rows[targetIndex].id + 1);
       newRows.splice(targetIndex + 1, 0, newRow);
-      
+
       // Renumber subsequent rows
       for (let i = targetIndex + 2; i < newRows.length; i++) {
         newRows[i] = { ...newRows[i], id: newRows[i - 1].id + 1 };
       }
-      
+
       setRows(newRows);
       // Update nextIdRef to the highest ID + 1
       nextIdRef.current = Math.max(...newRows.map(r => r.id)) + 1;
@@ -708,7 +708,7 @@ const Rtne: React.FC = () => {
           .from('rtne_requests')
           .delete()
           .eq('id', (row as any).supabaseId);
-        
+
         if (error) throw error;
       } catch (error) {
         console.error('Error deleting from Supabase:', error);
@@ -734,14 +734,14 @@ const Rtne: React.FC = () => {
             linkedin_url: ''
           })
           .eq('id', (row as any).supabaseId);
-        
+
         if (error) throw error;
       } catch (error) {
         console.error('Error clearing row in Supabase:', error);
       }
     }
-    setRows(prev => prev.map(row => 
-      row.id === contextMenu.rowId 
+    setRows(prev => prev.map(row =>
+      row.id === contextMenu.rowId
         ? makeEmptyRow(row.id)
         : row
     ));
@@ -768,7 +768,7 @@ const Rtne: React.FC = () => {
       const targetIndex = rows.findIndex(row => row.id === contextMenu.rowId);
       if (targetIndex !== -1) {
         const newRow = { ...clipboardRow, id: nextIdRef.current++ };
-        
+
         if (clipboardOperation === 'cut') {
           // Remove the original row and insert the new one
           setRows(prev => {
@@ -897,7 +897,7 @@ const Rtne: React.FC = () => {
       const newSelectedCell = { rowId: newRowId, field: newField };
       setSelectedCell(newSelectedCell);
       setIsEditing(false);
-      
+
       // Handle multi-cell selection with shift
       if (extendSelection && selectionStart) {
         const newSelectedCells = new Set<string>();
@@ -922,7 +922,7 @@ const Rtne: React.FC = () => {
         setSelectedCells(new Set());
         setSelectionStart(newSelectedCell);
       }
-      
+
       // Scroll to the new cell
       setTimeout(() => {
         const cellElement = document.querySelector(`[data-cell="${newRowId}-${newField}"]`) as HTMLElement;
@@ -960,7 +960,7 @@ const Rtne: React.FC = () => {
       // Multi-cell copy
       const cellsData: string[][] = [];
       const cellsArray = Array.from(selectedCells);
-      
+
       // Group cells by row
       const rowMap = new Map<number, Map<number, string>>();
       cellsArray.forEach(cellKey => {
@@ -976,7 +976,7 @@ const Rtne: React.FC = () => {
           rowMap.get(rowId)!.set(fieldIndex, value);
         }
       });
-      
+
       // Convert to 2D array
       const sortedRowIds = Array.from(rowMap.keys()).sort((a, b) => a - b);
       sortedRowIds.forEach(rowId => {
@@ -985,7 +985,7 @@ const Rtne: React.FC = () => {
         const rowData = sortedFields.map(fieldIndex => fieldMap.get(fieldIndex) || '');
         cellsData.push(rowData);
       });
-      
+
       // Convert to TSV format for clipboard
       const tsvData = cellsData.map(row => row.join('\t')).join('\n');
       navigator.clipboard.writeText(tsvData);
@@ -1007,18 +1007,18 @@ const Rtne: React.FC = () => {
   const pasteSelectedCells = useCallback(async () => {
     try {
       const clipboardText = await navigator.clipboard.readText();
-      
+
       if (!selectedCell) return;
-      
+
       // Parse TSV data
       const rows_data = clipboardText.split('\n').map(row => row.split('\t'));
-      
+
       // Find starting position
       const startRowIndex = rows.findIndex(r => r.id === selectedCell.rowId);
       const startFieldIndex = fieldOrder.indexOf(selectedCell.field);
-      
+
       if (startRowIndex === -1 || startFieldIndex === -1) return;
-      
+
       // Paste data
       const updatedRows = [...rows];
       rows_data.forEach((rowData, rowOffset) => {
@@ -1032,14 +1032,14 @@ const Rtne: React.FC = () => {
                 ...updatedRows[targetRowIndex],
                 [field]: cellValue
               };
-              
+
               // Save to database
               handleChange(updatedRows[targetRowIndex].id, field, cellValue);
             }
           });
         }
       });
-      
+
       setRows(updatedRows);
     } catch (error) {
       console.error('Error pasting:', error);
@@ -1153,7 +1153,7 @@ const Rtne: React.FC = () => {
     const newSelectedCell = { rowId, field };
     setSelectedCell(newSelectedCell);
     setIsEditing(true); // Enable editing immediately on click
-    
+
     if (e.shiftKey && selectionStart) {
       // Extend selection
       const newSelectedCells = new Set<string>();
@@ -1209,7 +1209,7 @@ const Rtne: React.FC = () => {
     const handleGlobalMouseUp = () => {
       setIsDragging(false);
     };
-    
+
     document.addEventListener('mouseup', handleGlobalMouseUp);
     return () => {
       document.removeEventListener('mouseup', handleGlobalMouseUp);
@@ -1225,7 +1225,7 @@ const Rtne: React.FC = () => {
             <div className="flex items-center space-x-4">
               <div className="text-4xl text-[#0A66C2]">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                 </svg>
               </div>
               <nav className="hidden md:flex items-center text-sm font-medium space-x-2 text-gray-600">
@@ -1241,7 +1241,7 @@ const Rtne: React.FC = () => {
               </nav>
             </div>
             <div className="flex items-center space-x-4">
-              <button 
+              <button
                 className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                 onClick={() => navigate("/")}
               >
@@ -1295,7 +1295,7 @@ const Rtne: React.FC = () => {
                 <MessageSquare className="h-4 w-4" />
               </button>
               <div className="h-6 border-l border-gray-300 mx-2"></div>
-              <button 
+              <button
                 className="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
@@ -1314,7 +1314,9 @@ const Rtne: React.FC = () => {
           <div className="flex items-center space-x-3">
             <span className="text-sm font-medium text-gray-700">Bulk Enrichment:</span>
             <button
-              onClick={bulkEnrichPhones}
+              onClick={() => {
+                toast.error("Bulk enrichment access required. Please contact your admin for access.");
+              }}
               disabled={isBulkEnriching}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
@@ -1322,7 +1324,9 @@ const Rtne: React.FC = () => {
               <span>📞 Enrich Phones</span>
             </button>
             <button
-              onClick={bulkEnrichEmails}
+              onClick={() => {
+                toast.error("Bulk enrichment access required. Please contact your admin for access.");
+              }}
               disabled={isBulkEnriching}
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
@@ -1330,7 +1334,7 @@ const Rtne: React.FC = () => {
               <span>📧 Enrich Emails</span>
             </button>
           </div>
-          
+
           {isBulkEnriching && (
             <div className="flex items-center space-x-3">
               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
@@ -1351,212 +1355,211 @@ const Rtne: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-          <table className="w-full border-collapse border border-gray-300">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 w-12 sticky left-0 z-10 text-gray-500">#</th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <User className="h-4 w-4 mr-2 text-gray-600" />
-                    Full Name
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <Building className="h-4 w-4 mr-2 text-gray-600" />
-                    Company Name
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[300px]">
-                  <div className="flex items-center">
-                    <svg className="w-4 h-4 mr-2 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                    </svg>
-                    LinkedIn Profile URL
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <Phone className="h-4 w-4 mr-2 text-gray-600" />
-                    Primary Phone
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                    Phone 2
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                    Phone 3
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                    Phone 4
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 mr-2 text-gray-600" />
-                    Email Address
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
-                  <div className="flex items-center">
-                    <MapPin className="h-4 w-4 mr-2 text-gray-600" />
-                    City
-                  </div>
-                </th>
-                <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                  <div className="flex items-center">
-                    <Briefcase className="h-4 w-4 mr-2 text-gray-600" />
-                    Job Title
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className={`group hover:bg-blue-50/50 ${isRowCut(row.id) ? 'opacity-50 bg-red-50' : ''}`} data-row-id={row.id}>
-                  <td 
-                    className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10 cursor-context-menu select-none"
-                    onContextMenu={(e) => handleRowRightClick(e, row.id)}
-                  >
-                    {row.id}
-                  </td>
-                  {fieldOrder.map((field) => {
-                    const cellValue = row[field] as string || '';
-                    const isSelected = isCellSelected(row.id, field);
-                    const isCurrentlyEditing = isSelected && isEditing;
-                    
-                    return (
-                      <td 
-                        key={field}
-                        className={`px-3 py-2 border-b border-r border-gray-300 text-sm cursor-pointer ${
-                          isSelected 
-                            ? 'outline outline-2 outline-blue-500 bg-blue-50' 
-                            : 'hover:outline hover:outline-2 hover:outline-blue-500'
-                        }`}
-                        onClick={(e) => handleCellClick(e, row.id, field)}
-                        onDoubleClick={() => handleCellDoubleClick(row.id, field)}
-                        onMouseDown={(e) => {
-                          if (e.button === 0 && !isEditing) {
-                            setIsDragging(true);
-                            handleCellClick(e, row.id, field);
-                          }
-                        }}
-                        onMouseEnter={() => {
-                          if (isDragging && selectionStart) {
-                            const newSelectedCells = new Set<string>();
-                            const startRowIndex = rows.findIndex(r => r.id === selectionStart.rowId);
-                            const endRowIndex = rows.findIndex(r => r.id === row.id);
-                            const startFieldIndex = fieldOrder.indexOf(selectionStart.field);
-                            const endFieldIndex = fieldOrder.indexOf(field);
+            <table className="w-full border-collapse border border-gray-300">
+              <thead className="bg-gray-200">
+                <tr>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 w-12 sticky left-0 z-10 text-gray-500">#</th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                    <div className="flex items-center">
+                      <User className="h-4 w-4 mr-2 text-gray-600" />
+                      Full Name
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                    <div className="flex items-center">
+                      <Building className="h-4 w-4 mr-2 text-gray-600" />
+                      Company Name
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[300px]">
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 mr-2 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                      </svg>
+                      LinkedIn Profile URL
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                    <div className="flex items-center">
+                      <Phone className="h-4 w-4 mr-2 text-gray-600" />
+                      Primary Phone
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                    <div className="flex items-center">
+                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                      Phone 2
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                    <div className="flex items-center">
+                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                      Phone 3
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                    <div className="flex items-center">
+                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
+                      Phone 4
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
+                    <div className="flex items-center">
+                      <Mail className="h-4 w-4 mr-2 text-gray-600" />
+                      Email Address
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
+                    <div className="flex items-center">
+                      <MapPin className="h-4 w-4 mr-2 text-gray-600" />
+                      City
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
+                    <div className="flex items-center">
+                      <Briefcase className="h-4 w-4 mr-2 text-gray-600" />
+                      Job Title
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className={`group hover:bg-blue-50/50 ${isRowCut(row.id) ? 'opacity-50 bg-red-50' : ''}`} data-row-id={row.id}>
+                    <td
+                      className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10 cursor-context-menu select-none"
+                      onContextMenu={(e) => handleRowRightClick(e, row.id)}
+                    >
+                      {row.id}
+                    </td>
+                    {fieldOrder.map((field) => {
+                      const cellValue = row[field] as string || '';
+                      const isSelected = isCellSelected(row.id, field);
+                      const isCurrentlyEditing = isSelected && isEditing;
 
-                            const minRowIndex = Math.min(startRowIndex, endRowIndex);
-                            const maxRowIndex = Math.max(startRowIndex, endRowIndex);
-                            const minFieldIndex = Math.min(startFieldIndex, endFieldIndex);
-                            const maxFieldIndex = Math.max(startFieldIndex, endFieldIndex);
-
-                            for (let r = minRowIndex; r <= maxRowIndex; r++) {
-                              for (let f = minFieldIndex; f <= maxFieldIndex; f++) {
-                                const cellKey = `${rows[r].id}-${fieldOrder[f]}`;
-                                newSelectedCells.add(cellKey);
-                              }
+                      return (
+                        <td
+                          key={field}
+                          className={`px-3 py-2 border-b border-r border-gray-300 text-sm cursor-pointer ${isSelected
+                              ? 'outline outline-2 outline-blue-500 bg-blue-50'
+                              : 'hover:outline hover:outline-2 hover:outline-blue-500'
+                            }`}
+                          onClick={(e) => handleCellClick(e, row.id, field)}
+                          onDoubleClick={() => handleCellDoubleClick(row.id, field)}
+                          onMouseDown={(e) => {
+                            if (e.button === 0 && !isEditing) {
+                              setIsDragging(true);
+                              handleCellClick(e, row.id, field);
                             }
-                            setSelectedCells(newSelectedCells);
-                            setSelectedCell({ rowId: row.id, field });
-                          }
-                        }}
-                        onMouseUp={() => {
-                          setIsDragging(false);
-                        }}
-                       >
-                         {/* Cell content with enrichment button for phone/email fields */}
-                         <div className="flex items-center gap-1 w-full">
-                           <input
-                             data-cell={`${row.id}-${field}`}
-                             className="flex-1 border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
-                             type={field === 'prospect_email' ? 'email' : 'text'}
-                             value={cellValue}
-                             onChange={(e) => handleChange(row.id, field, e.target.value)}
-                             onFocus={() => {
-                               setSelectedCell({ rowId: row.id, field });
-                               setSelectionStart({ rowId: row.id, field });
-                               setIsEditing(true);
-                             }}
-                             onBlur={(e) => {
-                               // Only blur if not moving to another input
-                               const relatedTarget = e.relatedTarget as HTMLElement;
-                               if (!relatedTarget || !relatedTarget.hasAttribute('data-cell')) {
-                                 setIsEditing(false);
-                               }
-                             }}
-                             onKeyDown={(e) => {
-                               // Stop propagation to prevent global handler from interfering
-                               e.stopPropagation();
-                               
-                               if (e.key === 'Enter') {
-                                 e.preventDefault();
-                                 setIsEditing(false);
-                                 setTimeout(() => {
-                                   if (e.shiftKey) {
-                                     moveSelection('up');
-                                   } else {
-                                     moveSelection('down');
-                                   }
-                                 }, 0);
-                               } else if (e.key === 'Tab') {
-                                 e.preventDefault();
-                                 setIsEditing(false);
-                                 setTimeout(() => {
-                                   if (e.shiftKey) {
-                                     moveSelection('left');
-                                   } else {
-                                     moveSelection('right');
-                                   }
-                                 }, 0);
-                               } else if (e.key === 'Escape') {
-                                 e.preventDefault();
-                                 setIsEditing(false);
-                               }
-                             }}
-                           />
+                          }}
+                          onMouseEnter={() => {
+                            if (isDragging && selectionStart) {
+                              const newSelectedCells = new Set<string>();
+                              const startRowIndex = rows.findIndex(r => r.id === selectionStart.rowId);
+                              const endRowIndex = rows.findIndex(r => r.id === row.id);
+                              const startFieldIndex = fieldOrder.indexOf(selectionStart.field);
+                              const endFieldIndex = fieldOrder.indexOf(field);
+
+                              const minRowIndex = Math.min(startRowIndex, endRowIndex);
+                              const maxRowIndex = Math.max(startRowIndex, endRowIndex);
+                              const minFieldIndex = Math.min(startFieldIndex, endFieldIndex);
+                              const maxFieldIndex = Math.max(startFieldIndex, endFieldIndex);
+
+                              for (let r = minRowIndex; r <= maxRowIndex; r++) {
+                                for (let f = minFieldIndex; f <= maxFieldIndex; f++) {
+                                  const cellKey = `${rows[r].id}-${fieldOrder[f]}`;
+                                  newSelectedCells.add(cellKey);
+                                }
+                              }
+                              setSelectedCells(newSelectedCells);
+                              setSelectedCell({ rowId: row.id, field });
+                            }
+                          }}
+                          onMouseUp={() => {
+                            setIsDragging(false);
+                          }}
+                        >
+                          {/* Cell content with enrichment button for phone/email fields */}
+                          <div className="flex items-center gap-1 w-full">
+                            <input
+                              data-cell={`${row.id}-${field}`}
+                              className="flex-1 border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
+                              type={field === 'prospect_email' ? 'email' : 'text'}
+                              value={cellValue}
+                              onChange={(e) => handleChange(row.id, field, e.target.value)}
+                              onFocus={() => {
+                                setSelectedCell({ rowId: row.id, field });
+                                setSelectionStart({ rowId: row.id, field });
+                                setIsEditing(true);
+                              }}
+                              onBlur={(e) => {
+                                // Only blur if not moving to another input
+                                const relatedTarget = e.relatedTarget as HTMLElement;
+                                if (!relatedTarget || !relatedTarget.hasAttribute('data-cell')) {
+                                  setIsEditing(false);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                // Stop propagation to prevent global handler from interfering
+                                e.stopPropagation();
+
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  setIsEditing(false);
+                                  setTimeout(() => {
+                                    if (e.shiftKey) {
+                                      moveSelection('up');
+                                    } else {
+                                      moveSelection('down');
+                                    }
+                                  }, 0);
+                                } else if (e.key === 'Tab') {
+                                  e.preventDefault();
+                                  setIsEditing(false);
+                                  setTimeout(() => {
+                                    if (e.shiftKey) {
+                                      moveSelection('left');
+                                    } else {
+                                      moveSelection('right');
+                                    }
+                                  }, 0);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setIsEditing(false);
+                                }
+                              }}
+                            />
                             {/* Add enrichment button for Primary Phone and Email only */}
                             {(field === 'prospect_number' || field === 'prospect_email') && (
-                             <button
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 const category = field === 'prospect_email' ? 'EMAIL_ONLY' : 'PHONE_ONLY';
-                                 enrichSingleRow(row.id, category);
-                               }}
-                               disabled={enrichingRows.has(row.id)}
-                               className="flex-shrink-0 p-1 hover:bg-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                               title={`Enrich ${field === 'prospect_email' ? 'email' : 'phone'} for this row`}
-                             >
-                               {enrichingRows.has(row.id) ? (
-                                 <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                               ) : (
-                                 <Play className="h-3.5 w-3.5 text-green-600" />
-                               )}
-                             </button>
-                           )}
-                         </div>
-                       </td>
-                    );
-                  })}
-                  <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                    {getStatusDisplay(row.status, row.id)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const category = field === 'prospect_email' ? 'EMAIL_ONLY' : 'PHONE_ONLY';
+                                  enrichSingleRow(row.id, category);
+                                }}
+                                disabled={enrichingRows.has(row.id)}
+                                className="flex-shrink-0 p-1 hover:bg-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={`Enrich ${field === 'prospect_email' ? 'email' : 'phone'} for this row`}
+                              >
+                                {enrichingRows.has(row.id) ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                                ) : (
+                                  <Play className="h-3.5 w-3.5 text-green-600" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    })}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      {getStatusDisplay(row.status, row.id)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {/* Row Management Controls */}
@@ -1572,7 +1575,7 @@ const Rtne: React.FC = () => {
               </div>
             )}
           </div>
-          
+
           <div className="flex items-center space-x-3">
             <input
               type="number"
@@ -1591,7 +1594,7 @@ const Rtne: React.FC = () => {
               <Plus className="h-3 w-3" />
               <span>Add rows</span>
             </button>
-            
+
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => handleQuickAdd(100)}
