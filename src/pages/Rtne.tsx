@@ -29,11 +29,11 @@ const Rtne: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const nextIdRef = useRef(101); // Start from 101 for new rows
-  const tableScrollRef = useRef<HTMLDivElement>(null); // #rtne-scroll-container
+  const tableScrollRef = useRef<HTMLDivElement | null>(null); // scroll container around the table
   const tableElementRef = useRef<HTMLTableElement>(null);
-  const bottomScrollRef = useRef<HTMLDivElement>(null); // #rtne-bottom-scroll
-  const scrollInnerRef = useRef<HTMLDivElement>(null); // #rtne-scroll-inner
-  const isSyncing = useRef(false); // Guard flag to prevent recursion
+  const bottomScrollRef = useRef<HTMLDivElement | null>(null); // the custom bottom scrollbar
+  const scrollInnerRef = useRef<HTMLDivElement>(null);
+  const isSyncing = useRef(false);
 
   // Generate 100 initial rows
   const generateInitialRows = (): RtneRow[] => {
@@ -196,59 +196,46 @@ const Rtne: React.FC = () => {
     document.head.appendChild(link);
   }, [user?.id, projectName, makeEmptyRow]);
 
-  // Calculate table content width and update scrollbar
+  // Calculate table content width and sync scroll
   useEffect(() => {
-    const updateScrollWidth = () => {
-      if (tableElementRef.current && scrollInnerRef.current) {
-        const width = tableElementRef.current.scrollWidth || 2000;
-        scrollInnerRef.current.style.width = `${width}px`;
-        setTableContentWidth(width);
-      }
+    const grid = tableScrollRef.current;      // IMPORTANT: this is the real scroller
+    const bar = bottomScrollRef.current;
+    if (!grid || !bar) return;
+
+    // width for inner div so the bar can scroll
+    const updateWidth = () => {
+      setTableContentWidth(grid.scrollWidth);
+      bar.scrollLeft = grid.scrollLeft;
     };
+    updateWidth();
 
-    updateScrollWidth();
-    window.addEventListener('resize', updateScrollWidth);
-    
-    const resizeObserver = new ResizeObserver(updateScrollWidth);
-    if (tableElementRef.current) {
-      resizeObserver.observe(tableElementRef.current);
-    }
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(grid);
 
-    return () => {
-      window.removeEventListener('resize', updateScrollWidth);
-      resizeObserver.disconnect();
-    };
-  }, [rows]);
-
-  // Sync scroll between table and custom scrollbar
-  useEffect(() => {
-    const grid = tableScrollRef.current;
-    const bottomBar = bottomScrollRef.current;
-
-    if (!grid || !bottomBar) return;
-
-    let isSyncing = false;
-
-    const handleBottomScroll = () => {
-      if (isSyncing) return;
-      isSyncing = true;
-      grid.scrollLeft = bottomBar.scrollLeft;
-      isSyncing = false;
-    };
+    let syncingFromGrid = false;
+    let syncingFromBar = false;
 
     const handleGridScroll = () => {
-      if (isSyncing) return;
-      isSyncing = true;
-      bottomBar.scrollLeft = grid.scrollLeft;
-      isSyncing = false;
+      if (syncingFromBar) return;
+      syncingFromGrid = true;
+      bar.scrollLeft = grid.scrollLeft;
+      syncingFromGrid = false;
     };
 
-    bottomBar.addEventListener('scroll', handleBottomScroll);
-    grid.addEventListener('scroll', handleGridScroll);
+    const handleBarScroll = () => {
+      if (syncingFromGrid) return;
+      syncingFromBar = true;
+      grid.scrollLeft = bar.scrollLeft;
+      syncingFromBar = false;
+    };
+
+    grid.addEventListener("scroll", handleGridScroll);
+    bar.addEventListener("scroll", handleBarScroll);
 
     return () => {
-      bottomBar.removeEventListener('scroll', handleBottomScroll);
-      grid.removeEventListener('scroll', handleGridScroll);
+      resizeObserver.disconnect();
+      grid.removeEventListener("scroll", handleGridScroll);
+      bar.removeEventListener("scroll", handleBarScroll);
     };
   }, []);
 
@@ -1438,7 +1425,11 @@ const Rtne: React.FC = () => {
           </div>
         ) : (
           <div className="rtne-wrapper flex-1 flex flex-col bg-white min-h-0">
-            <div id="rtne-scroll-container" ref={tableScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+            <div 
+              ref={tableScrollRef}
+              className="flex-1 overflow-y-auto overflow-x-auto min-h-0"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
               <table ref={tableElementRef} className="w-full border-collapse border border-gray-300">
               <thead className="bg-gray-200">
                 <tr>
@@ -1647,18 +1638,10 @@ const Rtne: React.FC = () => {
 
             {/* Custom Horizontal Scrollbar - Google Sheets Style */}
             <div 
-              id="rtne-bottom-scroll"
               ref={bottomScrollRef}
-              className="overflow-x-auto overflow-y-hidden bg-white border-t border-gray-300"
-              style={{ 
-                position: 'sticky',
-                bottom: 0,
-                height: '24px',
-                width: '100%',
-                zIndex: 999
-              }}
+              className="sticky bottom-0 left-0 right-0 h-6 overflow-x-auto overflow-y-hidden bg-white"
             >
-              <div id="rtne-scroll-inner" ref={scrollInnerRef} style={{ height: '1px', width: '2000px' }} />
+              <div style={{ width: tableContentWidth, height: 1 }} />
             </div>
 
             {/* Row Management Controls */}
