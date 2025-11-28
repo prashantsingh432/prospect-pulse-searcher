@@ -3,7 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle, Star, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, RotateCcw, RotateCw, Printer, Bold, Italic, Underline, Link, MessageSquare, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import RowContextMenu from "@/components/RowContextMenu";
 import { enrichProspectByName, enrichProspect } from "@/services/lushaService";
 import { toast } from "sonner";
@@ -28,7 +29,9 @@ const Rtne: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const nextIdRef = useRef(101); // Start from 101 for new rows
-  const tableRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const tableElementRef = useRef<HTMLTableElement>(null);
+  const bottomScrollRef = useRef<HTMLDivElement>(null);
 
   // Generate 100 initial rows
   const generateInitialRows = (): RtneRow[] => {
@@ -64,6 +67,7 @@ const Rtne: React.FC = () => {
   const [enrichingRows, setEnrichingRows] = useState<Set<number>>(new Set());
   const [isBulkEnriching, setIsBulkEnriching] = useState(false);
   const [bulkEnrichProgress, setBulkEnrichProgress] = useState({ current: 0, total: 0 });
+  const [tableContentWidth, setTableContentWidth] = useState(0);
 
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
@@ -549,6 +553,22 @@ const Rtne: React.FC = () => {
 
     toast.success(`Email Enrichment Complete: ${successCount} found, ${failedCount} failed`);
   };
+
+  const requestBulkAccess = useCallback(() => {
+    toast.error("Bulk enrichment access required. Please contact your admin for access.");
+  }, []);
+
+  const handleBulkEnrichPhonesClick = useCallback(() => {
+    requestBulkAccess();
+  }, [requestBulkAccess]);
+
+  const handleBulkEnrichEmailsClick = useCallback(() => {
+    requestBulkAccess();
+  }, [requestBulkAccess]);
+
+  const handleBulkEnrichBothClick = useCallback(() => {
+    requestBulkAccess();
+  }, [requestBulkAccess]);
 
   // Single row enrichment function
   const enrichSingleRow = async (rowId: number, category: 'PHONE_ONLY' | 'EMAIL_ONLY') => {
@@ -1204,6 +1224,49 @@ const Rtne: React.FC = () => {
     };
   }, [handleKeyDown, handleKeyUp]);
 
+  // Global horizontal scrollbar setup
+  useEffect(() => {
+    const tableEl = tableScrollRef.current;
+    const tableNode = tableElementRef.current;
+    const bottomEl = bottomScrollRef.current;
+    if (!tableEl || !tableNode || !bottomEl) return;
+
+    const updateWidth = () => {
+      setTableContentWidth(tableNode.scrollWidth);
+      bottomEl.scrollLeft = tableEl.scrollLeft;
+    };
+
+    updateWidth();
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(tableNode);
+
+    let syncingFromTable = false;
+    let syncingFromBottom = false;
+
+    const handleTableScroll = () => {
+      if (syncingFromBottom) return;
+      syncingFromTable = true;
+      bottomEl.scrollLeft = tableEl.scrollLeft;
+      syncingFromTable = false;
+    };
+
+    const handleBottomScroll = () => {
+      if (syncingFromTable) return;
+      syncingFromBottom = true;
+      tableEl.scrollLeft = bottomEl.scrollLeft;
+      syncingFromBottom = false;
+    };
+
+    tableEl.addEventListener('scroll', handleTableScroll);
+    bottomEl.addEventListener('scroll', handleBottomScroll);
+
+    return () => {
+      resizeObserver.disconnect();
+      tableEl.removeEventListener('scroll', handleTableScroll);
+      bottomEl.removeEventListener('scroll', handleBottomScroll);
+    };
+  }, []);
+
   // Mouse event listeners for drag selection
   useEffect(() => {
     const handleGlobalMouseUp = () => {
@@ -1217,16 +1280,39 @@ const Rtne: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F3F2EF]">
+    <div className="min-h-screen bg-[#F3F2EF] flex flex-col">
       {/* LinkedIn-style Header */}
       <header className="bg-white shadow-sm z-20 sticky top-0">
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <div className="text-4xl text-[#0A66C2]">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                 </svg>
+              </div>
+              <div className="hidden md:flex items-center space-x-2 text-gray-500">
+                <button
+                  type="button"
+                  aria-label="Toggle table view"
+                  className="p-1.5 rounded-full hover:bg-gray-100 border border-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A66C2]"
+                >
+                  <Table className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Open settings"
+                  className="p-1.5 rounded-full hover:bg-gray-100 border border-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A66C2]"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Create new sheet"
+                  className="p-1.5 rounded-full hover:bg-gray-100 border border-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A66C2]"
+                >
+                  <FilePlus2 className="h-4 w-4" />
+                </button>
               </div>
               <nav className="hidden md:flex items-center text-sm font-medium space-x-2 text-gray-600">
                 <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">File</a>
@@ -1237,7 +1323,25 @@ const Rtne: React.FC = () => {
                 <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Data</a>
                 <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Tools</a>
                 <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Extensions</a>
-                <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Help</a>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md flex items-center">
+                      <span>Bulk Enrichment</span>
+                      <ChevronDown className="h-4 w-4 ml-1 text-gray-500" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichPhonesClick}>
+                      Enrich Phones
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichEmailsClick}>
+                      Enrich Emails
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichBothClick}>
+                      Enrich Both
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </nav>
             </div>
             <div className="flex items-center space-x-4">
@@ -1258,104 +1362,26 @@ const Rtne: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-center justify-between h-12 border-t border-gray-200">
-            <div className="flex items-center text-sm">
-              <h1 className="font-semibold text-lg text-gray-800 pr-3">LinkedIn Prospects</h1>
-              <Star className="h-5 w-5 text-gray-500 hover:text-yellow-500 cursor-pointer" />
-            </div>
-            <div className="flex items-center space-x-1 text-gray-700">
-              <button className="p-2 rounded-full hover:bg-gray-200" onClick={() => navigate("/")}>
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-              <button className="p-2 rounded-full hover:bg-gray-200">
-                <RotateCcw className="h-4 w-4" />
-              </button>
-              <button className="p-2 rounded-full hover:bg-gray-200">
-                <RotateCw className="h-4 w-4" />
-              </button>
-              <button className="p-2 rounded-full hover:bg-gray-200">
-                <Printer className="h-4 w-4" />
-              </button>
-              <div className="h-6 border-l border-gray-300 mx-2"></div>
-              <button className="p-2 rounded-full hover:bg-gray-200">
-                <Bold className="h-4 w-4" />
-              </button>
-              <button className="p-2 rounded-full hover:bg-gray-200">
-                <Italic className="h-4 w-4" />
-              </button>
-              <button className="p-2 rounded-full hover:bg-gray-200">
-                <Underline className="h-4 w-4" />
-              </button>
-              <div className="h-6 border-l border-gray-300 mx-2"></div>
-              <button className="p-2 rounded-full hover:bg-gray-200">
-                <Link className="h-4 w-4" />
-              </button>
-              <button className="p-2 rounded-full hover:bg-gray-200">
-                <MessageSquare className="h-4 w-4" />
-              </button>
-              <div className="h-6 border-l border-gray-300 mx-2"></div>
-              <button
-                className="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-              >
-                <Play className="h-4 w-4 text-[#0A66C2]" />
-                <span>{isSubmitting ? 'Processing...' : 'Run RTNE'}</span>
-              </button>
-            </div>
+            {isBulkEnriching && (
+              <span className="sr-only" aria-live="polite">
+                Enriching {bulkEnrichProgress.current}/{bulkEnrichProgress.total} rows
+              </span>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Enrichment Toolbar */}
-      {!isLoadingData && (
-        <div className="bg-white border-b border-gray-300 p-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-gray-700">Bulk Enrichment:</span>
-            <button
-              onClick={() => {
-                toast.error("Bulk enrichment access required. Please contact your admin for access.");
-              }}
-              disabled={isBulkEnriching}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              <Phone className="h-4 w-4" />
-              <span>📞 Enrich Phones</span>
-            </button>
-            <button
-              onClick={() => {
-                toast.error("Bulk enrichment access required. Please contact your admin for access.");
-              }}
-              disabled={isBulkEnriching}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              <Mail className="h-4 w-4" />
-              <span>📧 Enrich Emails</span>
-            </button>
-          </div>
-
-          {isBulkEnriching && (
-            <div className="flex items-center space-x-3">
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-              <span className="text-sm text-gray-600">
-                Enriching {bulkEnrichProgress.current}/{bulkEnrichProgress.total} rows...
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Spreadsheet Table */}
-      <main className="max-w-full mx-auto p-0">
+      <main className="flex-1 w-full px-0 flex flex-col min-h-0">
         {isLoadingData ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex flex-1 items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-[#0A66C2]" />
             <span className="ml-2 text-gray-600">Loading your data...</span>
           </div>
         ) : (
-          <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-            <table className="w-full border-collapse border border-gray-300">
+          <div className="flex-1 flex flex-col bg-white min-h-0">
+            <div ref={tableScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 pb-6">
+              <table ref={tableElementRef} className="w-full border-collapse border border-gray-300">
               <thead className="bg-gray-200">
                 <tr>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 w-12 sticky left-0 z-10 text-gray-500">#</th>
@@ -1558,62 +1584,72 @@ const Rtne: React.FC = () => {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
-        )}
+              </table>
 
-        {/* Row Management Controls */}
-        <div className="bg-white border-t border-gray-300 p-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600 font-medium">
-              Rows: {rows.length}
-            </span>
-            {rows.length > 2000 && (
-              <div className="flex items-center space-x-2 text-yellow-600 bg-yellow-50 px-3 py-1 rounded-md">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm">Performance warning: Consider enabling virtualization for better performance</span>
+              {/* Row Management Controls */}
+              <div className="bg-white border-t border-gray-300 p-4 flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm text-gray-600 font-medium">
+                    Rows: {rows.length}
+                  </span>
+                  {rows.length > 2000 && (
+                    <div className="flex items-center space-x-2 text-yellow-600 bg-yellow-50 px-3 py-1 rounded-md">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-sm">Performance warning: Consider enabling virtualization for better performance</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="number"
+                    value={newRowsCount}
+                    onChange={(e) => setNewRowsCount(e.target.value)}
+                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="100"
+                    min="1"
+                    aria-label="Number of rows to add"
+                  />
+                  <button
+                    onClick={handleCustomAdd}
+                    className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                    aria-label="Add custom number of rows"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Add rows</span>
+                  </button>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleQuickAdd(100)}
+                      className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
+                      aria-label="Add 100 rows"
+                    >
+                      +100
+                    </button>
+                    <button
+                      onClick={() => handleQuickAdd(1000)}
+                      className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
+                      aria-label="Add 1000 rows"
+                    >
+                      +1000
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <input
-              type="number"
-              value={newRowsCount}
-              onChange={(e) => setNewRowsCount(e.target.value)}
-              className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-              placeholder="100"
-              min="1"
-              aria-label="Number of rows to add"
-            />
-            <button
-              onClick={handleCustomAdd}
-              className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              aria-label="Add custom number of rows"
-            >
-              <Plus className="h-3 w-3" />
-              <span>Add rows</span>
-            </button>
-
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => handleQuickAdd(100)}
-                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
-                aria-label="Add 100 rows"
-              >
-                +100
-              </button>
-              <button
-                onClick={() => handleQuickAdd(1000)}
-                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
-                aria-label="Add 1000 rows"
-              >
-                +1000
-              </button>
             </div>
           </div>
-        </div>
+        )}
       </main>
+
+      <div
+        ref={bottomScrollRef}
+        className="fixed left-0 right-0 bottom-0 overflow-x-auto overflow-y-hidden bg-white border-t border-gray-300 z-30"
+        style={{ height: 16 }}
+        role="presentation"
+      >
+        <div style={{ width: tableContentWidth || '100%', height: 1 }} />
+      </div>
 
       {/* Confirmation Modal */}
       {showConfirmation && (
