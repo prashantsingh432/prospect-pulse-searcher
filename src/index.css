@@ -75,33 +75,26 @@
   }
 }
 
-/* Google Sheets-style scrollbar for RTNE */
-#rtne-scroll-container {
-  overflow-y: auto;
-  overflow-x: hidden;
+/* Hide native scrollbar on table container */
+.rtne-wrapper > div:first-child::-webkit-scrollbar {
+  display: none;
 }
 
-#rtne-bottom-scroll {
-  scrollbar-width: auto;
-  scrollbar-color: rgba(0, 0, 0, 0.3) #f1f3f4;
+/* Custom horizontal scrollbar styling */
+.rtne-wrapper > div:last-of-type::-webkit-scrollbar {
+  height: 16px;
 }
 
-#rtne-bottom-scroll::-webkit-scrollbar {
-  height: 24px;
-  background: #f1f3f4;
-}
-
-#rtne-bottom-scroll::-webkit-scrollbar-thumb {
+.rtne-wrapper > div:last-of-type::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 10px;
-  border: 4px solid #f1f3f4;
-  height: 24px;
+  border-radius: 9999px;
+  border: 3px solid white;
 }
 
-#rtne-bottom-scroll::-webkit-scrollbar-thumb:hover {
+.rtne-wrapper > div:last-of-type::-webkit-scrollbar-thumb:hover {
   background-color: rgba(0, 0, 0, 0.5);
 }
 
-#rtne-bottom-scroll::-webkit-scrollbar-track {
-  background: #f1f3f4;
+.rtne-wrapper > div:last-of-type::-webkit-scrollbar-track {
+  background: white;
 }
