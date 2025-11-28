@@ -198,19 +198,25 @@ const Rtne: React.FC = () => {
 
   // Calculate table content width and sync scroll
   useEffect(() => {
-    const grid = tableScrollRef.current;      // IMPORTANT: this is the real scroller
+    const grid = tableScrollRef.current;
     const bar = bottomScrollRef.current;
-    if (!grid || !bar) return;
+    const table = tableElementRef.current;
+    
+    if (!grid || !bar || !table) return;
 
-    // width for inner div so the bar can scroll
+    // Update width to match table scrollWidth
     const updateWidth = () => {
-      setTableContentWidth(grid.scrollWidth);
+      const width = table.scrollWidth || 2000;
+      console.log('Table scrollWidth:', width);
+      setTableContentWidth(width);
       bar.scrollLeft = grid.scrollLeft;
     };
-    updateWidth();
+    
+    // Initial update
+    setTimeout(updateWidth, 100);
 
     const resizeObserver = new ResizeObserver(updateWidth);
-    resizeObserver.observe(grid);
+    resizeObserver.observe(table);
 
     let syncingFromGrid = false;
     let syncingFromBar = false;
@@ -237,7 +243,7 @@ const Rtne: React.FC = () => {
       grid.removeEventListener("scroll", handleGridScroll);
       bar.removeEventListener("scroll", handleBarScroll);
     };
-  }, []);
+  }, [rows]);
 
   const handleChange = async (rowId: number, field: keyof RtneRow, value: string) => {
     // Update local state immediately
@@ -1640,10 +1646,28 @@ const Rtne: React.FC = () => {
             <div 
               ref={bottomScrollRef}
               id="rtne-bottom-scroll"
-              className="sticky bottom-0 left-0 right-0 overflow-x-auto overflow-y-hidden bg-white"
-              style={{ height: '24px', zIndex: 999 }}
+              style={{ 
+                position: 'sticky',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '24px',
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                background: '#f8f9fa',
+                borderTop: '1px solid #e0e0e0',
+                zIndex: 999,
+                width: '100%'
+              }}
             >
-              <div id="rtne-scroll-inner" style={{ width: tableContentWidth, height: 1 }} />
+              <div 
+                id="rtne-scroll-inner" 
+                style={{ 
+                  width: `${Math.max(tableContentWidth, 2000)}px`, 
+                  height: '1px',
+                  minWidth: '2000px'
+                }} 
+              />
             </div>
 
             {/* Row Management Controls */}
