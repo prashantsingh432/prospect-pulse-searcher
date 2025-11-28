@@ -75,7 +75,7 @@
   }
 }
 
-/* Hide native horizontal scrollbar for table container */
+/* Hide native horizontal scrollbar for table container only */
 .rtne-table-container::-webkit-scrollbar {
   display: none;
 }
@@ -83,4 +83,29 @@
 .rtne-table-container {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Style the custom scrollbar to look like Google Sheets */
+.rtne-custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+}
+
+.rtne-custom-scrollbar::-webkit-scrollbar {
+  height: 17px;
+  background: #f8f9fa;
+}
+
+.rtne-custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 3px solid #f8f9fa;
+}
+
+.rtne-custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.rtne-custom-scrollbar::-webkit-scrollbar-track {
+  background: #f8f9fa;
 }
