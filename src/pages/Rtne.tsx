@@ -1647,22 +1647,18 @@ const Rtne: React.FC = () => {
               </table>
 
               {/* Custom Horizontal Scrollbar - Google Sheets Style */}
-              {scrollbarVisible && (
-                <div 
-                  ref={bottomScrollRef}
-                  className="sticky bottom-0 left-0 right-0 overflow-x-auto overflow-y-hidden bg-white border-t border-gray-300 z-20"
-                  style={{ 
-                    height: '16px',
-                    scrollbarWidth: 'auto',
-                    msOverflowStyle: 'auto'
-                  }}
-                  role="scrollbar"
-                  aria-orientation="horizontal"
-                  aria-label="Horizontal scrollbar"
-                >
-                  <div style={{ width: tableContentWidth, height: '1px' }} />
-                </div>
-              )}
+              <div 
+                ref={bottomScrollRef}
+                className="rtne-custom-scrollbar sticky bottom-0 left-0 right-0 overflow-x-auto overflow-y-hidden bg-gray-50 border-t border-gray-300 z-20"
+                style={{ 
+                  height: '17px'
+                }}
+                role="scrollbar"
+                aria-orientation="horizontal"
+                aria-label="Horizontal scrollbar"
+              >
+                <div style={{ width: tableContentWidth || 3000, height: '1px' }} />
+              </div>
 
               {/* Row Management Controls */}
               <div className="bg-white border-t border-gray-300 p-4 flex items-center justify-between">
