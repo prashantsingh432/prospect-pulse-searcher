@@ -75,37 +75,32 @@
   }
 }
 
-/* Hide native horizontal scrollbar for table container only */
-.rtne-table-container::-webkit-scrollbar {
-  display: none;
+/* Google Sheets-style scrollbar for RTNE */
+#rtne-scroll-container {
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.rtne-table-container {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* Style the custom scrollbar to look like Google Sheets */
-.rtne-custom-scrollbar {
+#rtne-bottom-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.3) #f1f3f4;
 }
 
-.rtne-custom-scrollbar::-webkit-scrollbar {
-  height: 17px;
-  background: #f8f9fa;
+#rtne-bottom-scroll::-webkit-scrollbar {
+  height: 16px;
+  background: #f1f3f4;
 }
 
-.rtne-custom-scrollbar::-webkit-scrollbar-thumb {
+#rtne-bottom-scroll::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.3);
   border-radius: 8px;
-  border: 3px solid #f8f9fa;
+  border: 3px solid #f1f3f4;
 }
 
-.rtne-custom-scrollbar::-webkit-scrollbar-thumb:hover {
+#rtne-bottom-scroll::-webkit-scrollbar-thumb:hover {
   background-color: rgba(0, 0, 0, 0.4);
 }
 
-.rtne-custom-scrollbar::-webkit-scrollbar-track {
-  background: #f8f9fa;
+#rtne-bottom-scroll::-webkit-scrollbar-track {
+  background: #f1f3f4;
 }

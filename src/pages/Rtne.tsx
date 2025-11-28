@@ -29,10 +29,11 @@ const Rtne: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const nextIdRef = useRef(101); // Start from 101 for new rows
-  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null); // #rtne-scroll-container
   const tableElementRef = useRef<HTMLTableElement>(null);
-  const bottomScrollRef = useRef<HTMLDivElement>(null);
-  const syncingScroll = useRef(false); // Guard flag to prevent recursion
+  const bottomScrollRef = useRef<HTMLDivElement>(null); // #rtne-bottom-scroll
+  const scrollInnerRef = useRef<HTMLDivElement>(null); // #rtne-scroll-inner
+  const isSyncing = useRef(false); // Guard flag to prevent recursion
 
   // Generate 100 initial rows
   const generateInitialRows = (): RtneRow[] => {
@@ -69,8 +70,6 @@ const Rtne: React.FC = () => {
   const [isBulkEnriching, setIsBulkEnriching] = useState(false);
   const [bulkEnrichProgress, setBulkEnrichProgress] = useState({ current: 0, total: 0 });
   const [tableContentWidth, setTableContentWidth] = useState(0);
-  const [scrollbarWidth, setScrollbarWidth] = useState(0);
-  const [scrollbarVisible, setScrollbarVisible] = useState(false);
 
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
@@ -197,29 +196,26 @@ const Rtne: React.FC = () => {
     document.head.appendChild(link);
   }, [user?.id, projectName, makeEmptyRow]);
 
-  // Calculate table content width and sync scroll
+  // Calculate table content width and update scrollbar
   useEffect(() => {
-    const updateScrollDimensions = () => {
-      if (tableElementRef.current && tableScrollRef.current) {
-        const scrollWidth = tableElementRef.current.scrollWidth;
-        const clientWidth = tableScrollRef.current.clientWidth;
-        setTableContentWidth(scrollWidth);
-        setScrollbarWidth(clientWidth);
-        setScrollbarVisible(scrollWidth > clientWidth);
+    const updateScrollWidth = () => {
+      if (tableElementRef.current && scrollInnerRef.current) {
+        const width = tableElementRef.current.scrollWidth;
+        scrollInnerRef.current.style.width = `${width}px`;
+        setTableContentWidth(width);
       }
     };
 
-    updateScrollDimensions();
-    window.addEventListener('resize', updateScrollDimensions);
+    updateScrollWidth();
+    window.addEventListener('resize', updateScrollWidth);
     
-    // Use ResizeObserver for better tracking
-    const resizeObserver = new ResizeObserver(updateScrollDimensions);
+    const resizeObserver = new ResizeObserver(updateScrollWidth);
     if (tableElementRef.current) {
       resizeObserver.observe(tableElementRef.current);
     }
 
     return () => {
-      window.removeEventListener('resize', updateScrollDimensions);
+      window.removeEventListener('resize', updateScrollWidth);
       resizeObserver.disconnect();
     };
   }, [rows]);
@@ -232,17 +228,21 @@ const Rtne: React.FC = () => {
     if (!tableContainer || !scrollbarContainer) return;
 
     const handleTableScroll = () => {
-      if (syncingScroll.current) return;
-      syncingScroll.current = true;
+      if (isSyncing.current) return;
+      isSyncing.current = true;
       scrollbarContainer.scrollLeft = tableContainer.scrollLeft;
-      syncingScroll.current = false;
+      requestAnimationFrame(() => {
+        isSyncing.current = false;
+      });
     };
 
     const handleScrollbarScroll = () => {
-      if (syncingScroll.current) return;
-      syncingScroll.current = true;
+      if (isSyncing.current) return;
+      isSyncing.current = true;
       tableContainer.scrollLeft = scrollbarContainer.scrollLeft;
-      syncingScroll.current = false;
+      requestAnimationFrame(() => {
+        isSyncing.current = false;
+      });
     };
 
     tableContainer.addEventListener('scroll', handleTableScroll);
@@ -1439,8 +1439,8 @@ const Rtne: React.FC = () => {
             <span className="ml-2 text-gray-600">Loading your data...</span>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col bg-white min-h-0">
-            <div ref={tableScrollRef} className="rtne-table-container flex-1 overflow-y-auto overflow-x-scroll min-h-0 pb-6">
+          <div className="rtne-wrapper flex-1 flex flex-col bg-white min-h-0">
+            <div id="rtne-scroll-container" ref={tableScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
               <table ref={tableElementRef} className="w-full border-collapse border border-gray-300">
               <thead className="bg-gray-200">
                 <tr>
@@ -1645,22 +1645,25 @@ const Rtne: React.FC = () => {
                 ))}
               </tbody>
               </table>
+            </div>
 
-              {/* Custom Horizontal Scrollbar - Google Sheets Style */}
-              <div 
-                ref={bottomScrollRef}
-                className="rtne-custom-scrollbar sticky bottom-0 left-0 right-0 overflow-x-auto overflow-y-hidden bg-gray-50 border-t border-gray-300 z-20"
-                style={{ 
-                  height: '17px'
-                }}
-                role="scrollbar"
-                aria-orientation="horizontal"
-                aria-label="Horizontal scrollbar"
-              >
-                <div style={{ width: tableContentWidth || 3000, height: '1px' }} />
-              </div>
+            {/* Custom Horizontal Scrollbar - Google Sheets Style */}
+            <div 
+              id="rtne-bottom-scroll"
+              ref={bottomScrollRef}
+              className="overflow-x-auto overflow-y-hidden bg-white border-t border-gray-300"
+              style={{ 
+                position: 'sticky',
+                bottom: 0,
+                height: '16px',
+                width: '100%',
+                zIndex: 999
+              }}
+            >
+              <div id="rtne-scroll-inner" ref={scrollInnerRef} style={{ height: '1px', width: '100%' }} />
+            </div>
 
-              {/* Row Management Controls */}
+            {/* Row Management Controls */}
               <div className="bg-white border-t border-gray-300 p-4 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <span className="text-sm text-gray-600 font-medium">
@@ -1712,7 +1715,6 @@ const Rtne: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
         )}
       </main>
 
