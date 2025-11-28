@@ -74,3 +74,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide native horizontal scrollbar for table container */
+.rtne-table-container::-webkit-scrollbar {
+  display: none;
+}
+
+.rtne-table-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
