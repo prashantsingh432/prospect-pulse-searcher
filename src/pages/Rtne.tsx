@@ -1526,10 +1526,8 @@ const Rtne: React.FC = () => {
                                }
                              }}
                            />
-                           {/* Add enrichment button for phone and email fields */}
-                           {(field === 'prospect_number' || field === 'prospect_number2' || 
-                             field === 'prospect_number3' || field === 'prospect_number4' || 
-                             field === 'prospect_email') && (
+                            {/* Add enrichment button for Primary Phone and Email only */}
+                            {(field === 'prospect_number' || field === 'prospect_email') && (
                              <button
                                onClick={(e) => {
                                  e.stopPropagation();
