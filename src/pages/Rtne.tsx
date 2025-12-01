@@ -694,8 +694,11 @@ const Rtne: React.FC = () => {
       }
 
       // 2. ALSO save to prospects table (global database for all searches)
+      // Normalize LinkedIn URL before saving to ensure consistency
+      const normalizedLinkedInUrl = row.prospect_linkedin.trim().toLowerCase().replace(/\/+$/, '');
+      
       const prospectData = {
-        prospect_linkedin: row.prospect_linkedin,
+        prospect_linkedin: normalizedLinkedInUrl,
         full_name: updates.full_name || row.full_name || '',
         company_name: updates.company_name || row.company_name || '',
         prospect_city: updates.prospect_city || row.prospect_city || null,
@@ -707,11 +710,11 @@ const Rtne: React.FC = () => {
         prospect_email: updates.prospect_email || row.prospect_email || null,
       };
 
-      // Check if prospect already exists
+      // Check if prospect already exists (use normalized URL for search)
       const { data: existingProspect } = await supabase
         .from('prospects')
         .select('id')
-        .eq('prospect_linkedin', row.prospect_linkedin)
+        .eq('prospect_linkedin', normalizedLinkedInUrl)
         .maybeSingle();
 
       if (existingProspect) {
@@ -1737,7 +1740,23 @@ const Rtne: React.FC = () => {
                       {row.id}
                     </td>
                     {fieldOrder.map((field) => {
-                      const cellValue = row[field] as string || '';
+                      // For Primary Phone, show all available phone numbers
+                      let cellValue = row[field] as string || '';
+                      if (field === 'prospect_number') {
+                        const phones = [
+                          row.prospect_number,
+                          row.prospect_number2,
+                          row.prospect_number3,
+                          row.prospect_number4
+                        ].filter(p => p && p.trim());
+                        
+                        if (phones.length > 1) {
+                          cellValue = phones.join(', ');
+                        } else if (phones.length === 1) {
+                          cellValue = phones[0];
+                        }
+                      }
+                      
                       const isSelected = isCellSelected(row.id, field);
                       const isCurrentlyEditing = isSelected && isEditing;
 

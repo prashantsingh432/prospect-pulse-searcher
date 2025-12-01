@@ -74,8 +74,8 @@ export async function lookupProspectInDatabase(
  */
 function normalizeLinkedInUrl(url: string): string {
   try {
-    // Remove whitespace
-    url = url.trim();
+    // Remove whitespace and trailing slashes
+    url = url.trim().replace(/\/+$/, '');
 
     // Handle various LinkedIn URL formats
     const patterns = [
@@ -86,21 +86,26 @@ function normalizeLinkedInUrl(url: string): string {
     for (const pattern of patterns) {
       const match = url.match(pattern);
       if (match && match[1]) {
-        const username = match[1].toLowerCase();
+        const username = match[1].toLowerCase().replace(/\/+$/, '');
         return `https://www.linkedin.com/in/${username}`;
       }
     }
 
-    // If already in canonical format
-    if (url.startsWith("https://www.linkedin.com/in/")) {
-      return url.toLowerCase();
+    // If already in canonical format, clean and normalize
+    if (url.toLowerCase().includes("linkedin.com/in/")) {
+      const cleaned = url.toLowerCase().replace(/\/+$/, '');
+      const parts = cleaned.split('/in/');
+      if (parts.length > 1) {
+        const username = parts[1].split(/[\/\?]/)[0];
+        return `https://www.linkedin.com/in/${username}`;
+      }
     }
 
     // Default: assume it's just the username
-    const username = url.replace(/^@/, "").toLowerCase();
+    const username = url.replace(/^@/, "").toLowerCase().replace(/\/+$/, '');
     return `https://www.linkedin.com/in/${username}`;
   } catch (error) {
     console.error("Error normalizing LinkedIn URL:", error);
-    return url;
+    return url.trim().toLowerCase().replace(/\/+$/, '');
   }
 }
