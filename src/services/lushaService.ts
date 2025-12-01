@@ -494,9 +494,17 @@ async function enrichWithSmartRotation(
         continue; // Try next key
       }
 
-      // Handle 429: Out of Credits - Mark as EXHAUSTED and retry with next key
+      // Handle 429: Out of Credits (rate limit) - Mark as EXHAUSTED and retry with next key
       if (response.status === 429) {
         console.warn(`⛔ Key (...${keyEndsWith}) is OUT OF CREDITS (HTTP 429)`);
+        await markKeyAsDead(key.id, "EXHAUSTED");
+        console.log(`🔄 Marked as EXHAUSTED. Trying next key...`);
+        continue; // Try next key
+      }
+
+      // Handle 402: Payment Required (Lusha out of credit) - Mark as EXHAUSTED and retry with next key
+      if (response.status === 402) {
+        console.warn(`⛔ Key (...${keyEndsWith}) is OUT OF CREDITS (HTTP 402 - Payment Required)`);
         await markKeyAsDead(key.id, "EXHAUSTED");
         console.log(`🔄 Marked as EXHAUSTED. Trying next key...`);
         continue; // Try next key
