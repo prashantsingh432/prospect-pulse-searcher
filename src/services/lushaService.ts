@@ -296,48 +296,51 @@ function parseLushaResponse(data: any): LushaEnrichResult {
       };
     }
 
-    // Extract ALL phone numbers (up to 4)
+    // Extract ALL phone numbers (up to 4) - handle both camelCase and snake_case
     let phone: string | null = null;
     let phone2: string | null = null;
     let phone3: string | null = null;
     let phone4: string | null = null;
     
-    const phones = contact.phoneNumbers || [];
+    const phones = contact.phone_numbers || contact.phoneNumbers || [];
     console.log("🔍 [parseLushaResponse] Phone numbers array:", phones);
     
     if (phones.length > 0) {
-      phone = phones[0].internationalNumber || phones[0].number || null;
+      phone = phones[0].internationalNumber || phones[0].international_number || phones[0].number || null;
       console.log("🔍 [parseLushaResponse] Extracted phone 1:", phone);
     }
     if (phones.length > 1) {
-      phone2 = phones[1].internationalNumber || phones[1].number || null;
+      phone2 = phones[1].internationalNumber || phones[1].international_number || phones[1].number || null;
       console.log("🔍 [parseLushaResponse] Extracted phone 2:", phone2);
     }
     if (phones.length > 2) {
-      phone3 = phones[2].internationalNumber || phones[2].number || null;
+      phone3 = phones[2].internationalNumber || phones[2].international_number || phones[2].number || null;
       console.log("🔍 [parseLushaResponse] Extracted phone 3:", phone3);
     }
     if (phones.length > 3) {
-      phone4 = phones[3].internationalNumber || phones[3].number || null;
+      phone4 = phones[3].internationalNumber || phones[3].international_number || phones[3].number || null;
       console.log("🔍 [parseLushaResponse] Extracted phone 4:", phone4);
     }
 
 
-    // Extract email addresses
+    // Extract email addresses - handle both camelCase and snake_case
     let email: string | null = null;
-    const emails = contact.emailAddresses || [];
+    const emails = contact.email_addresses || contact.emailAddresses || [];
     console.log("🔍 [parseLushaResponse] Email addresses array:", emails);
     if (emails.length > 0) {
       email = emails[0].email || null;
       console.log("🔍 [parseLushaResponse] Extracted email:", email);
     }
 
-    // Extract other fields with correct API response structure
-    const fullName = contact.fullName || null;
-    const company = contact.current_position?.company?.name || contact.employment_history?.[0]?.company?.name || null;
-    const companyLinkedInUrl = contact.current_position?.company?.linkedin_url || contact.employment_history?.[0]?.company?.linkedin_url || null;
-    const title = contact.current_position?.title || null;
-    const city = contact.location?.city || null;
+    // Extract other fields - handle both camelCase and snake_case
+    const currentPos = contact.currentPosition || contact.current_position;
+    const history = contact.employmentHistory || contact.employment_history;
+    
+    const fullName = contact.fullName || contact.full_name || null;
+    const company = currentPos?.company?.name || history?.[0]?.company?.name || null;
+    const companyLinkedInUrl = currentPos?.company?.linkedinUrl || currentPos?.company?.linkedin_url || history?.[0]?.company?.linkedinUrl || history?.[0]?.company?.linkedin_url || null;
+    const title = currentPos?.title || history?.[0]?.title || null;
+    const city = contact.location?.city || contact.city || null;
 
     const hasData = !!(phone || email);
 
