@@ -332,12 +332,12 @@ function parseLushaResponse(data: any): LushaEnrichResult {
       console.log("🔍 [parseLushaResponse] Extracted email:", email);
     }
 
-    // Extract other fields
+    // Extract other fields with correct API response structure
     const fullName = contact.fullName || null;
-    const company = contact.company?.name || null;
-    const companyLinkedInUrl = contact.company?.linkedinUrl || null;
-    const title = contact.jobTitle || null;
-    const city = contact.location || contact.city || null;
+    const company = contact.current_position?.company?.name || contact.employment_history?.[0]?.company?.name || null;
+    const companyLinkedInUrl = contact.current_position?.company?.linkedin_url || contact.employment_history?.[0]?.company?.linkedin_url || null;
+    const title = contact.current_position?.title || null;
+    const city = contact.location?.city || null;
 
     const hasData = !!(phone || email);
 
