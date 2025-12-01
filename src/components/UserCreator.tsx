@@ -41,6 +41,9 @@ export const UserCreator = () => {
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<UserData | null>(null);
 
+  // Projects from database
+  const [availableProjects, setAvailableProjects] = useState<string[]>([]);
+
   // Multi-select state
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
@@ -224,6 +227,28 @@ export const UserCreator = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch available projects from database
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('project_names')
+        .select('name')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      setAvailableProjects(data?.map(p => p.name) || []);
+    } catch (error: any) {
+      console.error("Fetch projects error:", error);
+      toast({
+        title: "Error Fetching Projects",
+        description: error.message || "Failed to fetch projects",
+        variant: "destructive",
+      });
     }
   };
 
@@ -450,9 +475,10 @@ export const UserCreator = () => {
   useEffect(() => {
     // Initial fetch
     fetchUsers();
+    fetchProjects();
 
     // Set up real-time subscription to public.users table for sync
-    const channel = supabase
+    const usersChannel = supabase
       .channel('public:users')
       .on(
         'postgres_changes',
@@ -469,9 +495,26 @@ export const UserCreator = () => {
       )
       .subscribe();
 
-    // Cleanup subscription
+    // Set up real-time subscription to project_names table
+    const projectsChannel = supabase
+      .channel('public:project_names')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'project_names'
+        },
+        () => {
+          fetchProjects();
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(usersChannel);
+      supabase.removeChannel(projectsChannel);
     };
   }, []);
 
@@ -600,13 +643,22 @@ export const UserCreator = () => {
                   {newUserRole !== 'admin' && (
                     <div>
                       <Label htmlFor="projectName">Project Name</Label>
-                      <Input
-                        id="projectName"
-                        type="text"
-                        placeholder="Project name"
-                        value={newUserProjectName}
-                        onChange={(e) => setNewUserProjectName(e.target.value)}
-                      />
+                      <Select value={newUserProjectName} onValueChange={setNewUserProjectName}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableProjects.length === 0 ? (
+                            <SelectItem value="" disabled>No projects available</SelectItem>
+                          ) : (
+                            availableProjects.map((project) => (
+                              <SelectItem key={project} value={project}>
+                                {project}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </div>
@@ -673,13 +725,22 @@ export const UserCreator = () => {
                   {editUserRole !== 'admin' && (
                     <div>
                       <Label htmlFor="editProjectName">Project Name</Label>
-                      <Input
-                        id="editProjectName"
-                        type="text"
-                        placeholder="Project name"
-                        value={editUserProjectName}
-                        onChange={(e) => setEditUserProjectName(e.target.value)}
-                      />
+                      <Select value={editUserProjectName} onValueChange={setEditUserProjectName}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableProjects.length === 0 ? (
+                            <SelectItem value="" disabled>No projects available</SelectItem>
+                          ) : (
+                            availableProjects.map((project) => (
+                              <SelectItem key={project} value={project}>
+                                {project}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </div>
