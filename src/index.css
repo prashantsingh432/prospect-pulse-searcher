@@ -185,33 +185,36 @@
   height: 32px;
   line-height: 32px;
   color: #299fff;
-  animation: cycle-words 5s infinite;
+  animation: cycle-words 9s infinite;
   display: block;
 }
 
 @keyframes cycle-words {
-  10% {
-    transform: translateY(-105%);
+  0% {
+    transform: translateY(0%);
   }
-  25% {
+  
+  30% {
+    transform: translateY(0%);
+  }
+
+  33% {
     transform: translateY(-100%);
   }
-  35% {
-    transform: translateY(-205%);
+
+  63% {
+    transform: translateY(-100%);
   }
-  50% {
+
+  66% {
     transform: translateY(-200%);
   }
-  60% {
-    transform: translateY(-305%);
+
+  96% {
+    transform: translateY(-200%);
   }
-  75% {
-    transform: translateY(-300%);
-  }
-  85% {
-    transform: translateY(-405%);
-  }
+
   100% {
-    transform: translateY(-400%);
+    transform: translateY(-300%);
   }
 }
