@@ -14,6 +14,7 @@ interface RtneRow {
   prospect_linkedin: string;
   full_name?: string;
   company_name?: string;
+  company_linkedin_url?: string;
   prospect_city?: string;
   prospect_number?: string;
   prospect_email?: string;
@@ -48,6 +49,7 @@ const Rtne: React.FC = () => {
         prospect_city: "",
         prospect_designation: "",
         company_name: "",
+        company_linkedin_url: "",
         prospect_email: "",
         prospect_number: "",
         prospect_number2: "",
@@ -105,6 +107,7 @@ const Rtne: React.FC = () => {
   const fieldOrder: (keyof RtneRow)[] = [
     'full_name',
     'company_name',
+    'company_linkedin_url',
     'prospect_linkedin',
     'prospect_number',
     'prospect_number2',
@@ -123,6 +126,7 @@ const Rtne: React.FC = () => {
     prospect_city: "",
     prospect_designation: "",
     company_name: "",
+    company_linkedin_url: "",
     prospect_email: "",
     prospect_number: "",
     prospect_number2: "",
@@ -152,6 +156,7 @@ const Rtne: React.FC = () => {
             prospect_linkedin: request.linkedin_url || '',
             full_name: request.full_name || '',
             company_name: request.company_name || '',
+            company_linkedin_url: '', // Will be populated by enrichment
             prospect_city: request.city || '',
             prospect_number: request.primary_phone || '',
             prospect_email: request.email_address || '',
@@ -621,57 +626,58 @@ const Rtne: React.FC = () => {
     requestBulkAccess();
   }, [requestBulkAccess]);
 
-  // Single row enrichment function
-  const enrichSingleRow = async (rowId: number, category: 'PHONE_ONLY' | 'EMAIL_ONLY') => {
+  // Full enrichment function - populates ALL fields with ONE API call
+  const enrichSingleRow = async (rowId: number) => {
     const row = rows.find(r => r.id === rowId);
     if (!row) return;
+
+    // Validate LinkedIn URL is present
+    if (!row.prospect_linkedin || !validateLinkedInUrl(row.prospect_linkedin)) {
+      toast.error("Valid LinkedIn URL required for enrichment");
+      return;
+    }
 
     // Add row to enriching set
     setEnrichingRows(prev => new Set(prev).add(rowId));
 
     try {
-      let result;
-
-      if (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin)) {
-        // Use LinkedIn URL
-        result = await enrichProspect(row.prospect_linkedin, category);
-      } else if (row.full_name && row.company_name) {
-        // Split the full name
-        const nameParts = row.full_name.trim().split(" ");
-        const firstName = nameParts[0];
-        const lastName = nameParts.slice(1).join(" ") || "";
-
-        // Use Name + Company
-        result = await enrichProspectByName(firstName, lastName, row.company_name, category);
-      } else {
-        toast.error("Need LinkedIn URL or Full Name + Company to enrich");
-        setEnrichingRows(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(rowId);
-          return newSet;
-        });
-        return;
-      }
+      console.log(`🚀 Full enrichment for row ${rowId} with LinkedIn: ${row.prospect_linkedin}`);
+      
+      // Call the full enrichment API (no category - just get ALL data)
+      const result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY"); // API call will return full data
 
       if (result.success) {
+        // Extract ALL 6 fields from the response
+        const updates: Partial<RtneRow> = {};
+        
+        if (result.phone) updates.prospect_number = result.phone;
+        if (result.email) updates.prospect_email = result.email;
+        if (result.city) updates.prospect_city = result.city;
+        if (result.title) updates.prospect_designation = result.title;
+        if (result.company) updates.company_name = result.company;
+        if (result.companyLinkedInUrl) updates.company_linkedin_url = result.companyLinkedInUrl;
+        if (result.fullName) updates.full_name = result.fullName;
+
+        // Also populate additional phone numbers if available
+        if (result.phone2) updates.prospect_number2 = result.phone2;
+        if (result.phone3) updates.prospect_number3 = result.phone3;
+        if (result.phone4) updates.prospect_number4 = result.phone4;
+
         setRows(prev => prev.map(r =>
-          r.id === rowId ? {
-            ...r,
-            prospect_number: result.phone || r.prospect_number,
-            prospect_number2: result.phone2 || r.prospect_number2,
-            prospect_number3: result.phone3 || r.prospect_number3,
-            prospect_number4: result.phone4 || r.prospect_number4,
-            prospect_email: result.email || r.prospect_email,
-            full_name: result.fullName || r.full_name,
-            company_name: result.company || r.company_name,
-          } : r
+          r.id === rowId ? { ...r, ...updates } : r
         ));
-        toast.success(`Enrichment successful`);
+
+        // Count how many fields were populated
+        const populatedCount = Object.keys(updates).length;
+        toast.success(`✅ Enriched ${populatedCount} fields successfully`);
+        
+        console.log(`✅ Enrichment complete:`, updates);
       } else {
         toast.error(result.message || "Enrichment failed");
+        console.error(`❌ Enrichment failed:`, result.message);
       }
     } catch (error) {
-      console.error(`Single row enrichment error:`, error);
+      console.error(`❌ Single row enrichment error:`, error);
       toast.error("Enrichment failed");
     } finally {
       setEnrichingRows(prev => {
@@ -1457,6 +1463,14 @@ const Rtne: React.FC = () => {
                       <svg className="w-4 h-4 mr-2 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                       </svg>
+                      Company LinkedIn URL
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[300px]">
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 mr-2 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                      </svg>
                       LinkedIn Profile URL
                     </div>
                   </th>
@@ -1610,22 +1624,21 @@ const Rtne: React.FC = () => {
                                 }
                               }}
                             />
-                            {/* Add enrichment button for Primary Phone and Email only */}
-                            {(field === 'prospect_number' || field === 'prospect_email') && (
+                            {/* Add enrichment button for LinkedIn URL cell - Full enrichment for ALL fields */}
+                            {field === 'prospect_linkedin' && row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin) && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const category = field === 'prospect_email' ? 'EMAIL_ONLY' : 'PHONE_ONLY';
-                                  enrichSingleRow(row.id, category);
+                                  enrichSingleRow(row.id);
                                 }}
                                 disabled={enrichingRows.has(row.id)}
-                                className="flex-shrink-0 p-1 hover:bg-gray-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={`Enrich ${field === 'prospect_email' ? 'email' : 'phone'} for this row`}
+                                className="flex-shrink-0 p-1 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Full enrichment: Phone, Email, City, Job Title, Company Name, Company LinkedIn"
                               >
                                 {enrichingRows.has(row.id) ? (
                                   <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
                                 ) : (
-                                  <Play className="h-3.5 w-3.5 text-green-600" />
+                                  <Play className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
                                 )}
                               </button>
                             )}

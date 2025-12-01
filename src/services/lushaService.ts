@@ -23,7 +23,9 @@ export interface LushaEnrichResult {
   email?: string | null;
   fullName?: string | null;
   company?: string | null;
+  companyLinkedInUrl?: string | null;
   title?: string | null;
+  city?: string | null;
   error?: string;
   message?: string;
   rawData?: any;
@@ -333,7 +335,9 @@ function parseLushaResponse(data: any): LushaEnrichResult {
     // Extract other fields
     const fullName = contact.fullName || null;
     const company = contact.company?.name || null;
+    const companyLinkedInUrl = contact.company?.linkedinUrl || null;
     const title = contact.jobTitle || null;
+    const city = contact.location || contact.city || null;
 
     const hasData = !!(phone || email);
 
@@ -346,7 +350,9 @@ function parseLushaResponse(data: any): LushaEnrichResult {
       email: email || undefined,
       fullName: fullName || undefined,
       company: company || undefined,
+      companyLinkedInUrl: companyLinkedInUrl || undefined,
       title: title || undefined,
+      city: city || undefined,
       message: hasData ? "Successfully retrieved contact information from Lusha" : "No contact data available",
       rawData: contact,
     };
