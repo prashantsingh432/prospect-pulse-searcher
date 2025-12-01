@@ -161,7 +161,7 @@ const Rtne: React.FC = () => {
             prospect_linkedin: request.linkedin_url || '',
             full_name: request.full_name || '',
             company_name: request.company_name || '',
-            company_linkedin_url: '', // Will be populated by enrichment
+            company_linkedin_url: request.company_linkedin_url || '',
             prospect_city: request.city || '',
             prospect_number: request.primary_phone || '',
             prospect_email: request.email_address || '',
@@ -409,6 +409,7 @@ const Rtne: React.FC = () => {
           linkedin_url: field === 'prospect_linkedin' ? value : currentRow.prospect_linkedin,
           full_name: field === 'full_name' ? value : currentRow.full_name,
           company_name: field === 'company_name' ? value : currentRow.company_name,
+          company_linkedin_url: field === 'company_linkedin_url' ? value : currentRow.company_linkedin_url,
           city: field === 'prospect_city' ? value : currentRow.prospect_city,
           primary_phone: field === 'prospect_number' ? value : currentRow.prospect_number,
           email_address: field === 'prospect_email' ? value : currentRow.prospect_email,
@@ -430,19 +431,49 @@ const Rtne: React.FC = () => {
         } else {
           // Insert new record only if there's actual data
           if (requestData.linkedin_url || requestData.full_name || requestData.company_name) {
-            const { data, error } = await supabase
-              .from('rtne_requests')
-              .insert([requestData])
-              .select()
-              .single();
+            // Check for uniqueness: only insert if this LinkedIn URL doesn't exist for this user/project
+            let shouldInsert = true;
+            
+            if (requestData.linkedin_url) {
+              const { data: existingData } = await supabase
+                .from('rtne_requests')
+                .select('id')
+                .eq('user_id', user?.id)
+                .eq('project_name', projectName)
+                .eq('linkedin_url', requestData.linkedin_url)
+                .maybeSingle();
+              
+              if (existingData) {
+                shouldInsert = false;
+                // Update the existing record instead
+                const { error: updateError } = await supabase
+                  .from('rtne_requests')
+                  .update(requestData)
+                  .eq('id', existingData.id);
+                
+                if (!updateError) {
+                  setRows(prev => prev.map(r =>
+                    r.id === rowId ? { ...r, supabaseId: existingData.id } as any : r
+                  ));
+                }
+              }
+            }
 
-            if (error) throw error;
+            if (shouldInsert) {
+              const { data, error } = await supabase
+                .from('rtne_requests')
+                .insert([requestData])
+                .select()
+                .single();
 
-            // Store the Supabase ID for future updates
-            if (data) {
-              setRows(prev => prev.map(r =>
-                r.id === rowId ? { ...r, supabaseId: data.id } as any : r
-              ));
+              if (error) throw error;
+
+              // Store the Supabase ID for future updates
+              if (data) {
+                setRows(prev => prev.map(r =>
+                  r.id === rowId ? { ...r, supabaseId: data.id } as any : r
+                ));
+              }
             }
           }
         }
@@ -619,6 +650,54 @@ const Rtne: React.FC = () => {
     toast.error("Bulk enrichment access required. Please contact your admin for access.");
   }, []);
 
+  // Helper function to save enriched data to Supabase
+  const saveEnrichedDataToSupabase = async (rowId: number, updates: Partial<RtneRow>) => {
+    const row = rows.find(r => r.id === rowId);
+    if (!row) return;
+
+    try {
+      const requestData: any = {
+        project_name: projectName,
+        user_id: user?.id,
+        user_name: user?.fullName || user?.email?.split('@')[0] || 'Unknown',
+        linkedin_url: row.prospect_linkedin,
+        full_name: updates.full_name || row.full_name,
+        company_name: updates.company_name || row.company_name,
+        company_linkedin_url: updates.company_linkedin_url || row.company_linkedin_url,
+        city: updates.prospect_city || row.prospect_city,
+        primary_phone: updates.prospect_number || row.prospect_number,
+        email_address: updates.prospect_email || row.prospect_email,
+        job_title: updates.prospect_designation || row.prospect_designation,
+        row_number: rowId,
+        status: 'pending',
+        updated_at: new Date().toISOString()
+      };
+
+      if ((row as any).supabaseId) {
+        // Update existing record
+        await supabase
+          .from('rtne_requests')
+          .update(requestData)
+          .eq('id', (row as any).supabaseId);
+      } else {
+        // Insert new record
+        const { data } = await supabase
+          .from('rtne_requests')
+          .insert([requestData])
+          .select()
+          .single();
+
+        if (data) {
+          setRows(prev => prev.map(r =>
+            r.id === rowId ? { ...r, supabaseId: data.id } as any : r
+          ));
+        }
+      }
+    } catch (error) {
+      console.error('Error saving enriched data to Supabase:', error);
+    }
+  };
+
   const handleBulkEnrichPhonesClick = useCallback(() => {
     requestBulkAccess();
   }, [requestBulkAccess]);
@@ -684,6 +763,9 @@ const Rtne: React.FC = () => {
           r.id === rowId ? { ...r, ...updates } : r
         ));
 
+        // Save to Supabase after enrichment
+        await saveEnrichedDataToSupabase(rowId, updates);
+
         // Ensure minimum 10 seconds total
         const totalElapsed = Date.now() - startTime;
         if (totalElapsed < 10000) {
@@ -743,6 +825,9 @@ const Rtne: React.FC = () => {
         setRows(prev => prev.map(r =>
           r.id === rowId ? { ...r, ...updates } : r
         ));
+
+        // Save to Supabase after enrichment
+        await saveEnrichedDataToSupabase(rowId, updates);
 
         const populatedCount = Object.keys(updates).length;
         toast.success(`✅ Enriched ${populatedCount} fields from Lusha`);
@@ -891,6 +976,7 @@ const Rtne: React.FC = () => {
           .update({
             full_name: '',
             company_name: '',
+            company_linkedin_url: '',
             city: '',
             primary_phone: '',
             email_address: '',

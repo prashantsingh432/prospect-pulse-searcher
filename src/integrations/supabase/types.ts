@@ -641,6 +641,7 @@ export type Database = {
       rtne_requests: {
         Row: {
           city: string | null
+          company_linkedin_url: string | null
           company_name: string | null
           completed_at: string | null
           completed_by: string | null
@@ -660,6 +661,7 @@ export type Database = {
         }
         Insert: {
           city?: string | null
+          company_linkedin_url?: string | null
           company_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -679,6 +681,7 @@ export type Database = {
         }
         Update: {
           city?: string | null
+          company_linkedin_url?: string | null
           company_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
