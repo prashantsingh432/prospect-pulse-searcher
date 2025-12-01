@@ -1664,7 +1664,7 @@ const Rtne: React.FC = () => {
                 id="rtne-scroll-inner" 
                 style={{ 
                   width: `${Math.max(tableContentWidth, 2000)}px`, 
-                  height: '1px',
+                  height: '20px',
                   minWidth: '2000px'
                 }} 
               />
