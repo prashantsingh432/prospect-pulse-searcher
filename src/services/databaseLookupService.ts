@@ -16,7 +16,7 @@ export interface DatabaseLookupResult {
 }
 
 /**
- * Search master_prospects table by LinkedIn URL
+ * Search prospects table by LinkedIn URL
  * Returns existing prospect data if found
  */
 export async function lookupProspectInDatabase(
@@ -29,11 +29,11 @@ export async function lookupProspectInDatabase(
     const canonicalUrl = normalizeLinkedInUrl(linkedinUrl);
     console.log("🔗 Canonical URL:", canonicalUrl);
 
-    // Search by canonical_url
+    // Search in prospects table by prospect_linkedin
     const { data, error } = await supabase
-      .from("master_prospects")
+      .from("prospects")
       .select("*")
-      .eq("canonical_url", canonicalUrl)
+      .eq("prospect_linkedin", canonicalUrl)
       .maybeSingle();
 
     if (error) {
