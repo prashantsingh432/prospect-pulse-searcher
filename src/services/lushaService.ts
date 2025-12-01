@@ -332,15 +332,50 @@ function parseLushaResponse(data: any): LushaEnrichResult {
       console.log("🔍 [parseLushaResponse] Extracted email:", email);
     }
 
-    // Extract other fields - handle both camelCase and snake_case
+    // Extract other fields - handle multiple API response formats
     const currentPos = contact.currentPosition || contact.current_position;
     const history = contact.employmentHistory || contact.employment_history;
     
+    console.log("🔍 [parseLushaResponse] contact.company:", contact.company);
+    console.log("🔍 [parseLushaResponse] contact.jobTitle:", contact.jobTitle);
+    console.log("🔍 [parseLushaResponse] currentPos:", currentPos ? "EXISTS" : "NULL");
+    console.log("🔍 [parseLushaResponse] history:", history ? "EXISTS" : "NULL");
+    
     const fullName = contact.fullName || contact.full_name || null;
-    const company = currentPos?.company?.name || history?.[0]?.company?.name || null;
-    const companyLinkedInUrl = currentPos?.company?.linkedinUrl || currentPos?.company?.linkedin_url || history?.[0]?.company?.linkedinUrl || history?.[0]?.company?.linkedin_url || null;
-    const title = currentPos?.title || history?.[0]?.title || null;
+    
+    // Company name - check direct property first, then nested
+    const company = 
+      contact.company?.name || 
+      currentPos?.company?.name || 
+      history?.[0]?.company?.name || 
+      null;
+    console.log("🔍 [parseLushaResponse] Extracted company:", company);
+    
+    // Company LinkedIn URL - check all possible locations
+    const companyLinkedInUrl = 
+      contact.company?.social?.linkedin ||
+      contact.company?.linkedinUrl || 
+      contact.company?.linkedin_url ||
+      contact.company?.linkedInUrl ||
+      currentPos?.company?.linkedinUrl || 
+      currentPos?.company?.linkedin_url || 
+      history?.[0]?.company?.linkedinUrl || 
+      history?.[0]?.company?.linkedin_url || 
+      null;
+    console.log("🔍 [parseLushaResponse] Extracted companyLinkedInUrl:", companyLinkedInUrl);
+    
+    // Job title/designation - check jobTitle object first, then nested
+    const title = 
+      contact.jobTitle?.title || 
+      contact.job_title?.title ||
+      currentPos?.title || 
+      history?.[0]?.title || 
+      contact.title ||
+      null;
+    console.log("🔍 [parseLushaResponse] Extracted title:", title);
+    
     const city = contact.location?.city || contact.city || null;
+    console.log("🔍 [parseLushaResponse] Extracted city:", city);
 
     const hasData = !!(phone || email);
 
