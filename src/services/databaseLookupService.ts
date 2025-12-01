@@ -29,16 +29,37 @@ export async function lookupProspectInDatabase(
     const canonicalUrl = normalizeLinkedInUrl(linkedinUrl);
     console.log("🔗 Canonical URL:", canonicalUrl);
 
-    // Search in prospects table by prospect_linkedin
-    const { data, error } = await supabase
+    // Extract username for flexible matching
+    const username = extractLinkedInUsername(canonicalUrl);
+    console.log("👤 Extracted username:", username);
+
+    // Search in prospects table with flexible matching
+    // First try exact match, then try ILIKE pattern match for different URL formats
+    let data = null;
+    let error = null;
+
+    // Try exact match first
+    const exactMatch = await supabase
       .from("prospects")
       .select("*")
       .eq("prospect_linkedin", canonicalUrl)
       .maybeSingle();
 
-    if (error) {
-      console.error("❌ Database lookup error:", error);
-      return { found: false };
+    if (exactMatch.data) {
+      data = exactMatch.data;
+    } else if (username) {
+      // If no exact match, try pattern matching with username
+      const patternMatch = await supabase
+        .from("prospects")
+        .select("*")
+        .ilike("prospect_linkedin", `%${username}%`)
+        .limit(1)
+        .maybeSingle();
+      
+      if (patternMatch.data) {
+        data = patternMatch.data;
+        console.log("✅ Found via pattern match");
+      }
     }
 
     if (!data) {
@@ -65,6 +86,28 @@ export async function lookupProspectInDatabase(
   } catch (error) {
     console.error("❌ Database lookup exception:", error);
     return { found: false };
+  }
+}
+
+/**
+ * Extract LinkedIn username from URL for flexible matching
+ */
+function extractLinkedInUsername(url: string): string | null {
+  try {
+    const patterns = [
+      /linkedin\.com\/in\/([^\/\?]+)/i,
+      /linkedin\.com\/pub\/([^\/\?]+)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1].toLowerCase().replace(/\/+$/, '');
+      }
+    }
+    return null;
+  } catch (error) {
+    return null;
   }
 }
 
