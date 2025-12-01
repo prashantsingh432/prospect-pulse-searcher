@@ -390,6 +390,8 @@ const Rtne: React.FC = () => {
       const currentRow = rows.find(r => r.id === rowId);
       if (!currentRow) return;
 
+      console.log(`🔍 Saving cell change - Row ${rowId}, Field: ${field}, New Value: "${value}"`);
+
       try {
         // Get the updated value from the field (use current value after state update)
         const updatedValue = field === 'prospect_linkedin' ? value :
@@ -406,6 +408,13 @@ const Rtne: React.FC = () => {
           ...currentRow,
           [field]: value
         };
+
+        console.log(`📝 Updated row state:`, {
+          linkedin_url: updatedRow.prospect_linkedin,
+          full_name: updatedRow.full_name,
+          company_name: updatedRow.company_name,
+          primary_phone: updatedRow.prospect_number
+        });
 
         // Map RtneRow fields to rtne_requests columns - convert empty strings to null
         const requestData: any = {
@@ -425,6 +434,8 @@ const Rtne: React.FC = () => {
           updated_at: new Date().toISOString()
         };
 
+        console.log(`💾 Request data to save:`, requestData);
+
         // Check if row has a Supabase ID (existing record)
         if ((currentRow as any).supabaseId) {
           // Check if all data fields are empty - if so, delete the record
@@ -432,14 +443,22 @@ const Rtne: React.FC = () => {
                              requestData.company_name || requestData.primary_phone || 
                              requestData.email_address;
           
+          console.log(`🔄 Existing record (ID: ${(currentRow as any).supabaseId}), hasAnyData: ${hasAnyData}`);
+          
           if (!hasAnyData) {
+            console.log(`🗑️ All fields empty - DELETING record from database`);
             // Delete the record entirely since all fields are cleared
             const { error } = await supabase
               .from('rtne_requests')
               .delete()
               .eq('id', (currentRow as any).supabaseId);
 
-            if (error) throw error;
+            if (error) {
+              console.error(`❌ Delete failed:`, error);
+              throw error;
+            }
+            
+            console.log(`✅ Record deleted successfully`);
             
             // Remove supabaseId from local state
             setRows(prev => prev.map(r => {
@@ -450,13 +469,18 @@ const Rtne: React.FC = () => {
               return r;
             }));
           } else {
+            console.log(`📤 Updating existing record with data (including nulls)`);
             // Update existing record with all fields (including nulls)
             const { error } = await supabase
               .from('rtne_requests')
               .update(requestData)
               .eq('id', (currentRow as any).supabaseId);
 
-            if (error) throw error;
+            if (error) {
+              console.error(`❌ Update failed:`, error);
+              throw error;
+            }
+            console.log(`✅ Record updated successfully`);
           }
         } else {
           // Insert new record only if there's actual data
@@ -1289,6 +1313,8 @@ const Rtne: React.FC = () => {
           const cellKey = `${row.id}-${field}`;
           if (selectedCells.has(cellKey)) {
             (updatedRow as any)[field] = '';
+            // CRITICAL: Call handleChange to save to database
+            handleChange(row.id, field, '');
           }
         });
         return updatedRow;
