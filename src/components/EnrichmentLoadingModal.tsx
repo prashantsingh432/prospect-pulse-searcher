@@ -6,9 +6,16 @@ interface EnrichmentLoadingModalProps {
   searchSource: "database" | "lusha";
 }
 
+interface EnrichmentLoadingModalProps {
+  isOpen: boolean;
+  searchSource: "database" | "lusha";
+  stage: "searching" | "not_found";
+}
+
 const EnrichmentLoadingModal: React.FC<EnrichmentLoadingModalProps> = ({
   isOpen,
   searchSource,
+  stage,
 }) => {
   return (
     <Dialog open={isOpen}>
@@ -18,20 +25,26 @@ const EnrichmentLoadingModal: React.FC<EnrichmentLoadingModalProps> = ({
           <div className="enrichment-spinner" />
 
           {/* Animated Text */}
-          <div className="enrichment-loader">
-            Searching&nbsp;
-            <div className="enrichment-words">
-              <div className={`enrichment-word ${searchSource === "database" ? "text-green-500" : "text-blue-500"}`}>
-                in {searchSource}
-              </div>
-              <div className={`enrichment-word ${searchSource === "database" ? "text-green-500" : "text-blue-500"}`}>
-                phone number
-              </div>
-              <div className={`enrichment-word ${searchSource === "database" ? "text-green-500" : "text-blue-500"}`}>
-                email
+          {stage === "searching" ? (
+            <div className="enrichment-loader">
+              Searching&nbsp;
+              <div className="enrichment-words">
+                <div className={`enrichment-word ${searchSource === "database" ? "text-green-500" : "text-blue-500"}`}>
+                  in {searchSource}
+                </div>
+                <div className={`enrichment-word ${searchSource === "database" ? "text-green-500" : "text-blue-500"}`}>
+                  phone number
+                </div>
+                <div className={`enrichment-word ${searchSource === "database" ? "text-green-500" : "text-blue-500"}`}>
+                  email
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="enrichment-loader">
+              <span className="text-red-500">Not found in database</span>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

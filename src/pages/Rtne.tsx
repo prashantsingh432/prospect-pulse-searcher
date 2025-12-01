@@ -76,6 +76,7 @@ const Rtne: React.FC = () => {
   const [tableContentWidth, setTableContentWidth] = useState(0);
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [enrichmentSource, setEnrichmentSource] = useState<"database" | "lusha">("database");
+  const [enrichmentStage, setEnrichmentStage] = useState<"searching" | "not_found">("searching");
 
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
@@ -645,19 +646,20 @@ const Rtne: React.FC = () => {
     setEnrichingRows(prev => new Set(prev).add(rowId));
     setEnrichmentLoading(true);
     setEnrichmentSource("database");
+    setEnrichmentStage("searching");
     
     const startTime = Date.now();
 
     try {
       console.log(`🚀 Starting enrichment for row ${rowId} with LinkedIn: ${row.prospect_linkedin}`);
       
-      // STEP 1: Search database first (minimum 5 seconds for database stage)
+      // STEP 1: Search database first (minimum 3 seconds for database stage with animation)
       console.log("🔍 Searching database...");
       const dbResult = await lookupProspectInDatabase(row.prospect_linkedin);
       
-      // Calculate elapsed time and wait to reach minimum 5 seconds for database stage
+      // Wait minimum 3 seconds so user can see the animation cycle
       const dbElapsed = Date.now() - startTime;
-      const dbMinDelay = 5000;
+      const dbMinDelay = 3000;
       if (dbElapsed < dbMinDelay) {
         await new Promise(resolve => setTimeout(resolve, dbMinDelay - dbElapsed));
       }
@@ -682,6 +684,12 @@ const Rtne: React.FC = () => {
           r.id === rowId ? { ...r, ...updates } : r
         ));
 
+        // Ensure minimum 10 seconds total
+        const totalElapsed = Date.now() - startTime;
+        if (totalElapsed < 10000) {
+          await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
+        }
+
         const populatedCount = Object.keys(updates).length;
         toast.success(`✅ Found in database! Populated ${populatedCount} fields`);
         
@@ -689,18 +697,30 @@ const Rtne: React.FC = () => {
         return;
       }
 
-      // STEP 2: If not found in database, switch to Lusha search (minimum 5 more seconds)
-      console.log("❌ Not found in database. Searching Lusha...");
+      // STEP 2: Show "not found" stage (1.5 seconds)
+      console.log("❌ Not found in database.");
+      setEnrichmentStage("not_found");
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // STEP 3: Switch to Lusha search (minimum 3 seconds)
+      console.log("🔍 Searching Lusha...");
       setEnrichmentSource("lusha");
+      setEnrichmentStage("searching");
       
       const lushaStartTime = Date.now();
       const result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
       
-      // Calculate elapsed time and wait to reach minimum 5 seconds for Lusha stage
+      // Wait minimum 3 seconds for Lusha animation
       const lushaElapsed = Date.now() - lushaStartTime;
-      const lushaMinDelay = 5000;
+      const lushaMinDelay = 3000;
       if (lushaElapsed < lushaMinDelay) {
         await new Promise(resolve => setTimeout(resolve, lushaMinDelay - lushaElapsed));
+      }
+
+      // Ensure minimum 10 seconds total
+      const totalElapsed = Date.now() - startTime;
+      if (totalElapsed < 10000) {
+        await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
       }
 
       if (result.success) {
@@ -738,6 +758,13 @@ const Rtne: React.FC = () => {
     } catch (error) {
       console.error(`❌ Single row enrichment error:`, error);
       toast.error("Enrichment failed");
+      
+      // Ensure minimum 10 seconds even on error
+      const totalElapsed = Date.now() - startTime;
+      if (totalElapsed < 10000) {
+        await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
+      }
+      
       setEnrichmentLoading(false);
     } finally {
       setEnrichingRows(prev => {
@@ -1852,8 +1879,9 @@ const Rtne: React.FC = () => {
 
       {/* Enrichment Loading Modal */}
       <EnrichmentLoadingModal 
-        isOpen={enrichmentLoading}
+        isOpen={enrichmentLoading} 
         searchSource={enrichmentSource}
+        stage={enrichmentStage}
       />
     </div>
   );
