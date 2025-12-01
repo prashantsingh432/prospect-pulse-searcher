@@ -7,6 +7,8 @@ import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, P
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import RowContextMenu from "@/components/RowContextMenu";
 import { enrichProspectByName, enrichProspect } from "@/services/lushaService";
+import { lookupProspectInDatabase } from "@/services/databaseLookupService";
+import EnrichmentLoadingModal from "@/components/EnrichmentLoadingModal";
 import { toast } from "sonner";
 
 interface RtneRow {
@@ -72,6 +74,8 @@ const Rtne: React.FC = () => {
   const [isBulkEnriching, setIsBulkEnriching] = useState(false);
   const [bulkEnrichProgress, setBulkEnrichProgress] = useState({ current: 0, total: 0 });
   const [tableContentWidth, setTableContentWidth] = useState(0);
+  const [enrichmentLoading, setEnrichmentLoading] = useState(false);
+  const [enrichmentStage, setEnrichmentStage] = useState<"database" | "phone" | "email" | "complete">("database");
 
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
@@ -626,7 +630,7 @@ const Rtne: React.FC = () => {
     requestBulkAccess();
   }, [requestBulkAccess]);
 
-  // Full enrichment function - populates ALL fields with ONE API call
+  // Full enrichment function with database-first lookup
   const enrichSingleRow = async (rowId: number) => {
     const row = rows.find(r => r.id === rowId);
     if (!row) return;
@@ -637,17 +641,58 @@ const Rtne: React.FC = () => {
       return;
     }
 
-    // Add row to enriching set
+    // Add row to enriching set and show loading modal
     setEnrichingRows(prev => new Set(prev).add(rowId));
+    setEnrichmentLoading(true);
+    setEnrichmentStage("database");
 
     try {
-      console.log(`🚀 Full enrichment for row ${rowId} with LinkedIn: ${row.prospect_linkedin}`);
+      console.log(`🚀 Starting enrichment for row ${rowId} with LinkedIn: ${row.prospect_linkedin}`);
       
-      // Call the full enrichment API (no category - just get ALL data)
-      const result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY"); // API call will return full data
+      // STEP 1: Search database first
+      console.log("🔍 Searching database...");
+      const dbResult = await lookupProspectInDatabase(row.prospect_linkedin);
+
+      if (dbResult.found && dbResult.data) {
+        console.log("✅ Found in database! Using existing data.");
+        
+        // Populate from database
+        const updates: Partial<RtneRow> = {};
+        
+        if (dbResult.data.full_name) updates.full_name = dbResult.data.full_name;
+        if (dbResult.data.company_name) updates.company_name = dbResult.data.company_name;
+        if (dbResult.data.prospect_designation) updates.prospect_designation = dbResult.data.prospect_designation;
+        if (dbResult.data.prospect_city) updates.prospect_city = dbResult.data.prospect_city;
+        if (dbResult.data.prospect_number) updates.prospect_number = dbResult.data.prospect_number;
+        if (dbResult.data.prospect_number2) updates.prospect_number2 = dbResult.data.prospect_number2;
+        if (dbResult.data.prospect_number3) updates.prospect_number3 = dbResult.data.prospect_number3;
+        if (dbResult.data.prospect_number4) updates.prospect_number4 = dbResult.data.prospect_number4;
+        if (dbResult.data.prospect_email) updates.prospect_email = dbResult.data.prospect_email;
+
+        setRows(prev => prev.map(r =>
+          r.id === rowId ? { ...r, ...updates } : r
+        ));
+
+        const populatedCount = Object.keys(updates).length;
+        toast.success(`✅ Found in database! Populated ${populatedCount} fields`);
+        
+        // Close modal after brief delay
+        setTimeout(() => {
+          setEnrichmentLoading(false);
+        }, 500);
+        
+        return;
+      }
+
+      // STEP 2: Not in database, search Lusha
+      console.log("❌ Not found in database. Searching Lusha...");
+      setEnrichmentStage("phone");
+      
+      // Call the full enrichment API
+      const result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
 
       if (result.success) {
-        // Extract ALL 6 fields from the response
+        // Extract ALL fields from the response
         const updates: Partial<RtneRow> = {};
         
         if (result.phone) updates.prospect_number = result.phone;
@@ -667,18 +712,24 @@ const Rtne: React.FC = () => {
           r.id === rowId ? { ...r, ...updates } : r
         ));
 
-        // Count how many fields were populated
         const populatedCount = Object.keys(updates).length;
-        toast.success(`✅ Enriched ${populatedCount} fields successfully`);
+        toast.success(`✅ Enriched ${populatedCount} fields from Lusha`);
         
         console.log(`✅ Enrichment complete:`, updates);
       } else {
         toast.error(result.message || "Enrichment failed");
         console.error(`❌ Enrichment failed:`, result.message);
       }
+      
+      // Close modal after brief delay
+      setTimeout(() => {
+        setEnrichmentLoading(false);
+      }, 500);
+      
     } catch (error) {
       console.error(`❌ Single row enrichment error:`, error);
       toast.error("Enrichment failed");
+      setEnrichmentLoading(false);
     } finally {
       setEnrichingRows(prev => {
         const newSet = new Set(prev);
@@ -1788,6 +1839,12 @@ const Rtne: React.FC = () => {
         onPasteRow={pasteRow}
         rowNumber={contextMenu.rowId}
         hasClipboard={clipboardRow !== null}
+      />
+
+      {/* Enrichment Loading Modal */}
+      <EnrichmentLoadingModal
+        isOpen={enrichmentLoading}
+        searchStage={enrichmentStage}
       />
     </div>
   );
