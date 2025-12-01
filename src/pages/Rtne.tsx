@@ -650,12 +650,37 @@ const Rtne: React.FC = () => {
     toast.error("Bulk enrichment access required. Please contact your admin for access.");
   }, []);
 
+  // Helper function to deduplicate phone numbers
+  const deduplicatePhones = (phone1?: string | null, phone2?: string | null, phone3?: string | null, phone4?: string | null) => {
+    const phones = [phone1, phone2, phone3, phone4]
+      .filter(p => p && p.trim())
+      .map(p => p!.trim());
+    
+    // Remove duplicates while preserving order
+    const uniquePhones = Array.from(new Set(phones));
+    
+    return {
+      prospect_number: uniquePhones[0] || null,
+      prospect_number2: uniquePhones[1] || null,
+      prospect_number3: uniquePhones[2] || null,
+      prospect_number4: uniquePhones[3] || null,
+    };
+  };
+
   // Helper function to save enriched data to Supabase
   const saveEnrichedDataToSupabase = async (rowId: number, updates: Partial<RtneRow>) => {
     const row = rows.find(r => r.id === rowId);
     if (!row || !row.prospect_linkedin) return;
 
     try {
+      // Deduplicate phone numbers before saving
+      const dedupedPhones = deduplicatePhones(
+        updates.prospect_number || row.prospect_number,
+        updates.prospect_number2 || row.prospect_number2,
+        updates.prospect_number3 || row.prospect_number3,
+        updates.prospect_number4 || row.prospect_number4
+      );
+
       // 1. Save to rtne_requests table (current project tracking)
       const requestData: any = {
         project_name: projectName,
@@ -666,7 +691,7 @@ const Rtne: React.FC = () => {
         company_name: updates.company_name || row.company_name,
         company_linkedin_url: updates.company_linkedin_url || row.company_linkedin_url,
         city: updates.prospect_city || row.prospect_city,
-        primary_phone: updates.prospect_number || row.prospect_number,
+        primary_phone: dedupedPhones.prospect_number,
         email_address: updates.prospect_email || row.prospect_email,
         job_title: updates.prospect_designation || row.prospect_designation,
         row_number: rowId,
@@ -703,10 +728,10 @@ const Rtne: React.FC = () => {
         company_name: updates.company_name || row.company_name || '',
         prospect_city: updates.prospect_city || row.prospect_city || null,
         prospect_designation: updates.prospect_designation || row.prospect_designation || null,
-        prospect_number: updates.prospect_number || row.prospect_number || null,
-        prospect_number2: updates.prospect_number2 || row.prospect_number2 || null,
-        prospect_number3: updates.prospect_number3 || row.prospect_number3 || null,
-        prospect_number4: updates.prospect_number4 || row.prospect_number4 || null,
+        prospect_number: dedupedPhones.prospect_number,
+        prospect_number2: dedupedPhones.prospect_number2,
+        prospect_number3: dedupedPhones.prospect_number3,
+        prospect_number4: dedupedPhones.prospect_number4,
         prospect_email: updates.prospect_email || row.prospect_email || null,
       };
 
@@ -785,24 +810,30 @@ const Rtne: React.FC = () => {
       if (dbResult.found && dbResult.data) {
         console.log("✅ Found in database! Using existing data.");
         
-        // Populate from database
-        const updates: Partial<RtneRow> = {};
+        // Deduplicate phone numbers from database
+        const dedupedPhones = deduplicatePhones(
+          dbResult.data.prospect_number,
+          dbResult.data.prospect_number2,
+          dbResult.data.prospect_number3,
+          dbResult.data.prospect_number4
+        );
+        
+        // Populate from database with deduplicated phones
+        const updates: Partial<RtneRow> = {
+          ...dedupedPhones
+        };
         
         if (dbResult.data.full_name) updates.full_name = dbResult.data.full_name;
         if (dbResult.data.company_name) updates.company_name = dbResult.data.company_name;
         if (dbResult.data.prospect_designation) updates.prospect_designation = dbResult.data.prospect_designation;
         if (dbResult.data.prospect_city) updates.prospect_city = dbResult.data.prospect_city;
-        if (dbResult.data.prospect_number) updates.prospect_number = dbResult.data.prospect_number;
-        if (dbResult.data.prospect_number2) updates.prospect_number2 = dbResult.data.prospect_number2;
-        if (dbResult.data.prospect_number3) updates.prospect_number3 = dbResult.data.prospect_number3;
-        if (dbResult.data.prospect_number4) updates.prospect_number4 = dbResult.data.prospect_number4;
         if (dbResult.data.prospect_email) updates.prospect_email = dbResult.data.prospect_email;
 
         setRows(prev => prev.map(r =>
           r.id === rowId ? { ...r, ...updates } : r
         ));
 
-        // Save to Supabase after enrichment
+        // Save deduplicated data back to Supabase
         await saveEnrichedDataToSupabase(rowId, updates);
 
         // Ensure minimum 10 seconds total
@@ -811,7 +842,7 @@ const Rtne: React.FC = () => {
           await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
         }
 
-        const populatedCount = Object.keys(updates).length;
+        const populatedCount = Object.keys(updates).filter(k => updates[k as keyof RtneRow]).length;
         toast.success(`✅ Found in database! Populated ${populatedCount} fields`);
         
         setEnrichmentLoading(false);
@@ -845,10 +876,19 @@ const Rtne: React.FC = () => {
       }
 
       if (result.success) {
-        // Extract ALL fields from the response
-        const updates: Partial<RtneRow> = {};
+        // Deduplicate phone numbers from Lusha response
+        const dedupedPhones = deduplicatePhones(
+          result.phone,
+          result.phone2,
+          result.phone3,
+          result.phone4
+        );
         
-        if (result.phone) updates.prospect_number = result.phone;
+        // Extract ALL fields from the response with deduplicated phones
+        const updates: Partial<RtneRow> = {
+          ...dedupedPhones
+        };
+        
         if (result.email) updates.prospect_email = result.email;
         if (result.city) updates.prospect_city = result.city;
         if (result.title) updates.prospect_designation = result.title;
@@ -856,19 +896,14 @@ const Rtne: React.FC = () => {
         if (result.companyLinkedInUrl) updates.company_linkedin_url = result.companyLinkedInUrl;
         if (result.fullName) updates.full_name = result.fullName;
 
-        // Also populate additional phone numbers if available
-        if (result.phone2) updates.prospect_number2 = result.phone2;
-        if (result.phone3) updates.prospect_number3 = result.phone3;
-        if (result.phone4) updates.prospect_number4 = result.phone4;
-
         setRows(prev => prev.map(r =>
           r.id === rowId ? { ...r, ...updates } : r
         ));
 
-        // Save to Supabase after enrichment
+        // Save deduplicated data to Supabase
         await saveEnrichedDataToSupabase(rowId, updates);
 
-        const populatedCount = Object.keys(updates).length;
+        const populatedCount = Object.keys(updates).filter(k => updates[k as keyof RtneRow]).length;
         toast.success(`✅ Enriched ${populatedCount} fields from Lusha`);
         
         console.log(`✅ Enrichment complete:`, updates);
@@ -1740,7 +1775,7 @@ const Rtne: React.FC = () => {
                       {row.id}
                     </td>
                     {fieldOrder.map((field) => {
-                      // For Primary Phone, show all available phone numbers
+                      // For Primary Phone, show all available phone numbers (deduplicated)
                       let cellValue = row[field] as string || '';
                       if (field === 'prospect_number') {
                         const phones = [
@@ -1748,12 +1783,17 @@ const Rtne: React.FC = () => {
                           row.prospect_number2,
                           row.prospect_number3,
                           row.prospect_number4
-                        ].filter(p => p && p.trim());
+                        ]
+                          .filter(p => p && p.trim())
+                          .map(p => p!.trim());
                         
-                        if (phones.length > 1) {
-                          cellValue = phones.join(', ');
-                        } else if (phones.length === 1) {
-                          cellValue = phones[0];
+                        // Remove duplicates while preserving order
+                        const uniquePhones = Array.from(new Set(phones));
+                        
+                        if (uniquePhones.length > 1) {
+                          cellValue = uniquePhones.join(', ');
+                        } else if (uniquePhones.length === 1) {
+                          cellValue = uniquePhones[0];
                         }
                       }
                       
