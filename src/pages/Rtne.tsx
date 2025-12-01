@@ -75,7 +75,7 @@ const Rtne: React.FC = () => {
   const [bulkEnrichProgress, setBulkEnrichProgress] = useState({ current: 0, total: 0 });
   const [tableContentWidth, setTableContentWidth] = useState(0);
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
-  const [enrichmentStage, setEnrichmentStage] = useState<"database" | "phone" | "email" | "complete">("database");
+  const [enrichmentSource, setEnrichmentSource] = useState<"database" | "lusha">("database");
 
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
@@ -641,17 +641,26 @@ const Rtne: React.FC = () => {
       return;
     }
 
-    // Add row to enriching set and show loading modal
+    // Add row to enriching set and show loading modal - Start with database search
     setEnrichingRows(prev => new Set(prev).add(rowId));
     setEnrichmentLoading(true);
-    setEnrichmentStage("database");
+    setEnrichmentSource("database");
+    
+    const startTime = Date.now();
 
     try {
       console.log(`🚀 Starting enrichment for row ${rowId} with LinkedIn: ${row.prospect_linkedin}`);
       
-      // STEP 1: Search database first
+      // STEP 1: Search database first (minimum 5 seconds for database stage)
       console.log("🔍 Searching database...");
       const dbResult = await lookupProspectInDatabase(row.prospect_linkedin);
+      
+      // Calculate elapsed time and wait to reach minimum 5 seconds for database stage
+      const dbElapsed = Date.now() - startTime;
+      const dbMinDelay = 5000;
+      if (dbElapsed < dbMinDelay) {
+        await new Promise(resolve => setTimeout(resolve, dbMinDelay - dbElapsed));
+      }
 
       if (dbResult.found && dbResult.data) {
         console.log("✅ Found in database! Using existing data.");
@@ -676,20 +685,23 @@ const Rtne: React.FC = () => {
         const populatedCount = Object.keys(updates).length;
         toast.success(`✅ Found in database! Populated ${populatedCount} fields`);
         
-        // Close modal after brief delay
-        setTimeout(() => {
-          setEnrichmentLoading(false);
-        }, 500);
-        
+        setEnrichmentLoading(false);
         return;
       }
 
-      // STEP 2: Not in database, search Lusha
+      // STEP 2: If not found in database, switch to Lusha search (minimum 5 more seconds)
       console.log("❌ Not found in database. Searching Lusha...");
-      setEnrichmentStage("phone");
+      setEnrichmentSource("lusha");
       
-      // Call the full enrichment API
+      const lushaStartTime = Date.now();
       const result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
+      
+      // Calculate elapsed time and wait to reach minimum 5 seconds for Lusha stage
+      const lushaElapsed = Date.now() - lushaStartTime;
+      const lushaMinDelay = 5000;
+      if (lushaElapsed < lushaMinDelay) {
+        await new Promise(resolve => setTimeout(resolve, lushaMinDelay - lushaElapsed));
+      }
 
       if (result.success) {
         // Extract ALL fields from the response
@@ -721,10 +733,7 @@ const Rtne: React.FC = () => {
         console.error(`❌ Enrichment failed:`, result.message);
       }
       
-      // Close modal after brief delay
-      setTimeout(() => {
-        setEnrichmentLoading(false);
-      }, 500);
+      setEnrichmentLoading(false);
       
     } catch (error) {
       console.error(`❌ Single row enrichment error:`, error);
@@ -1842,9 +1851,9 @@ const Rtne: React.FC = () => {
       />
 
       {/* Enrichment Loading Modal */}
-      <EnrichmentLoadingModal
+      <EnrichmentLoadingModal 
         isOpen={enrichmentLoading}
-        searchStage={enrichmentStage}
+        searchSource={enrichmentSource}
       />
     </div>
   );
