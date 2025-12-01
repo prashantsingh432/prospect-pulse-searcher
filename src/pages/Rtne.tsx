@@ -653,9 +653,10 @@ const Rtne: React.FC = () => {
   // Helper function to save enriched data to Supabase
   const saveEnrichedDataToSupabase = async (rowId: number, updates: Partial<RtneRow>) => {
     const row = rows.find(r => r.id === rowId);
-    if (!row) return;
+    if (!row || !row.prospect_linkedin) return;
 
     try {
+      // 1. Save to rtne_requests table (current project tracking)
       const requestData: any = {
         project_name: projectName,
         user_id: user?.id,
@@ -674,13 +675,11 @@ const Rtne: React.FC = () => {
       };
 
       if ((row as any).supabaseId) {
-        // Update existing record
         await supabase
           .from('rtne_requests')
           .update(requestData)
           .eq('id', (row as any).supabaseId);
       } else {
-        // Insert new record
         const { data } = await supabase
           .from('rtne_requests')
           .insert([requestData])
@@ -693,6 +692,43 @@ const Rtne: React.FC = () => {
           ));
         }
       }
+
+      // 2. ALSO save to prospects table (global database for all searches)
+      const prospectData = {
+        prospect_linkedin: row.prospect_linkedin,
+        full_name: updates.full_name || row.full_name || '',
+        company_name: updates.company_name || row.company_name || '',
+        prospect_city: updates.prospect_city || row.prospect_city || null,
+        prospect_designation: updates.prospect_designation || row.prospect_designation || null,
+        prospect_number: updates.prospect_number || row.prospect_number || null,
+        prospect_number2: updates.prospect_number2 || row.prospect_number2 || null,
+        prospect_number3: updates.prospect_number3 || row.prospect_number3 || null,
+        prospect_number4: updates.prospect_number4 || row.prospect_number4 || null,
+        prospect_email: updates.prospect_email || row.prospect_email || null,
+      };
+
+      // Check if prospect already exists
+      const { data: existingProspect } = await supabase
+        .from('prospects')
+        .select('id')
+        .eq('prospect_linkedin', row.prospect_linkedin)
+        .maybeSingle();
+
+      if (existingProspect) {
+        // Update existing prospect
+        await supabase
+          .from('prospects')
+          .update(prospectData)
+          .eq('id', existingProspect.id);
+        console.log('✅ Updated existing prospect in database');
+      } else {
+        // Insert new prospect
+        await supabase
+          .from('prospects')
+          .insert([prospectData]);
+        console.log('✅ Saved new prospect to database');
+      }
+
     } catch (error) {
       console.error('Error saving enriched data to Supabase:', error);
     }
