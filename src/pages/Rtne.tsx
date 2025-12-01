@@ -391,7 +391,7 @@ const Rtne: React.FC = () => {
       if (!currentRow) return;
 
       try {
-        // Get the updated value from the field
+        // Get the updated value from the field (use current value after state update)
         const updatedValue = field === 'prospect_linkedin' ? value :
           field === 'full_name' ? value :
             field === 'company_name' ? value :
@@ -401,19 +401,25 @@ const Rtne: React.FC = () => {
                     field === 'prospect_designation' ? value :
                       (currentRow[field] as string);
 
-        // Map RtneRow fields to rtne_requests columns
+        // Get the current row state with the updated field
+        const updatedRow = {
+          ...currentRow,
+          [field]: value
+        };
+
+        // Map RtneRow fields to rtne_requests columns - convert empty strings to null
         const requestData: any = {
           project_name: projectName,
           user_id: user?.id,
           user_name: user?.fullName || user?.email?.split('@')[0] || 'Unknown',
-          linkedin_url: field === 'prospect_linkedin' ? value : currentRow.prospect_linkedin,
-          full_name: field === 'full_name' ? value : currentRow.full_name,
-          company_name: field === 'company_name' ? value : currentRow.company_name,
-          company_linkedin_url: field === 'company_linkedin_url' ? value : currentRow.company_linkedin_url,
-          city: field === 'prospect_city' ? value : currentRow.prospect_city,
-          primary_phone: field === 'prospect_number' ? value : currentRow.prospect_number,
-          email_address: field === 'prospect_email' ? value : currentRow.prospect_email,
-          job_title: field === 'prospect_designation' ? value : currentRow.prospect_designation,
+          linkedin_url: updatedRow.prospect_linkedin || null,
+          full_name: updatedRow.full_name || null,
+          company_name: updatedRow.company_name || null,
+          company_linkedin_url: updatedRow.company_linkedin_url || null,
+          city: updatedRow.prospect_city || null,
+          primary_phone: updatedRow.prospect_number || null,
+          email_address: updatedRow.prospect_email || null,
+          job_title: updatedRow.prospect_designation || null,
           row_number: rowId,
           status: 'pending',
           updated_at: new Date().toISOString()
@@ -421,13 +427,37 @@ const Rtne: React.FC = () => {
 
         // Check if row has a Supabase ID (existing record)
         if ((currentRow as any).supabaseId) {
-          // Update existing record
-          const { error } = await supabase
-            .from('rtne_requests')
-            .update(requestData)
-            .eq('id', (currentRow as any).supabaseId);
+          // Check if all data fields are empty - if so, delete the record
+          const hasAnyData = requestData.linkedin_url || requestData.full_name || 
+                             requestData.company_name || requestData.primary_phone || 
+                             requestData.email_address;
+          
+          if (!hasAnyData) {
+            // Delete the record entirely since all fields are cleared
+            const { error } = await supabase
+              .from('rtne_requests')
+              .delete()
+              .eq('id', (currentRow as any).supabaseId);
 
-          if (error) throw error;
+            if (error) throw error;
+            
+            // Remove supabaseId from local state
+            setRows(prev => prev.map(r => {
+              if (r.id === rowId) {
+                const { supabaseId, ...rest } = r as any;
+                return rest;
+              }
+              return r;
+            }));
+          } else {
+            // Update existing record with all fields (including nulls)
+            const { error } = await supabase
+              .from('rtne_requests')
+              .update(requestData)
+              .eq('id', (currentRow as any).supabaseId);
+
+            if (error) throw error;
+          }
         } else {
           // Insert new record only if there's actual data
           if (requestData.linkedin_url || requestData.full_name || requestData.company_name) {
@@ -687,13 +717,13 @@ const Rtne: React.FC = () => {
         user_id: user?.id,
         user_name: user?.fullName || user?.email?.split('@')[0] || 'Unknown',
         linkedin_url: row.prospect_linkedin,
-        full_name: updates.full_name || row.full_name,
-        company_name: updates.company_name || row.company_name,
-        company_linkedin_url: updates.company_linkedin_url || row.company_linkedin_url,
-        city: updates.prospect_city || row.prospect_city,
-        primary_phone: dedupedPhones.prospect_number,
-        email_address: updates.prospect_email || row.prospect_email,
-        job_title: updates.prospect_designation || row.prospect_designation,
+        full_name: updates.full_name || row.full_name || null,
+        company_name: updates.company_name || row.company_name || null,
+        company_linkedin_url: updates.company_linkedin_url || row.company_linkedin_url || null,
+        city: updates.prospect_city || row.prospect_city || null,
+        primary_phone: dedupedPhones.prospect_number || null,
+        email_address: updates.prospect_email || row.prospect_email || null,
+        job_title: updates.prospect_designation || row.prospect_designation || null,
         row_number: rowId,
         status: 'pending',
         updated_at: new Date().toISOString()
@@ -724,14 +754,14 @@ const Rtne: React.FC = () => {
       
       const prospectData = {
         prospect_linkedin: normalizedLinkedInUrl,
-        full_name: updates.full_name || row.full_name || '',
-        company_name: updates.company_name || row.company_name || '',
+        full_name: updates.full_name || row.full_name || null,
+        company_name: updates.company_name || row.company_name || null,
         prospect_city: updates.prospect_city || row.prospect_city || null,
         prospect_designation: updates.prospect_designation || row.prospect_designation || null,
-        prospect_number: dedupedPhones.prospect_number,
-        prospect_number2: dedupedPhones.prospect_number2,
-        prospect_number3: dedupedPhones.prospect_number3,
-        prospect_number4: dedupedPhones.prospect_number4,
+        prospect_number: dedupedPhones.prospect_number || null,
+        prospect_number2: dedupedPhones.prospect_number2 || null,
+        prospect_number3: dedupedPhones.prospect_number3 || null,
+        prospect_number4: dedupedPhones.prospect_number4 || null,
         prospect_email: updates.prospect_email || row.prospect_email || null,
       };
 
@@ -1043,27 +1073,19 @@ const Rtne: React.FC = () => {
   const clearRow = async () => {
     const row = rows.find(r => r.id === contextMenu.rowId);
     if (row && (row as any).supabaseId) {
-      // Update in Supabase to clear all fields
+      // Delete the record entirely instead of clearing fields
       try {
         const { error } = await supabase
           .from('rtne_requests')
-          .update({
-            full_name: '',
-            company_name: '',
-            company_linkedin_url: '',
-            city: '',
-            primary_phone: '',
-            email_address: '',
-            job_title: '',
-            linkedin_url: ''
-          })
+          .delete()
           .eq('id', (row as any).supabaseId);
 
         if (error) throw error;
       } catch (error) {
-        console.error('Error clearing row in Supabase:', error);
+        console.error('Error deleting row from Supabase:', error);
       }
     }
+    // Clear local state
     setRows(prev => prev.map(row =>
       row.id === contextMenu.rowId
         ? makeEmptyRow(row.id)
