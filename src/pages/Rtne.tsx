@@ -1775,27 +1775,8 @@ const Rtne: React.FC = () => {
                       {row.id}
                     </td>
                     {fieldOrder.map((field) => {
-                      // For Primary Phone, show all available phone numbers (deduplicated)
+                      // Display each field's own value (no concatenation)
                       let cellValue = row[field] as string || '';
-                      if (field === 'prospect_number') {
-                        const phones = [
-                          row.prospect_number,
-                          row.prospect_number2,
-                          row.prospect_number3,
-                          row.prospect_number4
-                        ]
-                          .filter(p => p && p.trim())
-                          .map(p => p!.trim());
-                        
-                        // Remove duplicates while preserving order
-                        const uniquePhones = Array.from(new Set(phones));
-                        
-                        if (uniquePhones.length > 1) {
-                          cellValue = uniquePhones.join(', ');
-                        } else if (uniquePhones.length === 1) {
-                          cellValue = uniquePhones[0];
-                        }
-                      }
                       
                       const isSelected = isCellSelected(row.id, field);
                       const isCurrentlyEditing = isSelected && isEditing;
