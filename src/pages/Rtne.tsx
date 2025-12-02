@@ -76,7 +76,8 @@ const Rtne: React.FC = () => {
   const [tableContentWidth, setTableContentWidth] = useState(0);
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [enrichmentSource, setEnrichmentSource] = useState<"database" | "lusha">("database");
-  const [enrichmentStage, setEnrichmentStage] = useState<"searching" | "not_found">("searching");
+  const [enrichmentStage, setEnrichmentStage] = useState<"searching" | "not_found" | "enriching_lusha">("searching");
+  const [enrichedFromDbRows, setEnrichedFromDbRows] = useState<Set<number>>(new Set()); // Track rows enriched from database
 
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
@@ -899,6 +900,9 @@ const Rtne: React.FC = () => {
         const populatedCount = Object.keys(updates).filter(k => updates[k as keyof RtneRow]).length;
         toast.success(`✅ Found in database! Populated ${populatedCount} fields`);
         
+        // Track that this row was enriched from database
+        setEnrichedFromDbRows(prev => new Set(prev).add(rowId));
+        
         setEnrichmentLoading(false);
         return;
       }
@@ -978,6 +982,96 @@ const Rtne: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
       }
       
+      setEnrichmentLoading(false);
+    } finally {
+      setEnrichingRows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(rowId);
+        return newSet;
+      });
+    }
+  };
+
+  // Direct Lusha enrichment - skips database lookup
+  const enrichFromLushaDirectly = async (rowId: number) => {
+    const row = rows.find(r => r.id === rowId);
+    if (!row) return;
+
+    // Validate LinkedIn URL is present
+    if (!row.prospect_linkedin || !validateLinkedInUrl(row.prospect_linkedin)) {
+      toast.error("Valid LinkedIn URL required for enrichment");
+      return;
+    }
+
+    // Add row to enriching set and show loading modal - Start with Lusha directly
+    setEnrichingRows(prev => new Set(prev).add(rowId));
+    setEnrichmentLoading(true);
+    setEnrichmentSource("lusha");
+    setEnrichmentStage("enriching_lusha");
+    
+    const startTime = Date.now();
+
+    try {
+      console.log(`🚀 Starting direct Lusha enrichment for row ${rowId}`);
+      
+      const result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
+      
+      // Wait minimum 3 seconds for animation
+      const elapsed = Date.now() - startTime;
+      const minDelay = 3000;
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
+
+      if (result.success) {
+        // Deduplicate phone numbers from Lusha response
+        const dedupedPhones = deduplicatePhones(
+          result.phone,
+          result.phone2,
+          result.phone3,
+          result.phone4
+        );
+        
+        // Extract ALL fields from the response with deduplicated phones
+        const updates: Partial<RtneRow> = {
+          ...dedupedPhones
+        };
+        
+        if (result.email) updates.prospect_email = result.email;
+        if (result.city) updates.prospect_city = result.city;
+        if (result.title) updates.prospect_designation = result.title;
+        if (result.company) updates.company_name = result.company;
+        if (result.companyLinkedInUrl) updates.company_linkedin_url = result.companyLinkedInUrl;
+        if (result.fullName) updates.full_name = result.fullName;
+
+        setRows(prev => prev.map(r =>
+          r.id === rowId ? { ...r, ...updates } : r
+        ));
+
+        // Save deduplicated data to Supabase
+        await saveEnrichedDataToSupabase(rowId, updates);
+
+        // Remove from enriched from DB set since we now have Lusha data
+        setEnrichedFromDbRows(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(rowId);
+          return newSet;
+        });
+
+        const populatedCount = Object.keys(updates).filter(k => updates[k as keyof RtneRow]).length;
+        toast.success(`✅ Enriched ${populatedCount} fields from Lusha`);
+        
+        console.log(`✅ Direct Lusha enrichment complete:`, updates);
+      } else {
+        toast.error(result.message || "Lusha enrichment failed");
+        console.error(`❌ Direct Lusha enrichment failed:`, result.message);
+      }
+      
+      setEnrichmentLoading(false);
+      
+    } catch (error) {
+      console.error(`❌ Direct Lusha enrichment error:`, error);
+      toast.error("Lusha enrichment failed");
       setEnrichmentLoading(false);
     } finally {
       setEnrichingRows(prev => {
@@ -1923,21 +2017,68 @@ const Rtne: React.FC = () => {
                             />
                             {/* Add enrichment button for LinkedIn URL cell - Full enrichment for ALL fields */}
                             {field === 'prospect_linkedin' && row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin) && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  enrichSingleRow(row.id);
-                                }}
-                                disabled={enrichingRows.has(row.id)}
-                                className="flex-shrink-0 p-1 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Full enrichment: Phone, Email, City, Job Title, Company Name, Company LinkedIn"
-                              >
-                                {enrichingRows.has(row.id) ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                                ) : (
-                                  <Play className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
-                                )}
-                              </button>
+                              enrichedFromDbRows.has(row.id) || (row.prospect_number && row.prospect_number.trim()) ? (
+                                // Show dropdown when row already has data
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      disabled={enrichingRows.has(row.id)}
+                                      className="flex-shrink-0 p-1 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="Enrichment options"
+                                    >
+                                      {enrichingRows.has(row.id) ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                                      ) : (
+                                        <div className="flex items-center">
+                                          <Play className="h-3.5 w-3.5 text-green-600" />
+                                          <ChevronDown className="h-2.5 w-2.5 text-green-600 ml-0.5" />
+                                        </div>
+                                      )}
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        enrichSingleRow(row.id);
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Play className="h-4 w-4 mr-2 text-green-600" />
+                                      Enrich (Database First)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        enrichFromLushaDirectly(row.id);
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <svg className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                      </svg>
+                                      Enrich from Lusha
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : (
+                                // Show simple play button for first-time enrichment
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    enrichSingleRow(row.id);
+                                  }}
+                                  disabled={enrichingRows.has(row.id)}
+                                  className="flex-shrink-0 p-1 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Full enrichment: Phone, Email, City, Job Title, Company Name, Company LinkedIn"
+                                >
+                                  {enrichingRows.has(row.id) ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                                  ) : (
+                                    <Play className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
+                                  )}
+                                </button>
+                              )
                             )}
                           </div>
                         </td>
