@@ -418,6 +418,7 @@ const Rtne: React.FC = () => {
         });
 
         // Map RtneRow fields to rtne_requests columns - convert empty strings to null
+        // IMPORTANT: Save ALL phone columns to prevent data loss on refresh/logout
         const requestData: any = {
           project_name: projectName,
           user_id: user?.id,
@@ -428,6 +429,9 @@ const Rtne: React.FC = () => {
           company_linkedin_url: updatedRow.company_linkedin_url || null,
           city: updatedRow.prospect_city || null,
           primary_phone: updatedRow.prospect_number || null,
+          phone2: updatedRow.prospect_number2 || null,
+          phone3: updatedRow.prospect_number3 || null,
+          phone4: updatedRow.prospect_number4 || null,
           email_address: updatedRow.prospect_email || null,
           job_title: updatedRow.prospect_designation || null,
           row_number: rowId,
@@ -442,6 +446,7 @@ const Rtne: React.FC = () => {
           // Check if all data fields are empty - if so, delete the record
           const hasAnyData = requestData.linkedin_url || requestData.full_name || 
                              requestData.company_name || requestData.primary_phone || 
+                             requestData.phone2 || requestData.phone3 || requestData.phone4 ||
                              requestData.email_address;
           
           console.log(`🔄 Existing record (ID: ${(currentRow as any).supabaseId}), hasAnyData: ${hasAnyData}`);
