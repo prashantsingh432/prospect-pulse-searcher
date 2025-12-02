@@ -962,11 +962,19 @@ const Rtne: React.FC = () => {
         await saveEnrichedDataToSupabase(rowId, updates);
 
         const populatedCount = Object.keys(updates).filter(k => updates[k as keyof RtneRow]).length;
-        toast.success(`✅ Enriched ${populatedCount} fields from Lusha`);
+        const creditsInfo = result.creditsRemaining !== null && result.creditsRemaining !== undefined 
+          ? ` | Credits left: ${result.creditsRemaining}` 
+          : '';
+        toast.success(`✅ Enriched ${populatedCount} fields from Lusha${creditsInfo}`, {
+          description: result.keyUsed ? `Key used: ${result.keyUsed}` : undefined
+        });
         
-        console.log(`✅ Enrichment complete:`, updates);
+        console.log(`✅ Enrichment complete:`, updates, `Credits remaining: ${result.creditsRemaining}`);
       } else {
-        toast.error(result.message || "Enrichment failed");
+        const creditsInfo = result.creditsRemaining !== null && result.creditsRemaining !== undefined 
+          ? ` (Credits left: ${result.creditsRemaining})` 
+          : '';
+        toast.error(`${result.message || "Enrichment failed"}${creditsInfo}`);
         console.error(`❌ Enrichment failed:`, result.message);
       }
       
@@ -1059,11 +1067,19 @@ const Rtne: React.FC = () => {
         });
 
         const populatedCount = Object.keys(updates).filter(k => updates[k as keyof RtneRow]).length;
-        toast.success(`✅ Enriched ${populatedCount} fields from Lusha`);
+        const creditsInfo = result.creditsRemaining !== null && result.creditsRemaining !== undefined 
+          ? ` | Credits left: ${result.creditsRemaining}` 
+          : '';
+        toast.success(`✅ Enriched ${populatedCount} fields from Lusha${creditsInfo}`, {
+          description: result.keyUsed ? `Key used: ${result.keyUsed}` : undefined
+        });
         
-        console.log(`✅ Direct Lusha enrichment complete:`, updates);
+        console.log(`✅ Direct Lusha enrichment complete:`, updates, `Credits remaining: ${result.creditsRemaining}`);
       } else {
-        toast.error(result.message || "Lusha enrichment failed");
+        const creditsInfo = result.creditsRemaining !== null && result.creditsRemaining !== undefined 
+          ? ` (Credits left: ${result.creditsRemaining})` 
+          : '';
+        toast.error(`${result.message || "Lusha enrichment failed"}${creditsInfo}`);
         console.error(`❌ Direct Lusha enrichment failed:`, result.message);
       }
       

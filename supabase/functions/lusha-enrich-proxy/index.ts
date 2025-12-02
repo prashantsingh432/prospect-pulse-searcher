@@ -47,17 +47,27 @@ serve(async (req) => {
       },
     });
 
+    // Extract credits from response headers
+    const dailyCreditsLeft = lushaResponse.headers.get("x-daily-requests-left");
+    const monthlyCreditsLeft = lushaResponse.headers.get("x-monthly-requests-left");
+    const creditsRemaining = dailyCreditsLeft ? parseInt(dailyCreditsLeft) : 
+                             monthlyCreditsLeft ? parseInt(monthlyCreditsLeft) : null;
+
+    console.log(`💰 Credits remaining - Daily: ${dailyCreditsLeft}, Monthly: ${monthlyCreditsLeft}`);
+
     const responseData = await lushaResponse.json();
 
     console.log(`📊 Lusha Response Status: ${lushaResponse.status}`);
     console.log(`📊 Lusha Response Data:`, responseData);
 
-    // Return the response
+    // Return the response with credits info
     return new Response(
       JSON.stringify({
         status: lushaResponse.status,
         data: responseData,
         error: lushaResponse.status !== 200 ? `HTTP ${lushaResponse.status}` : null,
+        creditsRemaining: creditsRemaining,
+        keyUsed: `...${apiKey.slice(-4)}`,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
