@@ -675,6 +675,9 @@ export type Database = {
           id: string
           job_title: string | null
           linkedin_url: string
+          phone2: string | null
+          phone3: string | null
+          phone4: string | null
           primary_phone: string | null
           project_name: string
           row_number: number
@@ -695,6 +698,9 @@ export type Database = {
           id?: string
           job_title?: string | null
           linkedin_url: string
+          phone2?: string | null
+          phone3?: string | null
+          phone4?: string | null
           primary_phone?: string | null
           project_name: string
           row_number: number
@@ -715,6 +721,9 @@ export type Database = {
           id?: string
           job_title?: string | null
           linkedin_url?: string
+          phone2?: string | null
+          phone3?: string | null
+          phone4?: string | null
           primary_phone?: string | null
           project_name?: string
           row_number?: number

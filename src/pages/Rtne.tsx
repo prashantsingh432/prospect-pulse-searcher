@@ -156,8 +156,8 @@ const Rtne: React.FC = () => {
         if (error) throw error;
 
         if (rtneRequests && rtneRequests.length > 0) {
-          // Map rtne_requests to RtneRow format
-          const loadedRows: RtneRow[] = rtneRequests.map((request) => ({
+          // Map rtne_requests to RtneRow format - load ALL phone columns
+          const loadedRows: RtneRow[] = rtneRequests.map((request: any) => ({
             id: request.row_number,
             prospect_linkedin: request.linkedin_url || '',
             full_name: request.full_name || '',
@@ -166,9 +166,9 @@ const Rtne: React.FC = () => {
             prospect_city: request.city || '',
             prospect_number: request.primary_phone || '',
             prospect_email: request.email_address || '',
-            prospect_number2: '',
-            prospect_number3: '',
-            prospect_number4: '',
+            prospect_number2: request.phone2 || '',
+            prospect_number3: request.phone3 || '',
+            prospect_number4: request.phone4 || '',
             prospect_designation: request.job_title || '',
             supabaseId: request.id // Store request ID for updates
           }));
@@ -722,6 +722,40 @@ const Rtne: React.FC = () => {
     };
   };
 
+  // Smart phone merging - combines existing DB numbers with new Lusha numbers without losing data
+  const mergePhoneNumbers = (
+    existingPhones: { phone1?: string | null, phone2?: string | null, phone3?: string | null, phone4?: string | null },
+    newPhones: { phone1?: string | null, phone2?: string | null, phone3?: string | null, phone4?: string | null }
+  ) => {
+    // Get all existing phone numbers
+    const existing = [existingPhones.phone1, existingPhones.phone2, existingPhones.phone3, existingPhones.phone4]
+      .filter(p => p && p.trim())
+      .map(p => p!.trim());
+    
+    // Get all new phone numbers  
+    const newNums = [newPhones.phone1, newPhones.phone2, newPhones.phone3, newPhones.phone4]
+      .filter(p => p && p.trim())
+      .map(p => p!.trim());
+    
+    // Combine both sets - new numbers first (priority), then existing that aren't duplicates
+    const combined = [...newNums];
+    existing.forEach(phone => {
+      if (!combined.includes(phone)) {
+        combined.push(phone);
+      }
+    });
+    
+    // Only keep first 4 unique numbers
+    const uniquePhones = combined.slice(0, 4);
+    
+    return {
+      prospect_number: uniquePhones[0] || null,
+      prospect_number2: uniquePhones[1] || null,
+      prospect_number3: uniquePhones[2] || null,
+      prospect_number4: uniquePhones[3] || null,
+    };
+  };
+
   // Helper function to save enriched data to Supabase
   const saveEnrichedDataToSupabase = async (rowId: number, updates: Partial<RtneRow>) => {
     const row = rows.find(r => r.id === rowId);
@@ -736,7 +770,7 @@ const Rtne: React.FC = () => {
         updates.prospect_number4 || row.prospect_number4
       );
 
-      // 1. Save to rtne_requests table (current project tracking)
+      // 1. Save to rtne_requests table (current project tracking) - SAVE ALL PHONE COLUMNS
       const requestData: any = {
         project_name: projectName,
         user_id: user?.id,
@@ -747,6 +781,9 @@ const Rtne: React.FC = () => {
         company_linkedin_url: updates.company_linkedin_url || row.company_linkedin_url || null,
         city: updates.prospect_city || row.prospect_city || null,
         primary_phone: dedupedPhones.prospect_number || null,
+        phone2: dedupedPhones.prospect_number2 || null,
+        phone3: dedupedPhones.prospect_number3 || null,
+        phone4: dedupedPhones.prospect_number4 || null,
         email_address: updates.prospect_email || row.prospect_email || null,
         job_title: updates.prospect_designation || row.prospect_designation || null,
         row_number: rowId,
@@ -934,17 +971,15 @@ const Rtne: React.FC = () => {
       }
 
       if (result.success) {
-        // Deduplicate phone numbers from Lusha response
-        const dedupedPhones = deduplicatePhones(
-          result.phone,
-          result.phone2,
-          result.phone3,
-          result.phone4
+        // Smart merge phone numbers - combine existing DB phones with new Lusha phones
+        const mergedPhones = mergePhoneNumbers(
+          { phone1: row.prospect_number, phone2: row.prospect_number2, phone3: row.prospect_number3, phone4: row.prospect_number4 },
+          { phone1: result.phone, phone2: result.phone2, phone3: result.phone3, phone4: result.phone4 }
         );
         
-        // Extract ALL fields from the response with deduplicated phones
+        // Extract ALL fields from the response with merged phones
         const updates: Partial<RtneRow> = {
-          ...dedupedPhones
+          ...mergedPhones
         };
         
         if (result.email) updates.prospect_email = result.email;
@@ -1032,17 +1067,15 @@ const Rtne: React.FC = () => {
       }
 
       if (result.success) {
-        // Deduplicate phone numbers from Lusha response
-        const dedupedPhones = deduplicatePhones(
-          result.phone,
-          result.phone2,
-          result.phone3,
-          result.phone4
+        // Smart merge phone numbers - combine existing DB phones with new Lusha phones
+        const mergedPhones = mergePhoneNumbers(
+          { phone1: row.prospect_number, phone2: row.prospect_number2, phone3: row.prospect_number3, phone4: row.prospect_number4 },
+          { phone1: result.phone, phone2: result.phone2, phone3: result.phone3, phone4: result.phone4 }
         );
         
-        // Extract ALL fields from the response with deduplicated phones
+        // Extract ALL fields from the response with merged phones
         const updates: Partial<RtneRow> = {
-          ...dedupedPhones
+          ...mergedPhones
         };
         
         if (result.email) updates.prospect_email = result.email;
@@ -1056,7 +1089,7 @@ const Rtne: React.FC = () => {
           r.id === rowId ? { ...r, ...updates } : r
         ));
 
-        // Save deduplicated data to Supabase
+        // Save merged data to Supabase
         await saveEnrichedDataToSupabase(rowId, updates);
 
         // Remove from enriched from DB set since we now have Lusha data
