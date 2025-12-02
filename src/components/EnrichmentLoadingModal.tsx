@@ -4,12 +4,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 interface EnrichmentLoadingModalProps {
   isOpen: boolean;
   searchSource: "database" | "lusha";
-}
-
-interface EnrichmentLoadingModalProps {
-  isOpen: boolean;
-  searchSource: "database" | "lusha";
-  stage: "searching" | "not_found";
+  stage: "searching" | "not_found" | "enriching_lusha";
 }
 
 const EnrichmentLoadingModal: React.FC<EnrichmentLoadingModalProps> = ({
@@ -37,6 +32,21 @@ const EnrichmentLoadingModal: React.FC<EnrichmentLoadingModalProps> = ({
                 </div>
                 <div className={`enrichment-word ${searchSource === "database" ? "text-green-500" : "text-blue-500"}`}>
                   email
+                </div>
+              </div>
+            </div>
+          ) : stage === "enriching_lusha" ? (
+            <div className="enrichment-loader">
+              <span className="text-blue-600 font-semibold">Enriching from Lusha</span>
+              <div className="enrichment-words">
+                <div className="enrichment-word text-blue-500">
+                  fetching phone numbers
+                </div>
+                <div className="enrichment-word text-blue-500">
+                  fetching emails
+                </div>
+                <div className="enrichment-word text-blue-500">
+                  fetching details
                 </div>
               </div>
             </div>
