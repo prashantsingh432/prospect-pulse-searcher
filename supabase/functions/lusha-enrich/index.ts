@@ -82,63 +82,84 @@ async function enrichWithRetry(
 
   console.log(`[Lusha Enrich] Attempt ${attempt} of ${maxAttempts}`);
 
-  // Get the next available key
+  // Get the next available key - prioritize keys with more credits
   const { data: keys, error: keyError } = await supabase
     .from("lusha_api_keys")
     .select("*")
     .eq("category", category)
     .eq("status", "ACTIVE")
     .eq("is_active", true)
+    .gt("credits_remaining", 0) // Only get keys with credits > 0
     .order("last_used_at", { ascending: true, nullsFirst: true })
     .limit(1);
+
+  // If no keys with credits > 0, try keys with unknown credits (null or not yet checked)
+  if (!keys || keys.length === 0) {
+    const { data: fallbackKeys, error: fallbackError } = await supabase
+      .from("lusha_api_keys")
+      .select("*")
+      .eq("category", category)
+      .eq("status", "ACTIVE")
+      .eq("is_active", true)
+      .order("last_used_at", { ascending: true, nullsFirst: true })
+      .limit(1);
+    
+    if (fallbackError || !fallbackKeys || fallbackKeys.length === 0) {
+      console.log("[Lusha Enrich] No available keys");
+      return {
+        success: false,
+        error: "No available API keys",
+        message: "All API keys are exhausted or inactive. Please add more keys or wait for credits to reset.",
+      };
+    }
+    
+    keys.push(fallbackKeys[0]);
+  }
 
   if (keyError) {
     console.error("[Lusha Enrich] Database error:", keyError);
     return { success: false, error: "Database error", message: keyError.message };
   }
 
-  if (!keys || keys.length === 0) {
-    console.log("[Lusha Enrich] No available keys");
-    return {
-      success: false,
-      error: "No available API keys",
-      message: "All API keys are exhausted or inactive. Please add more keys or wait for credits to reset.",
-    };
-  }
-
   const key: LushaKey = keys[0];
-  console.log(`[Lusha Enrich] Using key ${key.id.substring(0, 8)}... with ${key.credits_remaining} credits`);
+  console.log(`[Lusha Enrich] Using key ending ...${key.key_value.slice(-4)} with ${key.credits_remaining} credits`);
 
-  // Call Lusha API
+  // Call Lusha API using v2/person endpoint with GET method
   try {
-    // Build request body based on available parameters
-    const lushaProperties: any = {};
+    // Build query parameters
+    const queryParams = new URLSearchParams();
     
     if (searchParams.linkedinUrl) {
-      lushaProperties.linkedInUrl = searchParams.linkedinUrl;
-    } else if (searchParams.firstName || searchParams.companyName) {
-      if (searchParams.firstName) lushaProperties.firstName = searchParams.firstName;
-      if (searchParams.lastName) lushaProperties.lastName = searchParams.lastName;
-      if (searchParams.companyName) lushaProperties.company = searchParams.companyName;
+      queryParams.append("linkedInUrl", searchParams.linkedinUrl);
+    }
+    if (searchParams.firstName) {
+      queryParams.append("firstName", searchParams.firstName);
+    }
+    if (searchParams.lastName) {
+      queryParams.append("lastName", searchParams.lastName);
+    }
+    if (searchParams.companyName) {
+      queryParams.append("companyName", searchParams.companyName);
     }
 
-    console.log(`[Lusha Enrich] Request properties:`, lushaProperties);
+    const lushaUrl = `https://api.lusha.com/v2/person?${queryParams.toString()}`;
+    console.log(`[Lusha Enrich] Calling Lusha API: ${lushaUrl}`);
 
-    const lushaResponse = await fetch("https://api.lusha.com/person", {
-      method: "POST",
+    const lushaResponse = await fetch(lushaUrl, {
+      method: "GET",
       headers: {
         "api_key": key.key_value,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        properties: lushaProperties,
-      }),
     });
 
-    const creditsLeft = lushaResponse.headers.get("x-daily-requests-left");
-    console.log(`[Lusha Enrich] Response status: ${lushaResponse.status}, Credits left: ${creditsLeft}`);
+    // Get credits from response headers
+    const dailyCreditsLeft = lushaResponse.headers.get("x-daily-requests-left");
+    const monthlyCreditsLeft = lushaResponse.headers.get("x-monthly-requests-left");
+    const creditsLeft = dailyCreditsLeft || monthlyCreditsLeft;
+    
+    console.log(`[Lusha Enrich] Response status: ${lushaResponse.status}, Daily credits: ${dailyCreditsLeft}, Monthly credits: ${monthlyCreditsLeft}`);
 
-    // Update last_used_at
+    // Update last_used_at timestamp
     await supabase
       .from("lusha_api_keys")
       .update({ last_used_at: new Date().toISOString() })
@@ -148,16 +169,19 @@ async function enrichWithRetry(
     if (lushaResponse.status === 200) {
       const data = await lushaResponse.json();
 
-      // Update credits
-      if (creditsLeft) {
+      // Update credits from response header
+      if (creditsLeft !== null) {
+        const creditsNum = parseInt(creditsLeft);
+        console.log(`[Lusha Enrich] Updating key credits to: ${creditsNum}`);
+        
         await supabase
           .from("lusha_api_keys")
-          .update({ credits_remaining: parseInt(creditsLeft) })
+          .update({ credits_remaining: creditsNum })
           .eq("id", key.id);
 
-        // Mark as exhausted if no credits left
-        if (parseInt(creditsLeft) === 0) {
-          console.log(`[Lusha Enrich] Key exhausted, marking as EXHAUSTED`);
+        // ONLY mark as exhausted when credits actually reach 0
+        if (creditsNum === 0) {
+          console.log(`[Lusha Enrich] Key credits exhausted (0), marking as EXHAUSTED`);
           await supabase
             .from("lusha_api_keys")
             .update({ status: "EXHAUSTED" })
@@ -165,25 +189,63 @@ async function enrichWithRetry(
         }
       }
 
-      // Extract relevant data based on category
-      let extractedData: any = { success: true };
+      // Extract relevant data from v2 response structure
+      let extractedData: any = { 
+        success: true,
+        creditsUsed: 1,
+        creditsRemaining: creditsLeft ? parseInt(creditsLeft) : null,
+        keyUsed: `...${key.key_value.slice(-4)}`
+      };
 
+      // v2 API response structure: data.contact.data contains the actual contact info
+      const contactData = data.contact?.data || data;
+      
       if (category === "PHONE_ONLY") {
-        extractedData.phone = data.phoneNumbers?.[0]?.e164Format || 
-                              data.phoneNumbers?.[0]?.internationalFormat || 
-                              data.phoneNumbers?.[0]?.localFormat || null;
-        extractedData.phoneNumbers = data.phoneNumbers || [];
+        const phoneNumbers = contactData.phoneNumbers || [];
+        extractedData.phone = phoneNumbers[0]?.e164Format || 
+                              phoneNumbers[0]?.internationalFormat || 
+                              phoneNumbers[0]?.localFormat || 
+                              phoneNumbers[0]?.number || null;
+        extractedData.phone2 = phoneNumbers[1]?.e164Format || 
+                               phoneNumbers[1]?.internationalFormat || 
+                               phoneNumbers[1]?.localFormat || 
+                               phoneNumbers[1]?.number || null;
+        extractedData.phone3 = phoneNumbers[2]?.e164Format || 
+                               phoneNumbers[2]?.internationalFormat || 
+                               phoneNumbers[2]?.localFormat || 
+                               phoneNumbers[2]?.number || null;
+        extractedData.phone4 = phoneNumbers[3]?.e164Format || 
+                               phoneNumbers[3]?.internationalFormat || 
+                               phoneNumbers[3]?.localFormat || 
+                               phoneNumbers[3]?.number || null;
+        extractedData.phoneNumbers = phoneNumbers;
       } else if (category === "EMAIL_ONLY") {
-        extractedData.email = data.emailAddresses?.[0]?.email || null;
-        extractedData.emails = data.emailAddresses || [];
+        const emails = contactData.emailAddresses || [];
+        extractedData.email = emails[0]?.email || null;
+        extractedData.emails = emails;
       }
 
-      extractedData.fullName = data.name || null;
-      extractedData.company = data.company?.name || null;
-      extractedData.title = data.title || null;
+      // Extract additional fields
+      extractedData.fullName = contactData.fullName || contactData.name || null;
+      extractedData.company = contactData.company?.name || 
+                              contactData.currentPosition?.company?.name ||
+                              contactData.employmentHistory?.[0]?.company?.name || null;
+      extractedData.companyLinkedInUrl = contactData.company?.linkedinUrl || 
+                                          contactData.company?.linkedin_url ||
+                                          contactData.currentPosition?.company?.linkedinUrl || null;
+      extractedData.title = contactData.currentPosition?.title || 
+                            contactData.title || 
+                            contactData.jobTitle || null;
+      extractedData.city = contactData.location?.city || contactData.city || null;
       extractedData.rawData = data;
 
-      console.log(`[Lusha Enrich] Success! Extracted data:`, extractedData);
+      console.log(`[Lusha Enrich] Success! Extracted:`, {
+        phone: extractedData.phone,
+        email: extractedData.email,
+        fullName: extractedData.fullName,
+        company: extractedData.company,
+        creditsRemaining: extractedData.creditsRemaining
+      });
 
       // Update master_prospects if masterProspectId is provided
       if (masterProspectId && extractedData.phone) {
@@ -199,9 +261,9 @@ async function enrichWithRetry(
       }
 
       return extractedData;
-    } else if (lushaResponse.status === 429 || (creditsLeft && parseInt(creditsLeft) === 0)) {
-      // Rate limited or no credits - mark as exhausted and retry
-      console.log(`[Lusha Enrich] Key rate limited or exhausted, marking as EXHAUSTED`);
+    } else if (lushaResponse.status === 402) {
+      // 402 = Out of credits - mark as exhausted and retry with next key
+      console.log(`[Lusha Enrich] Key out of credits (402), marking as EXHAUSTED`);
       await supabase
         .from("lusha_api_keys")
         .update({ status: "EXHAUSTED", credits_remaining: 0 })
@@ -211,10 +273,29 @@ async function enrichWithRetry(
         return await enrichWithRetry(supabase, searchParams, category, masterProspectId, attempt + 1);
       }
 
-      return { success: false, error: "Rate limit", message: "All available keys are rate limited" };
+      return { success: false, error: "No credits", message: "All available keys are out of credits" };
+    } else if (lushaResponse.status === 429) {
+      // 429 = Rate limited - retry with same key after checking if it has credits
+      console.log(`[Lusha Enrich] Rate limited (429), checking credits...`);
+      
+      // If we know credits are 0, mark as exhausted
+      if (creditsLeft && parseInt(creditsLeft) === 0) {
+        await supabase
+          .from("lusha_api_keys")
+          .update({ status: "EXHAUSTED", credits_remaining: 0 })
+          .eq("id", key.id);
+      }
+
+      if (attempt < maxAttempts) {
+        // Small delay before retry
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return await enrichWithRetry(supabase, searchParams, category, masterProspectId, attempt + 1);
+      }
+
+      return { success: false, error: "Rate limit", message: "Rate limited, please try again later" };
     } else if (lushaResponse.status === 401) {
       // Invalid key
-      console.log(`[Lusha Enrich] Invalid key, marking as INVALID`);
+      console.log(`[Lusha Enrich] Invalid key (401), marking as INVALID`);
       await supabase
         .from("lusha_api_keys")
         .update({ status: "INVALID" })
@@ -225,10 +306,29 @@ async function enrichWithRetry(
       }
 
       return { success: false, error: "Invalid key", message: "All available keys are invalid" };
+    } else if (lushaResponse.status === 404) {
+      // Contact not found - don't mark key as bad, just return not found
+      console.log(`[Lusha Enrich] Contact not found (404)`);
+      
+      // Still update credits since call was made
+      if (creditsLeft !== null) {
+        await supabase
+          .from("lusha_api_keys")
+          .update({ credits_remaining: parseInt(creditsLeft) })
+          .eq("id", key.id);
+      }
+
+      return { 
+        success: false, 
+        error: "Not found", 
+        message: "Contact not found in Lusha database",
+        creditsRemaining: creditsLeft ? parseInt(creditsLeft) : null,
+        keyUsed: `...${key.key_value.slice(-4)}`
+      };
     } else {
       // Other error
       const errorText = await lushaResponse.text();
-      console.error(`[Lusha Enrich] API error: ${errorText}`);
+      console.error(`[Lusha Enrich] API error: ${lushaResponse.status} - ${errorText}`);
       return {
         success: false,
         error: "API error",

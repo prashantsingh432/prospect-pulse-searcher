@@ -29,6 +29,8 @@ export interface LushaEnrichResult {
   error?: string;
   message?: string;
   rawData?: any;
+  creditsRemaining?: number | null;
+  keyUsed?: string;
 }
 
 /**
@@ -461,6 +463,34 @@ async function enrichWithSmartRotation(
       const response = await makeLushaApiCall(key.key_value, params);
 
       console.log(`📡 Response Status: ${response.status}`);
+      
+      // Extract credits from response (returned by proxy)
+      const creditsRemaining = (response as any).creditsRemaining;
+      const keyUsedSuffix = (response as any).keyUsed || `...${keyEndsWith}`;
+      
+      console.log(`💰 Credits remaining for key ...${keyEndsWith}: ${creditsRemaining}`);
+      
+      // Update credits in database if available
+      if (creditsRemaining !== null && creditsRemaining !== undefined) {
+        console.log(`📝 Updating key credits in database to: ${creditsRemaining}`);
+        const { error: updateError } = await supabase
+          .from("lusha_api_keys")
+          .update({ 
+            credits_remaining: creditsRemaining,
+            last_used_at: new Date().toISOString()
+          })
+          .eq("id", key.id);
+        
+        if (updateError) {
+          console.error(`❌ Error updating credits:`, updateError);
+        }
+        
+        // Only mark as exhausted when credits actually reach 0
+        if (creditsRemaining === 0) {
+          console.log(`⚠️ Key ...${keyEndsWith} has 0 credits, marking as EXHAUSTED`);
+          await markKeyAsDead(key.id, "EXHAUSTED");
+        }
+      }
 
       // Handle 200: SUCCESS!
       if (response.status === 200) {
@@ -475,6 +505,10 @@ async function enrichWithSmartRotation(
           // Update last_used_at timestamp
           await updateKeyLastUsed(key.id);
 
+          // Add credits info to result
+          result.creditsRemaining = creditsRemaining;
+          result.keyUsed = keyUsedSuffix;
+
           return result;
         } else {
           console.log(`⚠️ Got 200 response but no contact data extracted`);
@@ -482,6 +516,8 @@ async function enrichWithSmartRotation(
             success: false,
             error: "No data found",
             message: "Profile not found in Lusha database",
+            creditsRemaining: creditsRemaining,
+            keyUsed: keyUsedSuffix,
           };
         }
       }
