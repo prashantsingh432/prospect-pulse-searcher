@@ -14,16 +14,17 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+    // Admin client for admin operations
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
       }
-    )
+    })
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
@@ -33,10 +34,19 @@ serve(async (req) => {
       })
     }
 
-    const token = authHeader.replace('Bearer ', '')
-    
-    // Verify the user is authenticated and is admin
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+    // Create a client with the user's token to verify authentication
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: { Authorization: authHeader }
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+
+    // Verify the user is authenticated using their token
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
     if (authError || !user) {
       console.error('Auth error:', authError)
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
