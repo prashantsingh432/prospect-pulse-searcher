@@ -145,19 +145,35 @@ const Rtne: React.FC = () => {
     const loadData = async () => {
       try {
         setIsLoadingData(true);
-        // Load user's own RTNE requests
+        // Load user's own RTNE requests - ORDER BY updated_at DESC to get latest records first
         const { data: rtneRequests, error } = await supabase
           .from('rtne_requests')
           .select('*')
           .eq('user_id', user?.id)
           .eq('project_name', projectName)
-          .order('row_number', { ascending: true });
+          .order('updated_at', { ascending: false });
 
         if (error) throw error;
 
         if (rtneRequests && rtneRequests.length > 0) {
+          // Deduplicate by row_number - keep only the most recent record (has data) for each row
+          const rowMap = new Map<number, any>();
+          
+          for (const request of rtneRequests) {
+            const rowNum = request.row_number;
+            const existing = rowMap.get(rowNum);
+            
+            // Keep the record with more data (has primary_phone/email/full_name)
+            const hasData = request.primary_phone || request.email_address || request.full_name || request.phone2;
+            const existingHasData = existing && (existing.primary_phone || existing.email_address || existing.full_name || existing.phone2);
+            
+            if (!existing || (hasData && !existingHasData) || (!existing && hasData)) {
+              rowMap.set(rowNum, request);
+            }
+          }
+
           // Map rtne_requests to RtneRow format - load ALL phone columns
-          const loadedRows: RtneRow[] = rtneRequests.map((request: any) => ({
+          const loadedRows: RtneRow[] = Array.from(rowMap.values()).map((request: any) => ({
             id: request.row_number,
             prospect_linkedin: request.linkedin_url || '',
             full_name: request.full_name || '',
@@ -182,6 +198,8 @@ const Rtne: React.FC = () => {
 
           setRows(fullRows);
           nextIdRef.current = 101;
+          
+          console.log(`✅ Loaded ${loadedRows.length} unique rows from database`);
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -491,35 +509,39 @@ const Rtne: React.FC = () => {
         } else {
           // Insert new record only if there's actual data
           if (requestData.linkedin_url || requestData.full_name || requestData.company_name) {
-            // Check for uniqueness: only insert if this LinkedIn URL doesn't exist for this user/project
+            // Check for uniqueness: check by ROW_NUMBER first (primary), then LinkedIn URL
             let shouldInsert = true;
             
-            if (requestData.linkedin_url) {
-              const { data: existingData } = await supabase
+            // CRITICAL: Check if a record already exists for this row_number
+            const { data: existingByRow } = await supabase
+              .from('rtne_requests')
+              .select('id, primary_phone, email_address, full_name')
+              .eq('user_id', user?.id)
+              .eq('project_name', projectName)
+              .eq('row_number', rowId)
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (existingByRow) {
+              shouldInsert = false;
+              console.log(`🔄 Found existing record for row ${rowId}, updating instead of inserting`);
+              // Update the existing record instead
+              const { error: updateError } = await supabase
                 .from('rtne_requests')
-                .select('id')
-                .eq('user_id', user?.id)
-                .eq('project_name', projectName)
-                .eq('linkedin_url', requestData.linkedin_url)
-                .maybeSingle();
+                .update(requestData)
+                .eq('id', existingByRow.id);
               
-              if (existingData) {
-                shouldInsert = false;
-                // Update the existing record instead
-                const { error: updateError } = await supabase
-                  .from('rtne_requests')
-                  .update(requestData)
-                  .eq('id', existingData.id);
-                
-                if (!updateError) {
-                  setRows(prev => prev.map(r =>
-                    r.id === rowId ? { ...r, supabaseId: existingData.id } as any : r
-                  ));
-                }
+              if (!updateError) {
+                setRows(prev => prev.map(r =>
+                  r.id === rowId ? { ...r, supabaseId: existingByRow.id } as any : r
+                ));
+                console.log(`✅ Updated existing record for row ${rowId}`);
               }
             }
 
             if (shouldInsert) {
+              console.log(`➕ Inserting new record for row ${rowId}`);
               const { data, error } = await supabase
                 .from('rtne_requests')
                 .insert([requestData])
@@ -533,6 +555,7 @@ const Rtne: React.FC = () => {
                 setRows(prev => prev.map(r =>
                   r.id === rowId ? { ...r, supabaseId: data.id } as any : r
                 ));
+                console.log(`✅ Inserted new record for row ${rowId} with ID ${data.id}`);
               }
             }
           }
