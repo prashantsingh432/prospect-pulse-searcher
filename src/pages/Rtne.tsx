@@ -925,6 +925,7 @@ const Rtne: React.FC = () => {
         const prospectData: any = {
           full_name: requestData.full_name || 'Unknown',
           company_name: requestData.company_name || 'Unknown',
+          company_linkedin_url: requestData.company_linkedin_url || null, // 🔥 Save company LinkedIn URL
           prospect_city: requestData.city || null,
           prospect_designation: requestData.job_title || null,
           prospect_number: dedupedPhones.prospect_number || null,

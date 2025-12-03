@@ -132,13 +132,16 @@ async function getActiveKeysForCategory(category: LushaCategory): Promise<LushaA
   console.log(`\n🔍 [getActiveKeysForCategory] Fetching keys for category: ${category}`);
   console.log(`🔍 [getActiveKeysForCategory] Query filters: category=${category}, is_active=true, status=ACTIVE`);
 
+  // 🔥 CRITICAL: Use DESCENDING order to get the MOST recently used key first
+  // This ensures we keep using the SAME key until it's exhausted (credits = 0)
+  // Only then will it be marked EXHAUSTED and we'll fall through to the next key
   const { data, error } = await supabase
     .from("lusha_api_keys")
     .select("*")
     .eq("category", category)
     .eq("is_active", true)
     .eq("status", "ACTIVE") // 🔥 CRITICAL: Only fetch keys with ACTIVE status
-    .order("last_used_at", { ascending: true, nullsFirst: true }); // 🔥 Least recently used first
+    .order("last_used_at", { ascending: false, nullsFirst: false }); // 🔥 MOST recently used first - stick with same key until exhausted
 
   if (error) {
     console.error(`❌ Error fetching ${category} keys:`, error);

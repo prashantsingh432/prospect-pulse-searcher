@@ -622,6 +622,7 @@ export type Database = {
       }
       prospects: {
         Row: {
+          company_linkedin_url: string | null
           company_name: string
           full_name: string
           id: number
@@ -635,6 +636,7 @@ export type Database = {
           prospect_number4: string | null
         }
         Insert: {
+          company_linkedin_url?: string | null
           company_name: string
           full_name: string
           id?: number
@@ -648,6 +650,7 @@ export type Database = {
           prospect_number4?: string | null
         }
         Update: {
+          company_linkedin_url?: string | null
           company_name?: string
           full_name?: string
           id?: number
