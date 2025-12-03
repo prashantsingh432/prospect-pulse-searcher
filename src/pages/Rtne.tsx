@@ -318,6 +318,12 @@ const Rtne: React.FC = () => {
 
             console.log(`🚀 Enriching: First='${firstName}', Last='${lastName}', Company='${companyName}'`);
 
+            // Collect all enriched data to save at once
+            let enrichedUpdates: Partial<RtneRow> = {
+              full_name: fullName,
+              company_name: companyName
+            };
+
             // Try phone enrichment first
             const phoneResult = await enrichProspectByName(
               firstName,
@@ -327,18 +333,21 @@ const Rtne: React.FC = () => {
             );
 
             if (phoneResult.success && phoneResult.phone) {
+              enrichedUpdates = {
+                ...enrichedUpdates,
+                prospect_number: phoneResult.phone || '',
+                prospect_number2: phoneResult.phone2 || '',
+                prospect_number3: phoneResult.phone3 || '',
+                prospect_number4: phoneResult.phone4 || '',
+                prospect_email: phoneResult.email || row.prospect_email,
+                full_name: phoneResult.fullName || fullName,
+                company_name: phoneResult.company || companyName,
+              };
+              
               setRows(prev => prev.map(r =>
-                r.id === rowId ? {
-                  ...r,
-                  prospect_number: phoneResult.phone || '',
-                  prospect_number2: phoneResult.phone2 || '',
-                  prospect_number3: phoneResult.phone3 || '',
-                  prospect_number4: phoneResult.phone4 || '',
-                  prospect_email: phoneResult.email || r.prospect_email,
-                  full_name: phoneResult.fullName || r.full_name,
-                  company_name: phoneResult.company || r.company_name,
-                } : r
+                r.id === rowId ? { ...r, ...enrichedUpdates } : r
               ));
+              
               const phoneCount = [phoneResult.phone, phoneResult.phone2, phoneResult.phone3, phoneResult.phone4].filter(Boolean).length;
               toast.success(`${phoneCount} phone(s) enriched!`);
             }
@@ -352,32 +361,45 @@ const Rtne: React.FC = () => {
             );
 
             if (emailResult.success && emailResult.email) {
+              enrichedUpdates = {
+                ...enrichedUpdates,
+                prospect_number: emailResult.phone || enrichedUpdates.prospect_number || row.prospect_number,
+                prospect_number2: emailResult.phone2 || enrichedUpdates.prospect_number2 || row.prospect_number2,
+                prospect_number3: emailResult.phone3 || enrichedUpdates.prospect_number3 || row.prospect_number3,
+                prospect_number4: emailResult.phone4 || enrichedUpdates.prospect_number4 || row.prospect_number4,
+                prospect_email: emailResult.email || '',
+                full_name: emailResult.fullName || enrichedUpdates.full_name || fullName,
+                company_name: emailResult.company || enrichedUpdates.company_name || companyName,
+              };
+              
               setRows(prev => prev.map(r =>
-                r.id === rowId ? {
-                  ...r,
-                  prospect_number: emailResult.phone || r.prospect_number,
-                  prospect_number2: emailResult.phone2 || r.prospect_number2,
-                  prospect_number3: emailResult.phone3 || r.prospect_number3,
-                  prospect_number4: emailResult.phone4 || r.prospect_number4,
-                  prospect_email: emailResult.email || '',
-                  full_name: emailResult.fullName || r.full_name,
-                  company_name: emailResult.company || r.company_name,
-                } : r
+                r.id === rowId ? { ...r, ...enrichedUpdates } : r
               ));
+              
               toast.success("Email enriched!");
             }
 
             // Update other fields if available
             if (phoneResult.success || emailResult.success) {
-              const enrichedData: any = {};
-              if (phoneResult.title) enrichedData.prospect_designation = phoneResult.title;
-              if (emailResult.title) enrichedData.prospect_designation = emailResult.title;
+              if (phoneResult.title) enrichedUpdates.prospect_designation = phoneResult.title;
+              if (emailResult.title) enrichedUpdates.prospect_designation = emailResult.title;
 
-              if (Object.keys(enrichedData).length > 0) {
+              if (enrichedUpdates.prospect_designation) {
                 setRows(prev => prev.map(r =>
-                  r.id === rowId ? { ...r, ...enrichedData } : r
+                  r.id === rowId ? { ...r, prospect_designation: enrichedUpdates.prospect_designation } : r
                 ));
               }
+
+              // 🔥 CRITICAL: SAVE ENRICHED DATA TO SUPABASE IMMEDIATELY
+              // Pass the current row with updated field for proper saving
+              const currentRowForSave: RtneRow = {
+                ...row,
+                [field]: value, // Include the field that triggered enrichment
+              };
+              
+              console.log(`💾 Saving enriched data immediately for row ${rowId}`);
+              await saveEnrichedDataToSupabase(rowId, enrichedUpdates, currentRowForSave);
+              console.log(`✅ Enriched data saved to Supabase for row ${rowId}`);
             }
 
             if (!phoneResult.success && !emailResult.success) {
@@ -635,18 +657,23 @@ const Rtne: React.FC = () => {
         }
 
         if (result.success && result.phone) {
+          const updates: Partial<RtneRow> = {
+            prospect_number: result.phone || '',
+            prospect_number2: result.phone2 || '',
+            prospect_number3: result.phone3 || '',
+            prospect_number4: result.phone4 || '',
+            prospect_email: result.email || row.prospect_email,
+            full_name: result.fullName || row.full_name,
+            company_name: result.company || row.company_name,
+          };
+          
           setRows(prev => prev.map(r =>
-            r.id === row.id ? {
-              ...r,
-              prospect_number: result.phone || '',
-              prospect_number2: result.phone2 || '',
-              prospect_number3: result.phone3 || '',
-              prospect_number4: result.phone4 || '',
-              prospect_email: result.email || r.prospect_email,
-              full_name: result.fullName || r.full_name,
-              company_name: result.company || r.company_name,
-            } : r
+            r.id === row.id ? { ...r, ...updates } : r
           ));
+          
+          // 🔥 CRITICAL: Save to Supabase immediately after enrichment
+          await saveEnrichedDataToSupabase(row.id, updates, row);
+          
           successCount++;
         } else {
           failedCount++;
@@ -701,18 +728,23 @@ const Rtne: React.FC = () => {
         }
 
         if (result.success && result.email) {
+          const updates: Partial<RtneRow> = {
+            prospect_number: result.phone || row.prospect_number,
+            prospect_number2: result.phone2 || row.prospect_number2,
+            prospect_number3: result.phone3 || row.prospect_number3,
+            prospect_number4: result.phone4 || row.prospect_number4,
+            prospect_email: result.email || '',
+            full_name: result.fullName || row.full_name,
+            company_name: result.company || row.company_name,
+          };
+          
           setRows(prev => prev.map(r =>
-            r.id === row.id ? {
-              ...r,
-              prospect_number: result.phone || r.prospect_number,
-              prospect_number2: result.phone2 || r.prospect_number2,
-              prospect_number3: result.phone3 || r.prospect_number3,
-              prospect_number4: result.phone4 || r.prospect_number4,
-              prospect_email: result.email || '',
-              full_name: result.fullName || r.full_name,
-              company_name: result.company || r.company_name,
-            } : r
+            r.id === row.id ? { ...r, ...updates } : r
           ));
+          
+          // 🔥 CRITICAL: Save to Supabase immediately after enrichment
+          await saveEnrichedDataToSupabase(row.id, updates, row);
+          
           successCount++;
         } else {
           failedCount++;
@@ -784,18 +816,28 @@ const Rtne: React.FC = () => {
     };
   };
 
-  // Helper function to save enriched data to Supabase
-  const saveEnrichedDataToSupabase = async (rowId: number, updates: Partial<RtneRow>) => {
-    const row = rows.find(r => r.id === rowId);
-    if (!row || !row.prospect_linkedin) return;
+  // Helper function to save enriched data to Supabase IMMEDIATELY after enrichment
+  // CRITICAL: This function must work without relying on stale React state
+  const saveEnrichedDataToSupabase = async (rowId: number, updates: Partial<RtneRow>, currentRow?: RtneRow) => {
+    // Use passed currentRow to avoid stale state issues, fallback to finding in rows
+    const row = currentRow || rows.find(r => r.id === rowId);
+    if (!row) {
+      console.error(`❌ saveEnrichedDataToSupabase: Row ${rowId} not found`);
+      return;
+    }
+
+    // LinkedIn URL is optional - can save data even without it
+    const linkedinUrl = updates.prospect_linkedin || row.prospect_linkedin || null;
 
     try {
-      // Deduplicate phone numbers before saving
+      console.log(`💾 SAVING enriched data to Supabase for row ${rowId}:`, updates);
+
+      // Deduplicate phone numbers before saving - use updates first, then row data
       const dedupedPhones = deduplicatePhones(
-        updates.prospect_number || row.prospect_number,
-        updates.prospect_number2 || row.prospect_number2,
-        updates.prospect_number3 || row.prospect_number3,
-        updates.prospect_number4 || row.prospect_number4
+        updates.prospect_number ?? row.prospect_number,
+        updates.prospect_number2 ?? row.prospect_number2,
+        updates.prospect_number3 ?? row.prospect_number3,
+        updates.prospect_number4 ?? row.prospect_number4
       );
 
       // 1. Save to rtne_requests table (current project tracking) - SAVE ALL PHONE COLUMNS
@@ -803,33 +845,72 @@ const Rtne: React.FC = () => {
         project_name: projectName,
         user_id: user?.id,
         user_name: user?.fullName || user?.email?.split('@')[0] || 'Unknown',
-        linkedin_url: row.prospect_linkedin,
-        full_name: updates.full_name || row.full_name || null,
-        company_name: updates.company_name || row.company_name || null,
-        company_linkedin_url: updates.company_linkedin_url || row.company_linkedin_url || null,
-        city: updates.prospect_city || row.prospect_city || null,
+        linkedin_url: linkedinUrl,
+        full_name: updates.full_name ?? row.full_name ?? null,
+        company_name: updates.company_name ?? row.company_name ?? null,
+        company_linkedin_url: updates.company_linkedin_url ?? row.company_linkedin_url ?? null,
+        city: updates.prospect_city ?? row.prospect_city ?? null,
         primary_phone: dedupedPhones.prospect_number || null,
         phone2: dedupedPhones.prospect_number2 || null,
         phone3: dedupedPhones.prospect_number3 || null,
         phone4: dedupedPhones.prospect_number4 || null,
-        email_address: updates.prospect_email || row.prospect_email || null,
-        job_title: updates.prospect_designation || row.prospect_designation || null,
+        email_address: updates.prospect_email ?? row.prospect_email ?? null,
+        job_title: updates.prospect_designation ?? row.prospect_designation ?? null,
         row_number: rowId,
-        status: 'pending',
+        status: 'completed',
         updated_at: new Date().toISOString()
       };
 
-      if ((row as any).supabaseId) {
-        await supabase
+      console.log(`📤 Request data to save:`, requestData);
+
+      // Check if row already has a Supabase ID, or check by row_number
+      let supabaseId = (row as any).supabaseId;
+      
+      if (!supabaseId) {
+        // Check if a record exists for this row_number
+        const { data: existingRecord } = await supabase
+          .from('rtne_requests')
+          .select('id')
+          .eq('user_id', user?.id)
+          .eq('project_name', projectName)
+          .eq('row_number', rowId)
+          .maybeSingle();
+        
+        if (existingRecord) {
+          supabaseId = existingRecord.id;
+        }
+      }
+
+      if (supabaseId) {
+        console.log(`🔄 Updating existing record ${supabaseId}`);
+        const { error } = await supabase
           .from('rtne_requests')
           .update(requestData)
-          .eq('id', (row as any).supabaseId);
+          .eq('id', supabaseId);
+        
+        if (error) {
+          console.error(`❌ Update failed:`, error);
+          throw error;
+        }
+        console.log(`✅ Record updated successfully`);
+        
+        // Update local state with supabaseId
+        setRows(prev => prev.map(r =>
+          r.id === rowId ? { ...r, supabaseId } as any : r
+        ));
       } else {
-        const { data } = await supabase
+        console.log(`➕ Inserting new record`);
+        const { data, error } = await supabase
           .from('rtne_requests')
           .insert([requestData])
           .select()
           .single();
+
+        if (error) {
+          console.error(`❌ Insert failed:`, error);
+          throw error;
+        }
+        console.log(`✅ Inserted new record with ID ${data?.id}`);
 
         if (data) {
           setRows(prev => prev.map(r =>
@@ -839,46 +920,74 @@ const Rtne: React.FC = () => {
       }
 
       // 2. ALSO save to prospects table (global database for all searches)
-      // Normalize LinkedIn URL before saving to ensure consistency
-      const normalizedLinkedInUrl = row.prospect_linkedin.trim().toLowerCase().replace(/\/+$/, '');
-      
-      const prospectData = {
-        prospect_linkedin: normalizedLinkedInUrl,
-        full_name: updates.full_name || row.full_name || null,
-        company_name: updates.company_name || row.company_name || null,
-        prospect_city: updates.prospect_city || row.prospect_city || null,
-        prospect_designation: updates.prospect_designation || row.prospect_designation || null,
-        prospect_number: dedupedPhones.prospect_number || null,
-        prospect_number2: dedupedPhones.prospect_number2 || null,
-        prospect_number3: dedupedPhones.prospect_number3 || null,
-        prospect_number4: dedupedPhones.prospect_number4 || null,
-        prospect_email: updates.prospect_email || row.prospect_email || null,
-      };
+      // Only if we have enough data to create a meaningful record
+      if (linkedinUrl || (requestData.full_name && requestData.company_name)) {
+        const prospectData: any = {
+          full_name: requestData.full_name || 'Unknown',
+          company_name: requestData.company_name || 'Unknown',
+          prospect_city: requestData.city || null,
+          prospect_designation: requestData.job_title || null,
+          prospect_number: dedupedPhones.prospect_number || null,
+          prospect_number2: dedupedPhones.prospect_number2 || null,
+          prospect_number3: dedupedPhones.prospect_number3 || null,
+          prospect_number4: dedupedPhones.prospect_number4 || null,
+          prospect_email: requestData.email_address || null,
+        };
+        
+        if (linkedinUrl) {
+          // Normalize LinkedIn URL before saving to ensure consistency
+          const normalizedLinkedInUrl = linkedinUrl.trim().toLowerCase().replace(/\/+$/, '');
+          prospectData.prospect_linkedin = normalizedLinkedInUrl;
+          
+          // Check if prospect already exists (use normalized URL for search)
+          const { data: existingProspect } = await supabase
+            .from('prospects')
+            .select('id')
+            .ilike('prospect_linkedin', `%${normalizedLinkedInUrl.split('/in/')[1]?.split('/')[0] || normalizedLinkedInUrl}%`)
+            .maybeSingle();
 
-      // Check if prospect already exists (use normalized URL for search)
-      const { data: existingProspect } = await supabase
-        .from('prospects')
-        .select('id')
-        .eq('prospect_linkedin', normalizedLinkedInUrl)
-        .maybeSingle();
+          if (existingProspect) {
+            // Update existing prospect
+            await supabase
+              .from('prospects')
+              .update(prospectData)
+              .eq('id', existingProspect.id);
+            console.log('✅ Updated existing prospect in database');
+          } else {
+            // Insert new prospect
+            await supabase
+              .from('prospects')
+              .insert([prospectData]);
+            console.log('✅ Saved new prospect to database');
+          }
+        } else if (requestData.full_name && requestData.company_name) {
+          // No LinkedIn URL - check by name+company
+          const { data: existingProspect } = await supabase
+            .from('prospects')
+            .select('id')
+            .ilike('full_name', requestData.full_name)
+            .ilike('company_name', requestData.company_name)
+            .maybeSingle();
 
-      if (existingProspect) {
-        // Update existing prospect
-        await supabase
-          .from('prospects')
-          .update(prospectData)
-          .eq('id', existingProspect.id);
-        console.log('✅ Updated existing prospect in database');
-      } else {
-        // Insert new prospect
-        await supabase
-          .from('prospects')
-          .insert([prospectData]);
-        console.log('✅ Saved new prospect to database');
+          if (existingProspect) {
+            await supabase
+              .from('prospects')
+              .update(prospectData)
+              .eq('id', existingProspect.id);
+            console.log('✅ Updated existing prospect by name+company in database');
+          } else {
+            await supabase
+              .from('prospects')
+              .insert([prospectData]);
+            console.log('✅ Saved new prospect by name+company to database');
+          }
+        }
       }
 
+      console.log(`✅ Enriched data saved successfully to Supabase for row ${rowId}`);
+
     } catch (error) {
-      console.error('Error saving enriched data to Supabase:', error);
+      console.error('❌ Error saving enriched data to Supabase:', error);
     }
   };
 
@@ -954,7 +1063,7 @@ const Rtne: React.FC = () => {
         ));
 
         // Save deduplicated data back to Supabase
-        await saveEnrichedDataToSupabase(rowId, updates);
+        await saveEnrichedDataToSupabase(rowId, updates, row);
 
         // Ensure minimum 10 seconds total
         const totalElapsed = Date.now() - startTime;
@@ -1022,7 +1131,7 @@ const Rtne: React.FC = () => {
         ));
 
         // Save deduplicated data to Supabase
-        await saveEnrichedDataToSupabase(rowId, updates);
+        await saveEnrichedDataToSupabase(rowId, updates, row);
 
         const populatedCount = Object.keys(updates).filter(k => updates[k as keyof RtneRow]).length;
         const creditsInfo = result.creditsRemaining !== null && result.creditsRemaining !== undefined 
@@ -1118,7 +1227,7 @@ const Rtne: React.FC = () => {
         ));
 
         // Save merged data to Supabase
-        await saveEnrichedDataToSupabase(rowId, updates);
+        await saveEnrichedDataToSupabase(rowId, updates, row);
 
         // Remove from enriched from DB set since we now have Lusha data
         setEnrichedFromDbRows(prev => {
