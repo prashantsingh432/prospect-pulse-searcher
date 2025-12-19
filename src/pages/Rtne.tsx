@@ -145,16 +145,19 @@ const Rtne: React.FC = () => {
     const loadData = async () => {
       try {
         setIsLoadingData(true);
-        // Load user's own RTNE requests - ORDER BY updated_at DESC to get latest records first
+        // Load user's own RTNE requests - ORDER BY row_number to get all rows in order
         const { data: rtneRequests, error } = await supabase
           .from('rtne_requests')
           .select('*')
           .eq('user_id', user?.id)
           .eq('project_name', projectName)
-          .order('updated_at', { ascending: false });
+          .order('row_number', { ascending: true });
 
         if (error) throw error;
 
+        // Find the maximum row number from the database to know total rows needed
+        let maxRowNumber = 100; // Default minimum of 100 rows
+        
         if (rtneRequests && rtneRequests.length > 0) {
           // Deduplicate by row_number - keep only the most recent record (has data) for each row
           const rowMap = new Map<number, any>();
@@ -163,11 +166,16 @@ const Rtne: React.FC = () => {
             const rowNum = request.row_number;
             const existing = rowMap.get(rowNum);
             
-            // Keep the record with more data (has primary_phone/email/full_name)
-            const hasData = request.primary_phone || request.email_address || request.full_name || request.phone2;
-            const existingHasData = existing && (existing.primary_phone || existing.email_address || existing.full_name || existing.phone2);
+            // Track maximum row number - CRITICAL for loading all rows beyond 100
+            if (rowNum > maxRowNumber) {
+              maxRowNumber = rowNum;
+            }
             
-            if (!existing || (hasData && !existingHasData) || (!existing && hasData)) {
+            // Keep the record with more data (has primary_phone/email/full_name/linkedin)
+            const hasData = request.primary_phone || request.email_address || request.full_name || request.phone2 || request.linkedin_url;
+            const existingHasData = existing && (existing.primary_phone || existing.email_address || existing.full_name || existing.phone2 || existing.linkedin_url);
+            
+            if (!existing || (hasData && !existingHasData)) {
               rowMap.set(rowNum, request);
             }
           }
@@ -189,17 +197,19 @@ const Rtne: React.FC = () => {
             supabaseId: request.id // Store request ID for updates
           }));
 
-          // Create a full 100-row array with loaded data in correct positions
+          // CRITICAL FIX: Create rows up to the maximum row number found in database
+          // This ensures ALL rows (including those beyond 100) are loaded and preserved
           const fullRows: RtneRow[] = [];
-          for (let i = 1; i <= 100; i++) {
+          for (let i = 1; i <= maxRowNumber; i++) {
             const existingRow = loadedRows.find(r => r.id === i);
             fullRows.push(existingRow || makeEmptyRow(i));
           }
 
           setRows(fullRows);
-          nextIdRef.current = 101;
+          // Set next ID to be one more than the max row number
+          nextIdRef.current = maxRowNumber + 1;
           
-          console.log(`✅ Loaded ${loadedRows.length} unique rows from database`);
+          console.log(`✅ Loaded ${loadedRows.length} unique rows from database (max row: ${maxRowNumber})`);
         }
       } catch (error) {
         console.error('Error loading data:', error);
