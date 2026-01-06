@@ -5,6 +5,7 @@ import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import RowContextMenu from "@/components/RowContextMenu";
 import { enrichProspectByName, enrichProspect } from "@/services/lushaService";
 import { lookupProspectInDatabase } from "@/services/databaseLookupService";
@@ -1987,14 +1988,20 @@ const Rtne: React.FC = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
-                  <button 
-                    className="text-gray-600 px-2 py-1 rounded-md flex items-center cursor-not-allowed"
-                    onClick={() => toast.error("Bulk Enrichment is restricted to Admin users only. Please contact your administrator for access.")}
-                    title="Admin access required"
-                  >
-                    <Lock className="h-4 w-4 mr-1 text-gray-500" />
-                    <span>Bulk Enrichment</span>
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        className="text-gray-600 px-2 py-1 rounded-md flex items-center cursor-not-allowed"
+                        onClick={() => toast.error("Bulk Enrichment is restricted to Admin users only. Please contact your administrator for access.")}
+                      >
+                        <Lock className="h-4 w-4 mr-1 text-gray-500" />
+                        <span>Bulk Enrichment</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Admin access required. Contact your administrator for access.</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </nav>
             </div>
