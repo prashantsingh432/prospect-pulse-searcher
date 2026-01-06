@@ -19,7 +19,18 @@ import {
   LushaApiKey,
   LushaCategory,
 } from "@/services/lushaService";
-import { Loader2, Plus, Trash2, Key, TrendingUp, AlertCircle, TestTube, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Plus, Trash2, Key, TrendingUp, AlertCircle, TestTube, CheckCircle, XCircle, Trash } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const LushaApiManager = () => {
@@ -43,6 +54,7 @@ export const LushaApiManager = () => {
   const [testCategory, setTestCategory] = useState<LushaCategory>("PHONE_ONLY");
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+  const [deletingAllKeys, setDeletingAllKeys] = useState(false);
 
   useEffect(() => {
     loadKeys();
@@ -151,6 +163,53 @@ export const LushaApiManager = () => {
         description: "Failed to delete key: " + error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDeleteAllKeys = async (category: LushaCategory) => {
+    const keysToDelete = category === "PHONE_ONLY" ? phoneKeys : emailKeys;
+    
+    if (keysToDelete.length === 0) {
+      toast({
+        title: "No Keys",
+        description: `No ${category === "PHONE_ONLY" ? "phone" : "email"} keys to delete`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setDeletingAllKeys(true);
+      
+      // Delete all keys one by one
+      let deletedCount = 0;
+      let failedCount = 0;
+      
+      for (const key of keysToDelete) {
+        try {
+          await deleteLushaKey(key.id);
+          deletedCount++;
+        } catch (error) {
+          console.error(`Failed to delete key ${key.id}:`, error);
+          failedCount++;
+        }
+      }
+      
+      toast({
+        title: "Success",
+        description: `Deleted ${deletedCount} API key(s)${failedCount > 0 ? `. ${failedCount} failed.` : ""}`,
+      });
+      
+      loadKeys();
+      loadStats();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to delete keys: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingAllKeys(false);
     }
   };
 
@@ -571,7 +630,46 @@ export const LushaApiManager = () => {
                     <AlertDescription>No phone keys added yet. Add some above to get started.</AlertDescription>
                   </Alert>
                 ) : (
-                  <KeysTable keys={phoneKeys} onToggle={handleToggleActive} onDelete={handleDeleteKey} getStatusBadge={getStatusBadge} />
+                  <div className="space-y-4">
+                    <div className="flex justify-end">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" disabled={deletingAllKeys}>
+                            {deletingAllKeys ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash className="mr-2 h-4 w-4" />
+                                Delete All Phone Keys ({phoneKeys.length})
+                              </>
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete All Phone Keys?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete all {phoneKeys.length} phone API keys from the system. 
+                              This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleDeleteAllKeys("PHONE_ONLY")}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete All
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                    <KeysTable keys={phoneKeys} onToggle={handleToggleActive} onDelete={handleDeleteKey} getStatusBadge={getStatusBadge} />
+                  </div>
                 )}
               </TabsContent>
 
@@ -582,7 +680,46 @@ export const LushaApiManager = () => {
                     <AlertDescription>No email keys added yet. Add some above to get started.</AlertDescription>
                   </Alert>
                 ) : (
-                  <KeysTable keys={emailKeys} onToggle={handleToggleActive} onDelete={handleDeleteKey} getStatusBadge={getStatusBadge} />
+                  <div className="space-y-4">
+                    <div className="flex justify-end">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" disabled={deletingAllKeys}>
+                            {deletingAllKeys ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash className="mr-2 h-4 w-4" />
+                                Delete All Email Keys ({emailKeys.length})
+                              </>
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete All Email Keys?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete all {emailKeys.length} email API keys from the system. 
+                              This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleDeleteAllKeys("EMAIL_ONLY")}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete All
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                    <KeysTable keys={emailKeys} onToggle={handleToggleActive} onDelete={handleDeleteKey} getStatusBadge={getStatusBadge} />
+                  </div>
                 )}
               </TabsContent>
             </Tabs>
