@@ -29,7 +29,7 @@ interface RtneRow {
 }
 
 const Rtne: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const nextIdRef = useRef(101); // Start from 101 for new rows
   const tableScrollRef = useRef<HTMLDivElement | null>(null); // scroll container around the table
@@ -1966,25 +1966,36 @@ const Rtne: React.FC = () => {
                 <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Data</a>
                 <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Tools</a>
                 <a className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md" href="#">Extensions</a>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md flex items-center">
-                      <span>Bulk Enrichment</span>
-                      <ChevronDown className="h-4 w-4 ml-1 text-gray-500" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-48">
-                    <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichPhonesClick}>
-                      Enrich Phones
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichEmailsClick}>
-                      Enrich Emails
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichBothClick}>
-                      Enrich Both
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {isAdmin() ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="hover:text-gray-900 hover:bg-gray-100 px-2 py-1 rounded-md flex items-center">
+                        <span>Bulk Enrichment</span>
+                        <ChevronDown className="h-4 w-4 ml-1 text-gray-500" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-48">
+                      <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichPhonesClick}>
+                        Enrich Phones
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichEmailsClick}>
+                        Enrich Emails
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichBothClick}>
+                        Enrich Both
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <button 
+                    className="text-gray-400 px-2 py-1 rounded-md flex items-center cursor-not-allowed opacity-60"
+                    onClick={() => toast.error("Bulk Enrichment is restricted to Admin users only. Please contact your administrator for access.")}
+                    title="Admin access required"
+                  >
+                    <span>Bulk Enrichment</span>
+                    <ChevronDown className="h-4 w-4 ml-1 text-gray-400" />
+                  </button>
+                )}
               </nav>
             </div>
             <div className="flex items-center space-x-4">
