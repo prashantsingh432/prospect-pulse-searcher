@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2 } from "lucide-react";
+import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import RowContextMenu from "@/components/RowContextMenu";
 import { enrichProspectByName, enrichProspect } from "@/services/lushaService";
@@ -1988,12 +1988,12 @@ const Rtne: React.FC = () => {
                   </DropdownMenu>
                 ) : (
                   <button 
-                    className="text-gray-400 px-2 py-1 rounded-md flex items-center cursor-not-allowed opacity-60"
+                    className="text-gray-600 px-2 py-1 rounded-md flex items-center cursor-not-allowed"
                     onClick={() => toast.error("Bulk Enrichment is restricted to Admin users only. Please contact your administrator for access.")}
                     title="Admin access required"
                   >
+                    <Lock className="h-4 w-4 mr-1 text-gray-500" />
                     <span>Bulk Enrichment</span>
-                    <ChevronDown className="h-4 w-4 ml-1 text-gray-400" />
                   </button>
                 )}
               </nav>
