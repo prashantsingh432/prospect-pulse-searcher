@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock } from "lucide-react";
+import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import RowContextMenu from "@/components/RowContextMenu";
@@ -27,6 +27,11 @@ interface RtneRow {
   prospect_designation?: string;
   status?: 'ready' | 'pending' | 'processing' | 'completed' | 'failed';
   supabaseId?: string; // Store the Supabase UUID for updates
+  // Phone disposition tracking
+  phone1_disposition?: 'correct' | 'wrong' | null;
+  phone2_disposition?: 'correct' | 'wrong' | null;
+  phone3_disposition?: 'correct' | 'wrong' | null;
+  phone4_disposition?: 'correct' | 'wrong' | null;
 }
 
 const Rtne: React.FC = () => {
@@ -138,7 +143,11 @@ const Rtne: React.FC = () => {
     prospect_number: "",
     prospect_number2: "",
     prospect_number3: "",
-    prospect_number4: ""
+    prospect_number4: "",
+    phone1_disposition: null,
+    phone2_disposition: null,
+    phone3_disposition: null,
+    phone4_disposition: null,
   }), []);
 
   // Load data from Supabase on mount
@@ -181,7 +190,7 @@ const Rtne: React.FC = () => {
             }
           }
 
-          // Map rtne_requests to RtneRow format - load ALL phone columns
+          // Map rtne_requests to RtneRow format - load ALL phone columns and dispositions
           const loadedRows: RtneRow[] = Array.from(rowMap.values()).map((request: any) => ({
             id: request.row_number,
             prospect_linkedin: request.linkedin_url || '',
@@ -195,7 +204,11 @@ const Rtne: React.FC = () => {
             prospect_number3: request.phone3 || '',
             prospect_number4: request.phone4 || '',
             prospect_designation: request.job_title || '',
-            supabaseId: request.id // Store request ID for updates
+            supabaseId: request.id, // Store request ID for updates
+            phone1_disposition: request.phone1_disposition || null,
+            phone2_disposition: request.phone2_disposition || null,
+            phone3_disposition: request.phone3_disposition || null,
+            phone4_disposition: request.phone4_disposition || null,
           }));
 
           // CRITICAL FIX: Create rows up to the maximum row number found in database
@@ -1858,6 +1871,54 @@ const Rtne: React.FC = () => {
     return selectedCell?.rowId === rowId && selectedCell?.field === field || selectedCells.has(cellId);
   };
 
+  // Handle phone disposition (correct/wrong)
+  const handlePhoneDisposition = async (
+    rowId: number,
+    supabaseId: string | undefined,
+    phoneIndex: 1 | 2 | 3 | 4,
+    disposition: 'correct' | 'wrong'
+  ) => {
+    if (!supabaseId) {
+      toast.error("Row not saved yet. Please wait for auto-save.");
+      return;
+    }
+
+    try {
+      const dispositionColumn = `phone${phoneIndex}_disposition`;
+      const dispositionAtColumn = `phone${phoneIndex}_disposition_at`;
+      const dispositionByColumn = `phone${phoneIndex}_disposition_by`;
+
+      const { error } = await supabase
+        .from('rtne_requests')
+        .update({
+          [dispositionColumn]: disposition,
+          [dispositionAtColumn]: new Date().toISOString(),
+          [dispositionByColumn]: user?.id,
+        } as any)
+        .eq('id', supabaseId);
+
+      if (error) throw error;
+
+      // Update local state
+      setRows(prev => prev.map(row => {
+        if (row.id === rowId) {
+          const dispositionField = `phone${phoneIndex}_disposition` as keyof RtneRow;
+          return { ...row, [dispositionField]: disposition };
+        }
+        return row;
+      }));
+
+      toast.success(
+        disposition === 'correct' 
+          ? "✓ Number marked as correct!" 
+          : "✗ Number marked as wrong"
+      );
+    } catch (error) {
+      console.error('Error saving disposition:', error);
+      toast.error("Failed to save disposition");
+    }
+  };
+
   // Keyboard event listeners
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
@@ -2182,9 +2243,39 @@ const Rtne: React.FC = () => {
                         >
                           {/* Cell content with enrichment button for phone/email fields */}
                           <div className="flex items-center gap-1 w-full">
+                            {/* Phone disposition indicator - show if disposition exists */}
+                            {(field === 'prospect_number' || field === 'prospect_number2' || field === 'prospect_number3' || field === 'prospect_number4') && (() => {
+                              const phoneIndex = field === 'prospect_number' ? 1 : field === 'prospect_number2' ? 2 : field === 'prospect_number3' ? 3 : 4;
+                              const dispositionField = `phone${phoneIndex}_disposition` as keyof RtneRow;
+                              const disposition = row[dispositionField] as 'correct' | 'wrong' | null | undefined;
+                              
+                              if (disposition) {
+                                return (
+                                  <div className={`flex-shrink-0 ${disposition === 'correct' ? 'text-green-600' : 'text-red-500'}`}>
+                                    {disposition === 'correct' ? (
+                                      <Check className="h-4 w-4" />
+                                    ) : (
+                                      <X className="h-4 w-4" />
+                                    )}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                            
                             <input
                               data-cell={`${row.id}-${field}`}
-                              className="flex-1 border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium"
+                              className={`flex-1 border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium ${
+                                // Style phone numbers based on disposition
+                                (field === 'prospect_number' || field === 'prospect_number2' || field === 'prospect_number3' || field === 'prospect_number4') ? (() => {
+                                  const phoneIndex = field === 'prospect_number' ? 1 : field === 'prospect_number2' ? 2 : field === 'prospect_number3' ? 3 : 4;
+                                  const dispositionField = `phone${phoneIndex}_disposition` as keyof RtneRow;
+                                  const disposition = row[dispositionField] as 'correct' | 'wrong' | null | undefined;
+                                  if (disposition === 'correct') return 'text-green-700';
+                                  if (disposition === 'wrong') return 'text-red-500 line-through';
+                                  return '';
+                                })() : ''
+                              }`}
                               type={field === 'prospect_email' ? 'email' : 'text'}
                               value={cellValue}
                               onChange={(e) => handleChange(row.id, field, e.target.value)}
@@ -2230,6 +2321,57 @@ const Rtne: React.FC = () => {
                                 }
                               }}
                             />
+                            
+                            {/* Phone disposition buttons - show for phone fields with values but no disposition yet */}
+                            {(field === 'prospect_number' || field === 'prospect_number2' || field === 'prospect_number3' || field === 'prospect_number4') && cellValue && cellValue.trim() && (() => {
+                              const phoneIndex = field === 'prospect_number' ? 1 : field === 'prospect_number2' ? 2 : field === 'prospect_number3' ? 3 : 4;
+                              const dispositionField = `phone${phoneIndex}_disposition` as keyof RtneRow;
+                              const disposition = row[dispositionField] as 'correct' | 'wrong' | null | undefined;
+                              
+                              if (!disposition) {
+                                return (
+                                  <div className="flex-shrink-0 flex items-center gap-0.5">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePhoneDisposition(row.id, row.supabaseId, phoneIndex, 'correct');
+                                          }}
+                                          className="p-1 hover:bg-green-100 rounded transition-colors text-green-600 hover:text-green-700"
+                                          aria-label="Mark as correct number"
+                                        >
+                                          <Check className="h-4 w-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">
+                                        <p>✓ Correct number - Call connected</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                    
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePhoneDisposition(row.id, row.supabaseId, phoneIndex, 'wrong');
+                                          }}
+                                          className="p-1 hover:bg-red-100 rounded transition-colors text-red-500 hover:text-red-600"
+                                          aria-label="Mark as wrong number"
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">
+                                        <p>✗ Wrong number - Invalid/disconnected</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                            
                             {/* Add enrichment button for LinkedIn URL cell - Full enrichment for ALL fields */}
                             {field === 'prospect_linkedin' && row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin) && (
                               enrichedFromDbRows.has(row.id) || (row.prospect_number && row.prospect_number.trim()) ? (
