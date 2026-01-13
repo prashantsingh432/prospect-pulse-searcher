@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X } from "lucide-react";
+import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X, RotateCcw } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import RowContextMenu from "@/components/RowContextMenu";
@@ -1871,12 +1871,12 @@ const Rtne: React.FC = () => {
     return selectedCell?.rowId === rowId && selectedCell?.field === field || selectedCells.has(cellId);
   };
 
-  // Handle phone disposition (correct/wrong)
+  // Handle phone disposition (correct/wrong/reset)
   const handlePhoneDisposition = async (
     rowId: number,
     supabaseId: string | undefined,
     phoneIndex: 1 | 2 | 3 | 4,
-    disposition: 'correct' | 'wrong'
+    disposition: 'correct' | 'wrong' | null
   ) => {
     if (!supabaseId) {
       toast.error("Row not saved yet. Please wait for auto-save.");
@@ -1892,8 +1892,8 @@ const Rtne: React.FC = () => {
         .from('rtne_requests')
         .update({
           [dispositionColumn]: disposition,
-          [dispositionAtColumn]: new Date().toISOString(),
-          [dispositionByColumn]: user?.id,
+          [dispositionAtColumn]: disposition ? new Date().toISOString() : null,
+          [dispositionByColumn]: disposition ? user?.id : null,
         } as any)
         .eq('id', supabaseId);
 
@@ -1908,11 +1908,15 @@ const Rtne: React.FC = () => {
         return row;
       }));
 
-      toast.success(
-        disposition === 'correct' 
-          ? "✓ Number marked as correct!" 
-          : "✗ Number marked as wrong"
-      );
+      if (disposition === null) {
+        toast.success("↩ Disposition reset");
+      } else {
+        toast.success(
+          disposition === 'correct' 
+            ? "✓ Number marked as correct!" 
+            : "✗ Number marked as wrong"
+        );
+      }
     } catch (error) {
       console.error('Error saving disposition:', error);
       toast.error("Failed to save disposition");
@@ -2322,13 +2326,14 @@ const Rtne: React.FC = () => {
                               }}
                             />
                             
-                            {/* Phone disposition buttons - show for phone fields with values but no disposition yet */}
+                            {/* Phone disposition buttons - show for phone fields with values */}
                             {(field === 'prospect_number' || field === 'prospect_number2' || field === 'prospect_number3' || field === 'prospect_number4') && cellValue && cellValue.trim() && (() => {
                               const phoneIndex = field === 'prospect_number' ? 1 : field === 'prospect_number2' ? 2 : field === 'prospect_number3' ? 3 : 4;
                               const dispositionField = `phone${phoneIndex}_disposition` as keyof RtneRow;
                               const disposition = row[dispositionField] as 'correct' | 'wrong' | null | undefined;
                               
                               if (!disposition) {
+                                // No disposition yet - show correct/wrong buttons
                                 return (
                                   <div className="flex-shrink-0 flex items-center gap-0.5">
                                     <Tooltip>
@@ -2368,8 +2373,28 @@ const Rtne: React.FC = () => {
                                     </Tooltip>
                                   </div>
                                 );
+                              } else {
+                                // Disposition exists - show reset button
+                                return (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePhoneDisposition(row.id, row.supabaseId, phoneIndex, null);
+                                        }}
+                                        className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors text-gray-400 hover:text-gray-600"
+                                        aria-label="Reset disposition"
+                                      >
+                                        <RotateCcw className="h-3.5 w-3.5" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                      <p>↩ Reset - Undo disposition</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
                               }
-                              return null;
                             })()}
                             
                             {/* Add enrichment button for LinkedIn URL cell - Full enrichment for ALL fields */}
