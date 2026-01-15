@@ -7,6 +7,8 @@ import { Loader2, Bug } from "lucide-react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { UrlMatchStatus } from "./UrlMatchStatus";
+import type { UrlMatchInfo } from "@/services/prospectSearchService";
 
 interface ResultsContainerProps {
   hasSearched: boolean;
@@ -17,6 +19,7 @@ interface ResultsContainerProps {
   debugInfo?: any;
   isAdmin?: boolean;
   onUpdateResults?: (updatedResults: Prospect[]) => void;
+  urlMatches?: UrlMatchInfo[];
 }
 
 export const ResultsContainer = ({
@@ -27,7 +30,8 @@ export const ResultsContainer = ({
   isLoading = false,
   debugInfo,
   isAdmin = false,
-  onUpdateResults
+  onUpdateResults,
+  urlMatches = []
 }: ResultsContainerProps) => {
   const [showDebug, setShowDebug] = useState(false);
 
@@ -74,6 +78,11 @@ export const ResultsContainer = ({
             </div>
           </CardContent>
         </Card>
+      )}
+      
+      {/* URL Match Status */}
+      {urlMatches && urlMatches.length > 0 && (
+        <UrlMatchStatus urlMatches={urlMatches} />
       )}
       
       <SearchResults 

@@ -40,7 +40,7 @@ export const LinkedInSearch = ({
     <div className="space-y-4">
       <div className="space-y-2">
         <label htmlFor="linkedinUrl" className="text-sm font-medium flex items-center">
-          LinkedIn URLs (up to 5)
+          LinkedIn URLs (up to 10)
           <span className="text-red-500 ml-1">*</span>
           <TooltipProvider>
             <Tooltip>
@@ -55,7 +55,7 @@ export const LinkedInSearch = ({
             </Tooltip>
           </TooltipProvider>
           {urlCount > 0 && (
-            <span className={`ml-2 text-xs px-2 py-0.5 rounded ${urlCount > 5 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+            <span className={`ml-2 text-xs px-2 py-0.5 rounded ${urlCount > 10 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
               {urlCount} URL{urlCount !== 1 ? 's' : ''}
             </span>
           )}
@@ -71,8 +71,8 @@ export const LinkedInSearch = ({
               
               const urls = newValue.trim().split(/[\n,]+/).filter(url => url.trim());
               
-              if (urls.length > 5) {
-                setValidationError("Maximum 5 URLs allowed");
+              if (urls.length > 10) {
+                setValidationError("Maximum 10 URLs allowed");
               } else if (urls.length > 0) {
                 const invalidUrls = urls.filter(url => !validateLinkedInUrl(url.trim()));
                 if (invalidUrls.length > 0) {
