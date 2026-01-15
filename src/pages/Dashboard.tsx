@@ -42,8 +42,7 @@ const Dashboard = () => {
     testConnection,
     debugInfo,
     showFilterModal,
-    setShowFilterModal,
-    urlMatches
+    setShowFilterModal
   } = useProspectSearch();
 
   const isAdmin = user && user.email === "prashant@admin.com";
@@ -154,7 +153,6 @@ const Dashboard = () => {
           handleSearchWithFilters={handleSearchWithFilters}
           showFilterModal={showFilterModal}
           setShowFilterModal={setShowFilterModal}
-          urlMatches={urlMatches}
         />
         
         <ResultsContainer
@@ -166,7 +164,6 @@ const Dashboard = () => {
           debugInfo={debugInfo}
           isAdmin={isAdmin}
           onUpdateResults={handleUpdateResults}
-          urlMatches={urlMatches}
         />
       </main>
     </div>

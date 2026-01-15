@@ -20,20 +20,12 @@ export interface SearchParams {
   filters?: SearchFilters;
 }
 
-export interface UrlMatchInfo {
-  url: string;
-  normalizedUrl: string;
-  matched: boolean;
-  matchedProspectIds: number[];
-}
-
 export interface SearchResult {
   results: Prospect[];
   debugInfo: any;
   success: boolean;
   message?: string;
   error?: any;
-  urlMatches?: UrlMatchInfo[];
 }
 
 /**
@@ -53,13 +45,10 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
     
     // Different query logic based on active tab
     let queryResults;
-    let urlMatches: UrlMatchInfo[] | undefined;
     
     if (activeTab === "linkedin-url") {
       // Search by LinkedIn URL
-      const { results: searchResults, urlMatches: matches } = await searchByLinkedInUrl(linkedinUrl, filters);
-      queryResults = searchResults;
-      urlMatches = matches;
+      queryResults = await searchByLinkedInUrl(linkedinUrl, filters);
     } else {
       // Search by prospect info
       queryResults = await searchByProspectInfo(prospectName, companyName, location, phoneNumber, filters);
@@ -91,8 +80,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
         results,
         debugInfo,
         success: true,
-        message: `Found ${results.length} matching prospects.`,
-        urlMatches
+        message: `Found ${results.length} matching prospects.`
       };
     } else {
       return {
@@ -103,8 +91,7 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
           timestamp: new Date()
         },
         success: true,
-        message: "No matching prospects found.",
-        urlMatches
+        message: "No matching prospects found."
       };
     }
   } catch (error) {
@@ -125,11 +112,11 @@ export const searchProspects = async (params: SearchParams): Promise<SearchResul
 /**
  * Search for prospects by LinkedIn URL (supports multiple URLs)
  */
-async function searchByLinkedInUrl(linkedinUrl: string, filters?: SearchFilters): Promise<{ results: any[], urlMatches: UrlMatchInfo[] }> {
+async function searchByLinkedInUrl(linkedinUrl: string, filters?: SearchFilters): Promise<any[]> {
   console.log("🔍 Searching by LinkedIn URL(s):", linkedinUrl);
   
   if (!linkedinUrl.trim()) {
-    return { results: [], urlMatches: [] };
+    return [];
   }
   
   // Parse multiple URLs (separated by newlines or commas)
@@ -137,11 +124,9 @@ async function searchByLinkedInUrl(linkedinUrl: string, filters?: SearchFilters)
     .split(/[\n,]+/)
     .map(url => url.trim())
     .filter(url => url.length > 0)
-    .slice(0, 10); // Limit to 10 URLs
+    .slice(0, 5); // Limit to 5 URLs
   
   console.log(`📋 Parsed ${urls.length} URL(s) to search`);
-  
-  const urlMatches: UrlMatchInfo[] = [];
   
   // Search for all URLs in parallel
   const urlSearchPromises = urls.map(async (url) => {
@@ -178,15 +163,6 @@ async function searchByLinkedInUrl(linkedinUrl: string, filters?: SearchFilters)
       .filter(result => !result.error && result.data)
       .flatMap(result => result.data || []);
     
-    // Track match info for this URL
-    const matchedProspectIds = [...new Set(allResults.map(r => r.id as number))];
-    urlMatches.push({
-      url: url,
-      normalizedUrl: normalizedLinkedInUrl,
-      matched: allResults.length > 0,
-      matchedProspectIds
-    });
-    
     console.log(`✅ Found ${allResults.length} results for ${url}`);
     return allResults;
   });
@@ -201,7 +177,7 @@ async function searchByLinkedInUrl(linkedinUrl: string, filters?: SearchFilters)
   );
   
   console.log(`✨ Total unique prospects found: ${uniqueResults.length}`);
-  return { results: uniqueResults, urlMatches };
+  return uniqueResults;
 }
 
 /**

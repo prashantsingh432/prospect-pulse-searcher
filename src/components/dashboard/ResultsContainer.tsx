@@ -17,7 +17,6 @@ interface ResultsContainerProps {
   debugInfo?: any;
   isAdmin?: boolean;
   onUpdateResults?: (updatedResults: Prospect[]) => void;
-  urlMatches?: any[];
 }
 
 export const ResultsContainer = ({
@@ -28,8 +27,7 @@ export const ResultsContainer = ({
   isLoading = false,
   debugInfo,
   isAdmin = false,
-  onUpdateResults,
-  urlMatches = []
+  onUpdateResults
 }: ResultsContainerProps) => {
   const [showDebug, setShowDebug] = useState(false);
 

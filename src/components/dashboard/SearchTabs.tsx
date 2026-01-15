@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { ProspectInfoSearch } from "./ProspectInfoSearch";
 import { LinkedInSearch } from "./LinkedInSearch";
 import { Linkedin, User } from "lucide-react";
-import type { UrlMatchInfo } from "@/services/prospectSearchService";
 
 interface SearchTabsProps {
   prospectName: string;
@@ -25,7 +24,6 @@ interface SearchTabsProps {
   isSearching: boolean;
   onSearch: () => void;
   onDirectSearch: () => void;
-  urlMatches?: UrlMatchInfo[];
 }
 
 export const SearchTabs = ({
@@ -45,8 +43,7 @@ export const SearchTabs = ({
   setActiveTab,
   isSearching,
   onSearch,
-  onDirectSearch,
-  urlMatches = []
+  onDirectSearch
 }: SearchTabsProps) => {
   return (
     <Tabs defaultValue="prospect-info" value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -84,7 +81,6 @@ export const SearchTabs = ({
           validationError={validationError}
           setValidationError={setValidationError}
           onSearch={onDirectSearch}
-          urlMatches={urlMatches}
         />
       </TabsContent>
       

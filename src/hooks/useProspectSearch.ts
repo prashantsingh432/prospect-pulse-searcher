@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDisposition } from "@/contexts/DispositionContext";
 import { Prospect } from "@/data/prospects";
 import { testSupabaseConnection, type ConnectionTestResult } from "@/services/connectionService";
-import { searchProspects, type SearchParams, type SearchFilters, type UrlMatchInfo } from "@/services/prospectSearchService";
+import { searchProspects, type SearchParams, type SearchFilters } from "@/services/prospectSearchService";
 import { validateProspectSearch } from "@/utils/validationUtils";
 import { formatProspectsForClipboard } from "@/utils/clipboardUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,7 +27,6 @@ export const useProspectSearch = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [urlMatches, setUrlMatches] = useState<UrlMatchInfo[]>([]);
 
   // Test Supabase connection on component mount
   useEffect(() => {
@@ -135,7 +134,6 @@ export const useProspectSearch = () => {
     setHasSearched(true);
     setDebugInfo(null);
     setIsSearching(true);
-    setUrlMatches([]);
 
     try {
       // Prepare search parameters with filters
@@ -176,9 +174,6 @@ export const useProspectSearch = () => {
       // Update state with filtered results
       setSearchResults(filteredResults);
       setDebugInfo(searchResult.debugInfo);
-      if (searchResult.urlMatches) {
-        setUrlMatches(searchResult.urlMatches);
-      }
       
       // Show toast with results
       toast({
@@ -337,7 +332,6 @@ export const useProspectSearch = () => {
     testConnection,
     debugInfo,
     showFilterModal,
-    setShowFilterModal,
-    urlMatches
+    setShowFilterModal
   };
 };
