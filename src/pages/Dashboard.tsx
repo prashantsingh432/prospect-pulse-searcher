@@ -154,6 +154,7 @@ const Dashboard = () => {
           handleSearchWithFilters={handleSearchWithFilters}
           showFilterModal={showFilterModal}
           setShowFilterModal={setShowFilterModal}
+          urlMatches={urlMatches}
         />
         
         <ResultsContainer

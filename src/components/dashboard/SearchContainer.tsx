@@ -3,6 +3,7 @@ import { SearchTabs } from "./SearchTabs";
 import { SearchFilterModal } from "@/components/SearchFilterModal";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import type { UrlMatchInfo } from "@/services/prospectSearchService";
 
 interface SearchContainerProps {
   activeTab: string;
@@ -25,6 +26,7 @@ interface SearchContainerProps {
   handleSearchWithFilters: (filters: any) => void;
   showFilterModal: boolean;
   setShowFilterModal: (show: boolean) => void;
+  urlMatches?: UrlMatchInfo[];
 }
 
 export const SearchContainer = ({
@@ -47,7 +49,8 @@ export const SearchContainer = ({
   onDirectSearch,
   handleSearchWithFilters,
   showFilterModal,
-  setShowFilterModal
+  setShowFilterModal,
+  urlMatches = []
 }: SearchContainerProps) => {
   const navigate = useNavigate();
   return (
@@ -76,6 +79,7 @@ export const SearchContainer = ({
             isSearching={isSearching}
             onSearch={onSearch}
             onDirectSearch={onDirectSearch}
+            urlMatches={urlMatches}
           />
         </CardContent>
       </Card>
