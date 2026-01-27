@@ -1687,8 +1687,35 @@ const Rtne: React.FC = () => {
 
       if (!selectedCell) return;
 
-      // Parse TSV data
-      const rows_data = clipboardText.split('\n').map(row => row.split('\t'));
+      // Parse clipboard data - handle multiple separators: tabs, newlines, commas
+      // Google Sheets uses tabs for columns and newlines for rows
+      let rows_data: string[][] = [];
+      
+      // Check if data is tab-separated (multi-column from Google Sheets)
+      if (clipboardText.includes('\t')) {
+        // Tab-separated values (TSV) - Google Sheets multi-column copy
+        rows_data = clipboardText
+          .split('\n')
+          .filter(line => line.trim() !== '')
+          .map(row => row.split('\t').map(cell => cell.trim()));
+      } else if (clipboardText.includes('\n')) {
+        // Newline-separated (single column from Google Sheets or plain text list)
+        rows_data = clipboardText
+          .split('\n')
+          .filter(line => line.trim() !== '')
+          .map(line => [line.trim()]);
+      } else if (clipboardText.includes(',')) {
+        // Comma-separated (CSV style or inline list) - treat each as separate row
+        rows_data = clipboardText
+          .split(',')
+          .filter(item => item.trim() !== '')
+          .map(item => [item.trim()]);
+      } else {
+        // Single value
+        rows_data = [[clipboardText.trim()]];
+      }
+
+      console.log(`📋 Pasting ${rows_data.length} rows of data`, rows_data.slice(0, 5));
 
       // Find starting position
       const startRowIndex = rows.findIndex(r => r.id === selectedCell.rowId);
@@ -1696,8 +1723,24 @@ const Rtne: React.FC = () => {
 
       if (startRowIndex === -1 || startFieldIndex === -1) return;
 
-      // Paste data
-      const updatedRows = [...rows];
+      // Calculate how many rows we need to add
+      const rowsNeeded = rows_data.length;
+      const availableRows = rows.length - startRowIndex;
+      const rowsToAdd = Math.max(0, rowsNeeded - availableRows);
+
+      // Add new rows if needed (Google Sheets style - auto-expand)
+      let updatedRows = [...rows];
+      if (rowsToAdd > 0) {
+        console.log(`➕ Adding ${rowsToAdd} new rows to accommodate pasted data`);
+        for (let i = 0; i < rowsToAdd; i++) {
+          updatedRows.push(makeEmptyRow(nextIdRef.current++));
+        }
+      }
+
+      // Track rows that need saving
+      const rowsToSave: { rowId: number; field: keyof RtneRow; value: string }[] = [];
+
+      // Paste data into cells
       rows_data.forEach((rowData, rowOffset) => {
         const targetRowIndex = startRowIndex + rowOffset;
         if (targetRowIndex < updatedRows.length) {
@@ -1705,23 +1748,63 @@ const Rtne: React.FC = () => {
             const targetFieldIndex = startFieldIndex + colOffset;
             if (targetFieldIndex < fieldOrder.length) {
               const field = fieldOrder[targetFieldIndex];
+              const cleanValue = cellValue.trim();
+              
+              // Update the row in memory
               updatedRows[targetRowIndex] = {
                 ...updatedRows[targetRowIndex],
-                [field]: cellValue
+                [field]: cleanValue
               };
 
-              // Save to database
-              handleChange(updatedRows[targetRowIndex].id, field, cellValue);
+              // Queue for saving (we'll batch these)
+              rowsToSave.push({
+                rowId: updatedRows[targetRowIndex].id,
+                field,
+                value: cleanValue
+              });
             }
           });
         }
       });
 
+      // Update state first for immediate UI feedback
       setRows(updatedRows);
+
+      // Show progress toast for large pastes
+      if (rowsToSave.length > 10) {
+        toast.loading(`Saving ${rowsToSave.length} cells...`, { id: 'bulk-paste' });
+      }
+
+      // Batch save all changes with small delays to avoid overwhelming
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < rowsToSave.length; i += BATCH_SIZE) {
+        const batch = rowsToSave.slice(i, i + BATCH_SIZE);
+        
+        // Process batch in parallel
+        await Promise.all(batch.map(({ rowId, field, value }) => 
+          handleChange(rowId, field, value)
+        ));
+        
+        // Yield to UI thread between batches
+        if (i + BATCH_SIZE < rowsToSave.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+
+      // Dismiss loading toast and show success
+      if (rowsToSave.length > 10) {
+        toast.success(`✅ Pasted ${rows_data.length} rows successfully!`, { id: 'bulk-paste' });
+      } else if (rows_data.length > 1) {
+        toast.success(`✅ Pasted ${rows_data.length} items`);
+      }
+
+      console.log(`✅ Bulk paste complete: ${rows_data.length} rows, ${rowsToSave.length} cells updated`);
+
     } catch (error) {
       console.error('Error pasting:', error);
+      toast.error('Failed to paste data');
     }
-  }, [selectedCell, rows, fieldOrder, handleChange]);
+  }, [selectedCell, rows, fieldOrder, handleChange, makeEmptyRow]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!selectedCell) return;
