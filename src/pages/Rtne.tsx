@@ -1685,7 +1685,9 @@ const Rtne: React.FC = () => {
     try {
       const clipboardText = await navigator.clipboard.readText();
 
-      if (!selectedCell) return;
+      // Use selectionStart (top-left of selection) or fall back to selectedCell
+      const startCell = selectionStart || selectedCell;
+      if (!startCell) return;
 
       // Parse clipboard data - handle multiple separators: tabs, newlines, commas
       // Google Sheets uses tabs for columns and newlines for rows
@@ -1715,11 +1717,11 @@ const Rtne: React.FC = () => {
         rows_data = [[clipboardText.trim()]];
       }
 
-      console.log(`📋 Pasting ${rows_data.length} rows of data`, rows_data.slice(0, 5));
+      console.log(`📋 Pasting ${rows_data.length} rows of data from cell ${startCell.rowId}-${startCell.field}`, rows_data.slice(0, 5));
 
-      // Find starting position
-      const startRowIndex = rows.findIndex(r => r.id === selectedCell.rowId);
-      const startFieldIndex = fieldOrder.indexOf(selectedCell.field);
+      // Find starting position - use selectionStart for the top-left of selection
+      const startRowIndex = rows.findIndex(r => r.id === startCell.rowId);
+      const startFieldIndex = fieldOrder.indexOf(startCell.field);
 
       if (startRowIndex === -1 || startFieldIndex === -1) return;
 
@@ -1737,8 +1739,9 @@ const Rtne: React.FC = () => {
         }
       }
 
-      // Track rows that need saving
+      // Track rows that need saving and validation status
       const rowsToSave: { rowId: number; field: keyof RtneRow; value: string }[] = [];
+      let invalidLinkedInCount = 0;
 
       // Paste data into cells
       rows_data.forEach((rowData, rowOffset) => {
@@ -1749,6 +1752,13 @@ const Rtne: React.FC = () => {
             if (targetFieldIndex < fieldOrder.length) {
               const field = fieldOrder[targetFieldIndex];
               const cleanValue = cellValue.trim();
+              
+              // Validate LinkedIn URLs and count invalid ones
+              if (field === 'prospect_linkedin' && cleanValue) {
+                if (!validateLinkedInUrl(cleanValue)) {
+                  invalidLinkedInCount++;
+                }
+              }
               
               // Update the row in memory
               updatedRows[targetRowIndex] = {
@@ -1769,6 +1779,9 @@ const Rtne: React.FC = () => {
 
       // Update state first for immediate UI feedback
       setRows(updatedRows);
+      
+      // Clear multi-cell selection
+      setSelectedCells(new Set());
 
       // Show progress toast for large pastes
       if (rowsToSave.length > 10) {
@@ -1791,20 +1804,22 @@ const Rtne: React.FC = () => {
         }
       }
 
-      // Dismiss loading toast and show success
-      if (rowsToSave.length > 10) {
+      // Dismiss loading toast and show success with validation warnings
+      if (invalidLinkedInCount > 0) {
+        toast.warning(`⚠️ Pasted ${rows_data.length} rows - ${invalidLinkedInCount} invalid LinkedIn URL(s) highlighted in red`, { id: 'bulk-paste', duration: 5000 });
+      } else if (rowsToSave.length > 10) {
         toast.success(`✅ Pasted ${rows_data.length} rows successfully!`, { id: 'bulk-paste' });
       } else if (rows_data.length > 1) {
         toast.success(`✅ Pasted ${rows_data.length} items`);
       }
 
-      console.log(`✅ Bulk paste complete: ${rows_data.length} rows, ${rowsToSave.length} cells updated`);
+      console.log(`✅ Bulk paste complete: ${rows_data.length} rows, ${rowsToSave.length} cells updated, ${invalidLinkedInCount} invalid LinkedIn URLs`);
 
     } catch (error) {
       console.error('Error pasting:', error);
       toast.error('Failed to paste data');
     }
-  }, [selectedCell, rows, fieldOrder, handleChange, makeEmptyRow]);
+  }, [selectedCell, selectionStart, rows, fieldOrder, handleChange, makeEmptyRow]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!selectedCell) return;
@@ -2285,11 +2300,18 @@ const Rtne: React.FC = () => {
                       
                       const isSelected = isCellSelected(row.id, field);
                       const isCurrentlyEditing = isSelected && isEditing;
+                      
+                      // Check for invalid LinkedIn URL
+                      const isInvalidLinkedIn = field === 'prospect_linkedin' && cellValue && cellValue.trim() && !validateLinkedInUrl(cellValue);
 
                       return (
                         <td
                           key={field}
-                          className={`px-3 py-2 border-b border-r border-gray-300 text-sm cursor-pointer ${isSelected
+                          className={`px-3 py-2 border-b border-r text-sm cursor-pointer ${
+                            isInvalidLinkedIn 
+                              ? 'border-red-400 bg-red-50' 
+                              : 'border-gray-300'
+                          } ${isSelected
                               ? 'outline outline-2 outline-blue-500 bg-blue-50'
                               : 'hover:outline hover:outline-2 hover:outline-blue-500'
                             }`}
@@ -2353,6 +2375,11 @@ const Rtne: React.FC = () => {
                             <input
                               data-cell={`${row.id}-${field}`}
                               className={`flex-1 border-none focus:ring-0 focus:outline-none p-0 bg-transparent text-sm font-medium ${
+                                // Style LinkedIn URLs - red for invalid
+                                field === 'prospect_linkedin' && cellValue && cellValue.trim() && !validateLinkedInUrl(cellValue)
+                                  ? 'text-red-600 bg-red-50'
+                                  : ''
+                              } ${
                                 // Style phone numbers based on disposition
                                 (field === 'prospect_number' || field === 'prospect_number2' || field === 'prospect_number3' || field === 'prospect_number4') ? (() => {
                                   const phoneIndex = field === 'prospect_number' ? 1 : field === 'prospect_number2' ? 2 : field === 'prospect_number3' ? 3 : 4;
