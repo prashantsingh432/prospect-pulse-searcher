@@ -1,12 +1,14 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, CheckCircle, Star, Share, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, CheckCircle, Star, Share, Sparkles, Wifi, WifiOff } from "lucide-react";
 import RowContextMenu from "@/components/RowContextMenu";
 import { enrichProspect } from "@/services/lushaService";
+import { Badge } from "@/components/ui/badge";
+import { toast as sonnerToast } from "sonner";
 
 interface RtneRequest {
   id: string;
@@ -20,12 +22,13 @@ interface RtneRequest {
   company_name?: string;
   email_address?: string;
   primary_phone?: string;
-  phone_2?: string;
-  phone_3?: string;
-  phone_4?: string;
+  phone2?: string;
+  phone3?: string;
+  phone4?: string;
   status: string;
   row_number: number;
   created_at: string;
+  mre_requested?: boolean;
 }
 
 export const RtnpProjectView: React.FC = () => {
@@ -35,6 +38,7 @@ export const RtnpProjectView: React.FC = () => {
   const { toast } = useToast();
   const [requests, setRequests] = useState<RtneRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const saveTimeoutRef = useRef<{[key: string]: NodeJS.Timeout}>({});
   
   // Context menu state
@@ -52,24 +56,16 @@ export const RtnpProjectView: React.FC = () => {
   const [enrichingRows, setEnrichingRows] = useState<{[key: string]: 'phone' | 'email' | null}>({});
 
   const isRtnpUser = user?.email === 'realtimenumberprovider@amplior.com' || isAdmin();
+  const decodedProjectName = decodeURIComponent(projectName || '');
 
-  useEffect(() => {
-    if (!isRtnpUser || !projectName) {
-      navigate("/dashboard");
-      return;
-    }
-
-    loadProjectRequests();
-  }, [isRtnpUser, projectName, navigate]);
-
-  const loadProjectRequests = async () => {
-    setIsLoading(true);
+  // Load project requests - memoized for real-time updates
+  const loadProjectRequests = useCallback(async () => {
     try {
       // Only load MRE-requested items - these are explicitly sent to RTNP
       const { data, error } = await supabase
         .from('rtne_requests')
         .select('*')
-        .eq('project_name', decodeURIComponent(projectName || ''))
+        .eq('project_name', decodedProjectName)
         .eq('mre_requested', true)  // Only show MRE-requested items
         .order('row_number', { ascending: true });
 
@@ -83,10 +79,59 @@ export const RtnpProjectView: React.FC = () => {
         description: "Failed to load requests",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [decodedProjectName, toast]);
+
+  useEffect(() => {
+    if (!isRtnpUser || !projectName) {
+      navigate("/dashboard");
+      return;
+    }
+
+    // Initial load
+    setIsLoading(true);
+    loadProjectRequests().finally(() => setIsLoading(false));
+
+    // Set up real-time subscription for project-specific updates
+    const channel = supabase
+      .channel(`rtnp-project-${decodedProjectName}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rtne_requests',
+          filter: `project_name=eq.${decodedProjectName}`,
+        },
+        (payload) => {
+          console.log('[RTNP Project] Real-time update:', payload.eventType, payload);
+          
+          const newRecord = payload.new as RtneRequest;
+          const oldRecord = payload.old as RtneRequest;
+          
+          if (payload.eventType === 'INSERT' && newRecord?.mre_requested) {
+            sonnerToast.info(`New request from ${newRecord.user_name}`);
+            loadProjectRequests();
+          } else if (payload.eventType === 'UPDATE') {
+            // Update the specific record in local state for instant feedback
+            setRequests(prev => prev.map(req => 
+              req.id === newRecord.id ? { ...req, ...newRecord } : req
+            ));
+          } else if (payload.eventType === 'DELETE') {
+            setRequests(prev => prev.filter(req => req.id !== oldRecord?.id));
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[RTNP Project] Realtime status:', status);
+        setIsRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      console.log('[RTNP Project] Cleaning up realtime subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [isRtnpUser, projectName, navigate, decodedProjectName, loadProjectRequests]);
 
   // Function to clean phone numbers - removes +91, 91, spaces, dashes, etc.
   const cleanPhoneNumber = (phone: string): string => {
@@ -112,7 +157,7 @@ export const RtnpProjectView: React.FC = () => {
   const handleFieldChange = (requestId: string, field: string, value: string) => {
     // Clean phone numbers automatically
     let cleanedValue = value;
-    if (field === 'primary_phone' || field === 'phone_2' || field === 'phone_3' || field === 'phone_4') {
+    if (field === 'primary_phone' || field === 'phone2' || field === 'phone3' || field === 'phone4') {
       cleanedValue = cleanPhoneNumber(value);
     }
 
@@ -239,9 +284,9 @@ export const RtnpProjectView: React.FC = () => {
             company_name: '',
             email_address: '',
             primary_phone: '',
-            phone_2: '',
-            phone_3: '',
-            phone_4: ''
+            phone2: '',
+            phone3: '',
+            phone4: ''
           })
           .eq('id', request.id);
 
@@ -302,9 +347,9 @@ export const RtnpProjectView: React.FC = () => {
               company_name: clipboardRow.company_name,
               email_address: clipboardRow.email_address,
               primary_phone: clipboardRow.primary_phone,
-              phone_2: clipboardRow.phone_2,
-              phone_3: clipboardRow.phone_3,
-              phone_4: clipboardRow.phone_4
+              phone2: clipboardRow.phone2,
+              phone3: clipboardRow.phone3,
+              phone4: clipboardRow.phone4
             })
             .eq('id', targetRequest.id);
 
@@ -321,9 +366,9 @@ export const RtnpProjectView: React.FC = () => {
                 company_name: '',
                 email_address: '',
                 primary_phone: '',
-                phone_2: '',
-                phone_3: '',
-                phone_4: ''
+                phone2: '',
+                phone3: '',
+                phone4: ''
               })
               .eq('id', cutRowId);
             setCutRowId(null);
@@ -459,6 +504,17 @@ export const RtnpProjectView: React.FC = () => {
               <Star className="h-5 w-5 text-gray-500 hover:text-yellow-500 cursor-pointer" />
             </div>
             <div className="flex items-center space-x-2 text-sm text-gray-600">
+              {isRealtimeConnected ? (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  <Wifi className="h-3 w-3 mr-1" />
+                  Live
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Connecting...
+                </Badge>
+              )}
               <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full font-medium">
                 {pendingRequests.length} Pending
               </span>
@@ -641,8 +697,8 @@ export const RtnpProjectView: React.FC = () => {
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
                       <input
                         type="text"
-                        value={request.phone_2 || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'phone_2', e.target.value)}
+                        value={request.phone2 || ''}
+                        onChange={(e) => handleFieldChange(request.id, 'phone2', e.target.value)}
                         placeholder="Enter phone 2"
                         disabled={request.status === 'completed'}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
@@ -651,8 +707,8 @@ export const RtnpProjectView: React.FC = () => {
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
                       <input
                         type="text"
-                        value={request.phone_3 || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'phone_3', e.target.value)}
+                        value={request.phone3 || ''}
+                        onChange={(e) => handleFieldChange(request.id, 'phone3', e.target.value)}
                         placeholder="Enter phone 3"
                         disabled={request.status === 'completed'}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
@@ -661,8 +717,8 @@ export const RtnpProjectView: React.FC = () => {
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
                       <input
                         type="text"
-                        value={request.phone_4 || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'phone_4', e.target.value)}
+                        value={request.phone4 || ''}
+                        onChange={(e) => handleFieldChange(request.id, 'phone4', e.target.value)}
                         placeholder="Enter phone 4"
                         disabled={request.status === 'completed'}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"

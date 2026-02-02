@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FolderOpen, Clock } from "lucide-react";
+import { Loader2, FolderOpen, Clock, Wifi, WifiOff } from "lucide-react";
+import { toast } from "sonner";
 
 interface ProjectStats {
   project_name: string;
@@ -18,20 +19,12 @@ export const RtnpDashboard: React.FC = () => {
   const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalPending, setTotalPending] = useState(0);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   const isRtnpUser = user?.email === 'realtimenumberprovider@amplior.com' || isAdmin();
 
-  useEffect(() => {
-    if (!isRtnpUser) {
-      navigate("/dashboard");
-      return;
-    }
-
-    loadProjectStats();
-  }, [isRtnpUser, navigate]);
-
-  const loadProjectStats = async () => {
-    setIsLoading(true);
+  // Load project stats function - memoized for real-time updates
+  const loadProjectStats = useCallback(async () => {
     try {
       // Get all unique projects from users table
       const { data: usersData, error: usersError } = await supabase
@@ -49,7 +42,7 @@ export const RtnpDashboard: React.FC = () => {
       const { data: requestsData, error: requestsError } = await supabase
         .from('rtne_requests')
         .select('project_name, status, mre_requested')
-        .eq('mre_requested', true);  // Only show MRE-requested items
+        .eq('mre_requested', true);
 
       if (requestsError) throw requestsError;
 
@@ -84,10 +77,56 @@ export const RtnpDashboard: React.FC = () => {
       setTotalPending(stats.reduce((sum, s) => sum + s.pending_count, 0));
     } catch (error: any) {
       console.error("Error loading project stats:", error);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!isRtnpUser) {
+      navigate("/dashboard");
+      return;
+    }
+
+    // Initial load
+    setIsLoading(true);
+    loadProjectStats().finally(() => setIsLoading(false));
+
+    // Set up real-time subscription for rtne_requests
+    const channel = supabase
+      .channel('rtnp-dashboard-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rtne_requests',
+        },
+        (payload) => {
+          console.log('[RTNP Dashboard] Real-time update:', payload.eventType, payload);
+          
+          // Check if this is an MRE request (new or updated)
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          
+          if (payload.eventType === 'INSERT' && newRecord?.mre_requested) {
+            toast.info(`New MRE request from ${newRecord.project_name}`);
+          } else if (payload.eventType === 'UPDATE' && newRecord?.mre_requested && !oldRecord?.mre_requested) {
+            toast.info(`New MRE request from ${newRecord.project_name}`);
+          }
+          
+          // Reload stats on any change
+          loadProjectStats();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[RTNP Dashboard] Realtime status:', status);
+        setIsRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      console.log('[RTNP Dashboard] Cleaning up realtime subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [isRtnpUser, navigate, loadProjectStats]);
 
   const handleProjectClick = (projectName: string) => {
     navigate(`/rtnp/project/${encodeURIComponent(projectName)}`);
@@ -100,7 +139,22 @@ export const RtnpDashboard: React.FC = () => {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Real-Time Number Provider Dashboard</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold mb-2">Real-Time Number Provider Dashboard</h1>
+          <div className="flex items-center gap-2">
+            {isRealtimeConnected ? (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                <Wifi className="h-3 w-3 mr-1" />
+                Live
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                <WifiOff className="h-3 w-3 mr-1" />
+                Connecting...
+              </Badge>
+            )}
+          </div>
+        </div>
         <p className="text-muted-foreground">
           Showing only MRE (Mystery Request) items - requests explicitly sent by agents for number lookup
         </p>

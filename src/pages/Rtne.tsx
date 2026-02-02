@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X, RotateCcw, Send } from "lucide-react";
+import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X, RotateCcw, Send, Wifi, WifiOff } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import RowContextMenu from "@/components/RowContextMenu";
@@ -87,6 +87,7 @@ const Rtne: React.FC = () => {
   const [enrichmentSource, setEnrichmentSource] = useState<"database" | "lusha">("database");
   const [enrichmentStage, setEnrichmentStage] = useState<"searching" | "not_found" | "enriching_lusha">("searching");
   const [enrichedFromDbRows, setEnrichedFromDbRows] = useState<Set<number>>(new Set()); // Track rows enriched from database
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
@@ -254,6 +255,66 @@ const Rtne: React.FC = () => {
     link.setAttribute('rel', 'canonical');
     link.setAttribute('href', window.location.href);
     document.head.appendChild(link);
+
+    // Set up real-time subscription for updates from RTNP
+    const channel = supabase
+      .channel(`rtne-agent-${user?.id}-${projectName}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rtne_requests',
+          filter: `user_id=eq.${user?.id}`,
+        },
+        (payload) => {
+          console.log('[RTNE Agent] Real-time update:', payload);
+          const updatedRecord = payload.new as any;
+          
+          // Check if this update includes new phone numbers from RTNP
+          const hasNewPhone = updatedRecord.primary_phone || updatedRecord.phone2 || 
+                              updatedRecord.phone3 || updatedRecord.phone4;
+          
+          if (hasNewPhone) {
+            // Update local state with the new data
+            setRows(prev => prev.map(row => {
+              if (row.supabaseId === updatedRecord.id || row.id === updatedRecord.row_number) {
+                const wasEmpty = !row.prospect_number && !row.prospect_number2;
+                const updatedRow = {
+                  ...row,
+                  prospect_number: updatedRecord.primary_phone || row.prospect_number,
+                  prospect_number2: updatedRecord.phone2 || row.prospect_number2,
+                  prospect_number3: updatedRecord.phone3 || row.prospect_number3,
+                  prospect_number4: updatedRecord.phone4 || row.prospect_number4,
+                  prospect_email: updatedRecord.email_address || row.prospect_email,
+                  full_name: updatedRecord.full_name || row.full_name,
+                  company_name: updatedRecord.company_name || row.company_name,
+                  prospect_city: updatedRecord.city || row.prospect_city,
+                  prospect_designation: updatedRecord.job_title || row.prospect_designation,
+                  supabaseId: updatedRecord.id,
+                };
+                
+                // Show toast if new phone was added
+                if (wasEmpty && (updatedRecord.primary_phone || updatedRecord.phone2)) {
+                  toast.success(`📞 RTNP provided number for row ${updatedRecord.row_number}!`);
+                }
+                
+                return updatedRow;
+              }
+              return row;
+            }));
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[RTNE Agent] Realtime status:', status);
+        setIsRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      console.log('[RTNE Agent] Cleaning up realtime subscription');
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, projectName, makeEmptyRow]);
 
   // Calculate table content width and sync scroll
@@ -2252,6 +2313,18 @@ const Rtne: React.FC = () => {
               </nav>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Real-time connection indicator */}
+              {isRealtimeConnected ? (
+                <span className="flex items-center text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-200">
+                  <Wifi className="h-3 w-3 mr-1" />
+                  Live
+                </span>
+              ) : (
+                <span className="flex items-center text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full border border-yellow-200">
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Connecting...
+                </span>
+              )}
               <button
                 className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                 onClick={() => navigate("/")}
