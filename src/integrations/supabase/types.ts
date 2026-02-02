@@ -678,6 +678,9 @@ export type Database = {
           id: string
           job_title: string | null
           linkedin_url: string
+          mre_requested: boolean | null
+          mre_requested_at: string | null
+          mre_requested_by: string | null
           phone1_disposition: string | null
           phone1_disposition_at: string | null
           phone1_disposition_by: string | null
@@ -713,6 +716,9 @@ export type Database = {
           id?: string
           job_title?: string | null
           linkedin_url: string
+          mre_requested?: boolean | null
+          mre_requested_at?: string | null
+          mre_requested_by?: string | null
           phone1_disposition?: string | null
           phone1_disposition_at?: string | null
           phone1_disposition_by?: string | null
@@ -748,6 +754,9 @@ export type Database = {
           id?: string
           job_title?: string | null
           linkedin_url?: string
+          mre_requested?: boolean | null
+          mre_requested_at?: string | null
+          mre_requested_by?: string | null
           phone1_disposition?: string | null
           phone1_disposition_at?: string | null
           phone1_disposition_by?: string | null

@@ -45,10 +45,11 @@ export const RtnpDashboard: React.FC = () => {
       // Get unique project names
       const uniqueProjects = [...new Set(usersData?.map(u => u.project_name).filter(Boolean))];
 
-      // Get all requests to count pending/completed per project
+      // Get only MRE-requested items - these are the only ones RTNP should see
       const { data: requestsData, error: requestsError } = await supabase
         .from('rtne_requests')
-        .select('project_name, status');
+        .select('project_name, status, mre_requested')
+        .eq('mre_requested', true);  // Only show MRE-requested items
 
       if (requestsError) throw requestsError;
 
@@ -64,7 +65,7 @@ export const RtnpDashboard: React.FC = () => {
         });
       });
 
-      // Count requests per project
+      // Count MRE requests per project
       requestsData?.forEach(request => {
         const existing = statsMap.get(request.project_name);
         if (existing) {
@@ -101,7 +102,7 @@ export const RtnpDashboard: React.FC = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Real-Time Number Provider Dashboard</h1>
         <p className="text-muted-foreground">
-          Overview of pending LinkedIn URL requests across all projects
+          Showing only MRE (Mystery Request) items - requests explicitly sent by agents for number lookup
         </p>
       </div>
 

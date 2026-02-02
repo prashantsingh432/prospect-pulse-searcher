@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X, RotateCcw } from "lucide-react";
+import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X, RotateCcw, Send } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import RowContextMenu from "@/components/RowContextMenu";
@@ -32,6 +32,9 @@ interface RtneRow {
   phone2_disposition?: 'correct' | 'wrong' | null;
   phone3_disposition?: 'correct' | 'wrong' | null;
   phone4_disposition?: 'correct' | 'wrong' | null;
+  // MRE (Mystery Request) tracking
+  mre_requested?: boolean;
+  mre_requested_at?: string;
 }
 
 const Rtne: React.FC = () => {
@@ -148,6 +151,8 @@ const Rtne: React.FC = () => {
     phone2_disposition: null,
     phone3_disposition: null,
     phone4_disposition: null,
+    mre_requested: false,
+    mre_requested_at: undefined,
   }), []);
 
   // Load data from Supabase on mount
@@ -190,7 +195,7 @@ const Rtne: React.FC = () => {
             }
           }
 
-          // Map rtne_requests to RtneRow format - load ALL phone columns and dispositions
+          // Map rtne_requests to RtneRow format - load ALL phone columns, dispositions and MRE status
           const loadedRows: RtneRow[] = Array.from(rowMap.values()).map((request: any) => ({
             id: request.row_number,
             prospect_linkedin: request.linkedin_url || '',
@@ -209,6 +214,8 @@ const Rtne: React.FC = () => {
             phone2_disposition: request.phone2_disposition || null,
             phone3_disposition: request.phone3_disposition || null,
             phone4_disposition: request.phone4_disposition || null,
+            mre_requested: request.mre_requested || false,
+            mre_requested_at: request.mre_requested_at || undefined,
           }));
 
           // CRITICAL FIX: Create rows up to the maximum row number found in database
@@ -2021,6 +2028,82 @@ const Rtne: React.FC = () => {
     }
   };
 
+  // Ask MRE (Mystery Request) - Send row to RTNP dashboard
+  const handleAskMre = async (rowId: number) => {
+    const row = rows.find(r => r.id === rowId);
+    if (!row) return;
+
+    // Check if row has LinkedIn URL or Name+Company
+    if (!row.prospect_linkedin && !(row.full_name && row.company_name)) {
+      toast.error("Please add a LinkedIn URL or Full Name + Company first");
+      return;
+    }
+
+    try {
+      // First ensure the row is saved to Supabase
+      if (!row.supabaseId) {
+        // Need to save the row first
+        const requestData: any = {
+          project_name: projectName,
+          user_id: user?.id,
+          user_name: user?.fullName || user?.email?.split('@')[0] || 'Unknown',
+          linkedin_url: row.prospect_linkedin || null,
+          full_name: row.full_name || null,
+          company_name: row.company_name || null,
+          company_linkedin_url: row.company_linkedin_url || null,
+          city: row.prospect_city || null,
+          primary_phone: row.prospect_number || null,
+          phone2: row.prospect_number2 || null,
+          phone3: row.prospect_number3 || null,
+          phone4: row.prospect_number4 || null,
+          email_address: row.prospect_email || null,
+          job_title: row.prospect_designation || null,
+          row_number: rowId,
+          status: 'pending',
+          mre_requested: true,
+          mre_requested_at: new Date().toISOString(),
+          mre_requested_by: user?.id,
+          updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+          .from('rtne_requests')
+          .insert([requestData])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Update local state with supabaseId and mre status
+        setRows(prev => prev.map(r =>
+          r.id === rowId ? { ...r, supabaseId: data.id, mre_requested: true, mre_requested_at: new Date().toISOString() } : r
+        ));
+      } else {
+        // Update existing record
+        const { error } = await supabase
+          .from('rtne_requests')
+          .update({
+            mre_requested: true,
+            mre_requested_at: new Date().toISOString(),
+            mre_requested_by: user?.id
+          } as any)
+          .eq('id', row.supabaseId);
+
+        if (error) throw error;
+
+        // Update local state
+        setRows(prev => prev.map(r =>
+          r.id === rowId ? { ...r, mre_requested: true, mre_requested_at: new Date().toISOString() } : r
+        ));
+      }
+
+      toast.success("📤 Sent to RTNP Dashboard! The number provider will see this request.", { duration: 4000 });
+    } catch (error) {
+      console.error('Error sending MRE request:', error);
+      toast.error("Failed to send request. Please try again.");
+    }
+  };
+
   // Keyboard event listeners
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
@@ -2509,68 +2592,93 @@ const Rtne: React.FC = () => {
                             
                             {/* Add enrichment button for LinkedIn URL cell - Full enrichment for ALL fields */}
                             {field === 'prospect_linkedin' && row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin) && (
-                              enrichedFromDbRows.has(row.id) || (row.prospect_number && row.prospect_number.trim()) ? (
-                                // Show dropdown when row already has data
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <button
-                                      disabled={enrichingRows.has(row.id)}
-                                      className="flex-shrink-0 p-1 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                      title="Enrichment options"
-                                    >
-                                      {enrichingRows.has(row.id) ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                                      ) : (
-                                        <div className="flex items-center">
-                                          <Play className="h-3.5 w-3.5 text-green-600" />
-                                          <ChevronDown className="h-2.5 w-2.5 text-green-600 ml-0.5" />
-                                        </div>
-                                      )}
-                                    </button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuItem
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        enrichSingleRow(row.id);
-                                      }}
-                                      className="cursor-pointer"
-                                    >
-                                      <Play className="h-4 w-4 mr-2 text-green-600" />
-                                      Enrich (Database First)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        enrichFromLushaDirectly(row.id);
-                                      }}
-                                      className="cursor-pointer"
-                                    >
-                                      <svg className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                      </svg>
-                                      Enrich from Lusha
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              ) : (
-                                // Show simple play button for first-time enrichment
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    enrichSingleRow(row.id);
-                                  }}
-                                  disabled={enrichingRows.has(row.id)}
-                                  className="flex-shrink-0 p-1 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Full enrichment: Phone, Email, City, Job Title, Company Name, Company LinkedIn"
-                                >
-                                  {enrichingRows.has(row.id) ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-                                  ) : (
-                                    <Play className="h-3.5 w-3.5 text-green-600 hover:text-green-700" />
-                                  )}
-                                </button>
-                              )
+                              // Always show dropdown with enrichment + Ask MRE options
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    disabled={enrichingRows.has(row.id)}
+                                    className="flex-shrink-0 p-1 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Enrichment options"
+                                  >
+                                    {enrichingRows.has(row.id) ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                                    ) : row.mre_requested ? (
+                                      // Show sent indicator if MRE already requested
+                                      <div className="flex items-center">
+                                        <Send className="h-3.5 w-3.5 text-purple-600" />
+                                        <ChevronDown className="h-2.5 w-2.5 text-purple-600 ml-0.5" />
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center">
+                                        <Play className="h-3.5 w-3.5 text-green-600" />
+                                        <ChevronDown className="h-2.5 w-2.5 text-green-600 ml-0.5" />
+                                      </div>
+                                    )}
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      enrichSingleRow(row.id);
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    <Play className="h-4 w-4 mr-2 text-green-600" />
+                                    Enrich (Database First)
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      enrichFromLushaDirectly(row.id);
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    <svg className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                    </svg>
+                                    Enrich from Lusha
+                                  </DropdownMenuItem>
+                                  {/* Ask MRE - Send to RTNP Dashboard */}
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAskMre(row.id);
+                                    }}
+                                    className={`cursor-pointer ${row.mre_requested ? 'bg-purple-50' : ''}`}
+                                    disabled={row.mre_requested}
+                                  >
+                                    <Send className={`h-4 w-4 mr-2 ${row.mre_requested ? 'text-purple-500' : 'text-purple-600'}`} />
+                                    {row.mre_requested ? '✓ Sent to RTNP' : 'Ask MRE (Send to RTNP)'}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                            
+                            {/* Show Ask MRE button for rows with Name+Company but no LinkedIn */}
+                            {field === 'full_name' && row.full_name && row.company_name && !row.prospect_linkedin && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAskMre(row.id);
+                                    }}
+                                    disabled={row.mre_requested}
+                                    className={`flex-shrink-0 p-1 rounded transition-colors ${
+                                      row.mre_requested 
+                                        ? 'text-purple-500 cursor-not-allowed' 
+                                        : 'hover:bg-purple-100 text-purple-600 hover:text-purple-700'
+                                    }`}
+                                    title={row.mre_requested ? "Already sent to RTNP" : "Ask MRE - Send to RTNP Dashboard"}
+                                  >
+                                    <Send className="h-3.5 w-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p>{row.mre_requested ? '✓ Already sent to RTNP' : '📤 Ask MRE - Request number from RTNP'}</p>
+                                </TooltipContent>
+                              </Tooltip>
                             )}
                           </div>
                         </td>
