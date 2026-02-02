@@ -65,10 +65,12 @@ export const RtnpProjectView: React.FC = () => {
   const loadProjectRequests = async () => {
     setIsLoading(true);
     try {
+      // Only load MRE-requested items - these are explicitly sent to RTNP
       const { data, error } = await supabase
         .from('rtne_requests')
         .select('*')
         .eq('project_name', decodeURIComponent(projectName || ''))
+        .eq('mre_requested', true)  // Only show MRE-requested items
         .order('row_number', { ascending: true });
 
       if (error) throw error;
