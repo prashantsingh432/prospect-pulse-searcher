@@ -93,6 +93,9 @@ const Rtne: React.FC = () => {
   const [enrichedFromDbRows, setEnrichedFromDbRows] = useState<Set<number>>(new Set()); // Track rows enriched from database
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   
+  // Enrichment cancellation ref
+  const enrichmentCancelledRef = useRef(false);
+  
   // State for "Database First" warning dialog
   const [showDatabaseFirstWarning, setShowDatabaseFirstWarning] = useState(false);
   const [databaseFirstWarningRow, setDatabaseFirstWarningRow] = useState<number | null>(null);
@@ -1117,6 +1120,9 @@ const Rtne: React.FC = () => {
       return;
     }
 
+    // Reset cancellation flag
+    enrichmentCancelledRef.current = false;
+
     // Add row to enriching set and show loading modal - Start with database search
     setEnrichingRows(prev => new Set(prev).add(rowId));
     setEnrichmentLoading(true);
@@ -1131,6 +1137,12 @@ const Rtne: React.FC = () => {
       // STEP 1: Search database first (minimum 3 seconds for database stage with animation)
       console.log("🔍 Searching database...");
       const dbResult = await lookupProspectInDatabase(row.prospect_linkedin);
+      
+      // Check if cancelled
+      if (enrichmentCancelledRef.current) {
+        console.log("🛑 Enrichment cancelled by user");
+        return;
+      }
       
       // Wait minimum 3 seconds so user can see the animation cycle
       const dbElapsed = Date.now() - startTime;
@@ -1195,6 +1207,12 @@ const Rtne: React.FC = () => {
       setDatabaseSearchedRows(prev => new Set(prev).add(rowId));
       
       await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Check if cancelled after "not found" stage
+      if (enrichmentCancelledRef.current) {
+        console.log("🛑 Enrichment cancelled by user");
+        return;
+      }
 
       // STEP 3: Switch to Lusha search (minimum 3 seconds)
       console.log("🔍 Searching Lusha...");
@@ -1203,6 +1221,12 @@ const Rtne: React.FC = () => {
       
       const lushaStartTime = Date.now();
       const result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
+      
+      // Check if cancelled after Lusha search
+      if (enrichmentCancelledRef.current) {
+        console.log("🛑 Enrichment cancelled by user");
+        return;
+      }
       
       // Wait minimum 3 seconds for Lusha animation
       const lushaElapsed = Date.now() - lushaStartTime;
@@ -1281,6 +1305,15 @@ const Rtne: React.FC = () => {
       });
     }
   };
+
+  // Cancel enrichment handler
+  const handleCancelEnrichment = useCallback(() => {
+    console.log("🛑 User cancelled enrichment");
+    enrichmentCancelledRef.current = true;
+    setEnrichmentLoading(false);
+    setEnrichingRows(new Set());
+    toast.info("Enrichment cancelled");
+  }, []);
 
   // Direct Lusha enrichment - skips database lookup
   const enrichFromLushaDirectly = async (rowId: number) => {
@@ -2972,6 +3005,7 @@ const Rtne: React.FC = () => {
         isOpen={enrichmentLoading} 
         searchSource={enrichmentSource}
         stage={enrichmentStage}
+        onCancel={handleCancelEnrichment}
       />
 
       {/* Database First Warning Modal */}
