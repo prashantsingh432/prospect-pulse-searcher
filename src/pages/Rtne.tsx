@@ -11,6 +11,8 @@ import { enrichProspectByName, enrichProspect } from "@/services/lushaService";
 import { lookupProspectInDatabase } from "@/services/databaseLookupService";
 import EnrichmentLoadingModal from "@/components/EnrichmentLoadingModal";
 import { toast } from "sonner";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Database, Search } from "lucide-react";
 
 interface RtneRow {
   id: number;
@@ -35,6 +37,8 @@ interface RtneRow {
   // MRE (Mystery Request) tracking
   mre_requested?: boolean;
   mre_requested_at?: string;
+  // Track if database search has been performed for this row
+  database_searched?: boolean;
 }
 
 const Rtne: React.FC = () => {
@@ -88,6 +92,11 @@ const Rtne: React.FC = () => {
   const [enrichmentStage, setEnrichmentStage] = useState<"searching" | "not_found" | "enriching_lusha">("searching");
   const [enrichedFromDbRows, setEnrichedFromDbRows] = useState<Set<number>>(new Set()); // Track rows enriched from database
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  
+  // State for "Database First" warning dialog
+  const [showDatabaseFirstWarning, setShowDatabaseFirstWarning] = useState(false);
+  const [databaseFirstWarningRow, setDatabaseFirstWarningRow] = useState<number | null>(null);
+  const [databaseSearchedRows, setDatabaseSearchedRows] = useState<Set<number>>(new Set()); // Track rows where database was searched
 
   // Cell selection and navigation state
   const [selectedCell, setSelectedCell] = useState<{ rowId: number, field: keyof RtneRow } | null>(null);
@@ -154,6 +163,7 @@ const Rtne: React.FC = () => {
     phone4_disposition: null,
     mre_requested: false,
     mre_requested_at: undefined,
+    database_searched: false,
   }), []);
 
   // Load data from Supabase on mount
@@ -1170,6 +1180,9 @@ const Rtne: React.FC = () => {
         // Track that this row was enriched from database
         setEnrichedFromDbRows(prev => new Set(prev).add(rowId));
         
+        // Mark this row as database searched
+        setDatabaseSearchedRows(prev => new Set(prev).add(rowId));
+        
         setEnrichmentLoading(false);
         return;
       }
@@ -1177,6 +1190,10 @@ const Rtne: React.FC = () => {
       // STEP 2: Show "not found" stage (1.5 seconds)
       console.log("❌ Not found in database.");
       setEnrichmentStage("not_found");
+      
+      // Mark this row as database searched (even if not found)
+      setDatabaseSearchedRows(prev => new Set(prev).add(rowId));
+      
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // STEP 3: Switch to Lusha search (minimum 3 seconds)
@@ -1267,6 +1284,13 @@ const Rtne: React.FC = () => {
 
   // Direct Lusha enrichment - skips database lookup
   const enrichFromLushaDirectly = async (rowId: number) => {
+    // Check if database search was performed first
+    if (!databaseSearchedRows.has(rowId) && !enrichedFromDbRows.has(rowId)) {
+      setDatabaseFirstWarningRow(rowId);
+      setShowDatabaseFirstWarning(true);
+      return;
+    }
+    
     const row = rows.find(r => r.id === rowId);
     if (!row) return;
 
@@ -2091,6 +2115,13 @@ const Rtne: React.FC = () => {
 
   // Ask MRE (Mystery Request) - Send row to RTNP dashboard
   const handleAskMre = async (rowId: number) => {
+    // Check if database search was performed first
+    if (!databaseSearchedRows.has(rowId) && !enrichedFromDbRows.has(rowId)) {
+      setDatabaseFirstWarningRow(rowId);
+      setShowDatabaseFirstWarning(true);
+      return;
+    }
+    
     const row = rows.find(r => r.id === rowId);
     if (!row) return;
 
@@ -2681,6 +2712,15 @@ const Rtne: React.FC = () => {
                                         <Send className="h-3.5 w-3.5 text-purple-600" />
                                         <ChevronDown className="h-2.5 w-2.5 text-purple-600 ml-0.5" />
                                       </div>
+                                    ) : databaseSearchedRows.has(row.id) || enrichedFromDbRows.has(row.id) ? (
+                                      // Show green checkmark indicator if database was searched
+                                      <div className="flex items-center">
+                                        <div className="relative">
+                                          <Play className="h-3.5 w-3.5 text-green-600" />
+                                          <CheckCircle className="h-2 w-2 text-green-600 absolute -top-0.5 -right-0.5" />
+                                        </div>
+                                        <ChevronDown className="h-2.5 w-2.5 text-green-600 ml-0.5" />
+                                      </div>
                                     ) : (
                                       <div className="flex items-center">
                                         <Play className="h-3.5 w-3.5 text-green-600" />
@@ -2705,12 +2745,25 @@ const Rtne: React.FC = () => {
                                       e.stopPropagation();
                                       enrichFromLushaDirectly(row.id);
                                     }}
-                                    className="cursor-pointer"
+                                    className={`cursor-pointer ${
+                                      !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id)
+                                        ? 'opacity-70'
+                                        : ''
+                                    }`}
                                   >
-                                    <svg className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                    </svg>
-                                    Enrich from Lusha
+                                    {!databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) ? (
+                                      <Lock className="h-4 w-4 mr-2 text-gray-400" />
+                                    ) : (
+                                      <svg className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                      </svg>
+                                    )}
+                                    <span className={!databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) ? 'text-gray-500' : ''}>
+                                      Enrich from Lusha
+                                    </span>
+                                    {!databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) && (
+                                      <span className="ml-auto text-xs text-amber-500 font-medium">DB first!</span>
+                                    )}
                                   </DropdownMenuItem>
                                   {/* Ask MRE - Send to RTNP Dashboard */}
                                   <DropdownMenuItem
@@ -2718,11 +2771,24 @@ const Rtne: React.FC = () => {
                                       e.stopPropagation();
                                       handleAskMre(row.id);
                                     }}
-                                    className={`cursor-pointer ${row.mre_requested ? 'bg-purple-50' : ''}`}
+                                    className={`cursor-pointer ${row.mre_requested ? 'bg-purple-50' : ''} ${
+                                      !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) && !row.mre_requested
+                                        ? 'opacity-70'
+                                        : ''
+                                    }`}
                                     disabled={row.mre_requested}
                                   >
-                                    <Send className={`h-4 w-4 mr-2 ${row.mre_requested ? 'text-purple-500' : 'text-purple-600'}`} />
-                                    {row.mre_requested ? '✓ Sent to RTNP' : 'Ask MRE (Send to RTNP)'}
+                                    {!databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) && !row.mre_requested ? (
+                                      <Lock className="h-4 w-4 mr-2 text-gray-400" />
+                                    ) : (
+                                      <Send className={`h-4 w-4 mr-2 ${row.mre_requested ? 'text-purple-500' : 'text-purple-600'}`} />
+                                    )}
+                                    <span className={!databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) && !row.mre_requested ? 'text-gray-500' : ''}>
+                                      {row.mre_requested ? '✓ Sent to RTNP' : 'Ask MRE (Send to RTNP)'}
+                                    </span>
+                                    {!databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) && !row.mre_requested && (
+                                      <span className="ml-auto text-xs text-amber-500 font-medium">DB first!</span>
+                                    )}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -2907,6 +2973,75 @@ const Rtne: React.FC = () => {
         searchSource={enrichmentSource}
         stage={enrichmentStage}
       />
+
+      {/* Database First Warning Modal */}
+      <AlertDialog open={showDatabaseFirstWarning} onOpenChange={setShowDatabaseFirstWarning}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-3 text-amber-600">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center animate-pulse">
+                <Database className="w-6 h-6 text-amber-600" />
+              </div>
+              <span>Search Database First!</span>
+            </AlertDialogTitle>
+            <AlertDialogDescription className="pt-4 space-y-4">
+              <div className="text-base text-gray-700">
+                Please search the <span className="font-semibold text-green-600">Database</span> first before using other enrichment options.
+              </div>
+              
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Search className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-green-800">Why Database First?</p>
+                    <ul className="mt-2 text-sm text-green-700 space-y-1">
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                        Saves Lusha API credits
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                        Data already verified in our system
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                        Faster response time
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={() => {
+                    setShowDatabaseFirstWarning(false);
+                    setDatabaseFirstWarningRow(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDatabaseFirstWarning(false);
+                    if (databaseFirstWarningRow !== null) {
+                      enrichSingleRow(databaseFirstWarningRow);
+                    }
+                    setDatabaseFirstWarningRow(null);
+                  }}
+                  className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-sm hover:shadow flex items-center gap-2"
+                >
+                  <Database className="w-4 h-4" />
+                  Search Database Now
+                </button>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
