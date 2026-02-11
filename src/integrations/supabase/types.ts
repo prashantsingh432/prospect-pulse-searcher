@@ -941,7 +941,7 @@ export type Database = {
             foreignKeyName: "sim_master_assigned_agent_id_fkey"
             columns: ["assigned_agent_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "sim_agents"
             referencedColumns: ["id"]
           },
         ]
