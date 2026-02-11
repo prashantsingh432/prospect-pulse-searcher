@@ -782,6 +782,222 @@ export type Database = {
         }
         Relationships: []
       }
+      sim_agents: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          project: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          project?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          project?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sim_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          performed_by: string | null
+          sim_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+          sim_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+          sim_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sim_audit_log_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sim_audit_log_sim_id_fkey"
+            columns: ["sim_id"]
+            isOneToOne: false
+            referencedRelation: "sim_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sim_deactivation_history: {
+        Row: {
+          created_at: string
+          deactivated_by: string | null
+          deactivated_date: string
+          id: string
+          reactivated_date: string | null
+          reason: string | null
+          sim_id: string
+        }
+        Insert: {
+          created_at?: string
+          deactivated_by?: string | null
+          deactivated_date?: string
+          id?: string
+          reactivated_date?: string | null
+          reason?: string | null
+          sim_id: string
+        }
+        Update: {
+          created_at?: string
+          deactivated_by?: string | null
+          deactivated_date?: string
+          id?: string
+          reactivated_date?: string | null
+          reason?: string | null
+          sim_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sim_deactivation_history_deactivated_by_fkey"
+            columns: ["deactivated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sim_deactivation_history_sim_id_fkey"
+            columns: ["sim_id"]
+            isOneToOne: false
+            referencedRelation: "sim_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sim_master: {
+        Row: {
+          assigned_agent_id: string | null
+          created_at: string
+          current_status: Database["public"]["Enums"]["sim_status"]
+          id: string
+          last_spam_date: string | null
+          operator: Database["public"]["Enums"]["sim_operator"]
+          project_name: string | null
+          risk_level: Database["public"]["Enums"]["sim_risk_level"]
+          sim_number: string
+          spam_count: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_agent_id?: string | null
+          created_at?: string
+          current_status?: Database["public"]["Enums"]["sim_status"]
+          id?: string
+          last_spam_date?: string | null
+          operator: Database["public"]["Enums"]["sim_operator"]
+          project_name?: string | null
+          risk_level?: Database["public"]["Enums"]["sim_risk_level"]
+          sim_number: string
+          spam_count?: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_agent_id?: string | null
+          created_at?: string
+          current_status?: Database["public"]["Enums"]["sim_status"]
+          id?: string
+          last_spam_date?: string | null
+          operator?: Database["public"]["Enums"]["sim_operator"]
+          project_name?: string | null
+          risk_level?: Database["public"]["Enums"]["sim_risk_level"]
+          sim_number?: string
+          spam_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sim_master_assigned_agent_id_fkey"
+            columns: ["assigned_agent_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sim_spam_history: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          id: string
+          marked_by: string | null
+          remarks: string | null
+          sim_id: string
+          spam_date: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          marked_by?: string | null
+          remarks?: string | null
+          sim_id: string
+          spam_date?: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          marked_by?: string | null
+          remarks?: string | null
+          sim_id?: string
+          spam_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sim_spam_history_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "sim_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sim_spam_history_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sim_spam_history_sim_id_fkey"
+            columns: ["sim_id"]
+            isOneToOne: false
+            referencedRelation: "sim_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           created_at: string | null
@@ -889,6 +1105,9 @@ export type Database = {
         | "using_our_services"
         | "already_in_touch_with_team"
         | "person_irrelevant"
+      sim_operator: "Airtel" | "Jio"
+      sim_risk_level: "Normal" | "Warning" | "High Risk"
+      sim_status: "Active" | "Spam" | "Deactivated" | "Inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1046,6 +1265,9 @@ export const Constants = {
         "already_in_touch_with_team",
         "person_irrelevant",
       ],
+      sim_operator: ["Airtel", "Jio"],
+      sim_risk_level: ["Normal", "Warning", "High Risk"],
+      sim_status: ["Active", "Spam", "Deactivated", "Inactive"],
     },
   },
 } as const
