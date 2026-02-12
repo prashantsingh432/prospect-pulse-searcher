@@ -195,8 +195,8 @@ export const SimTable: React.FC<SimTableProps> = ({
                     </TableCell>
                     <TableCell><Badge variant="outline">{sim.operator}</Badge></TableCell>
                     <TableCell><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[sim.current_status] || ""}`}>{sim.current_status}</span></TableCell>
-                    <TableCell>{sim.current_status === "Deactivated" ? "—" : (sim.agent_name || "—")}</TableCell>
-                    <TableCell>{sim.current_status === "Deactivated" ? "—" : (sim.project_name || "—")}</TableCell>
+                    <TableCell>{(sim.current_status === "Deactivated" || sim.current_status === "Inactive") ? "—" : (sim.agent_name || "—")}</TableCell>
+                    <TableCell>{(sim.current_status === "Deactivated" || sim.current_status === "Inactive") ? "—" : (sim.project_name || "—")}</TableCell>
                     <TableCell>
                       <span className={sim.spam_count > 0 ? "text-amber-600 font-semibold" : ""}>{sim.spam_count}</span>
                       {hasSpamHistory && (
