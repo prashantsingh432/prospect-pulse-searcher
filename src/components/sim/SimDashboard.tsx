@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Smartphone, AlertTriangle, XCircle, Activity, Shield } from "lucide-react";
+import { Smartphone, AlertTriangle, XCircle, Activity, Shield, Ban } from "lucide-react";
 
 interface SimDashboardProps {
   stats: {
@@ -8,6 +8,7 @@ interface SimDashboardProps {
     active: number;
     spam: number;
     deactivated: number;
+    inactive: number;
     highRisk: number;
   };
 }
@@ -18,11 +19,12 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats }) => {
     { label: "Active", value: stats.active, icon: Activity, color: "text-green-600", bg: "bg-green-50" },
     { label: "Spam", value: stats.spam, icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50" },
     { label: "Deactivated", value: stats.deactivated, icon: XCircle, color: "text-red-600", bg: "bg-red-50" },
+    { label: "Not in Used", value: stats.inactive, icon: Ban, color: "text-gray-600", bg: "bg-gray-50" },
     { label: "High Risk", value: stats.highRisk, icon: Shield, color: "text-purple-600", bg: "bg-purple-50" },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
       {cards.map((c) => (
         <Card key={c.label} className="border-none shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">

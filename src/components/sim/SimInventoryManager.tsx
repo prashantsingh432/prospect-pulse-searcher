@@ -121,6 +121,7 @@ export const SimInventoryManager: React.FC = () => {
     active: sims.filter((s) => s.current_status === "Active").length,
     spam: sims.filter((s) => s.current_status === "Spam").length,
     deactivated: sims.filter((s) => s.current_status === "Deactivated").length,
+    inactive: sims.filter((s) => s.current_status === "Inactive").length,
     highRisk: sims.filter((s) => s.risk_level === "High Risk").length,
   };
 
