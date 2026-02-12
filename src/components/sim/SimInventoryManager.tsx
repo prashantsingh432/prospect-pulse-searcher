@@ -273,6 +273,7 @@ export const SimInventoryManager: React.FC = () => {
           <SimTable
             sims={sims}
             agents={agents}
+            spamHistory={spamHistory}
             onAddSim={addSim}
             onAssignAgent={assignAgent}
             onMarkSpam={markSpam}
