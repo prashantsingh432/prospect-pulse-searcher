@@ -7,12 +7,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus } from "lucide-react";
-import { SimRecord, SimAgent } from "./SimInventoryManager";
+import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History } from "lucide-react";
+import { SimRecord, SimAgent, SpamHistoryRecord } from "./SimInventoryManager";
+import { format } from "date-fns";
 
 interface SimTableProps {
   sims: SimRecord[];
   agents: SimAgent[];
+  spamHistory: SpamHistoryRecord[];
   onAddSim: (simNumber: string, operator: string, agentId?: string, projectName?: string) => Promise<boolean>;
   onAssignAgent: (simId: string, agentId: string, projectName?: string) => void;
   onMarkSpam: (simId: string, remarks?: string) => void;
@@ -35,9 +37,10 @@ const riskColors: Record<string, string> = {
 };
 
 export const SimTable: React.FC<SimTableProps> = ({
-  sims, agents, onAddSim, onAssignAgent, onMarkSpam, onReactivate, onDeactivate, onRefresh,
+  sims, agents, spamHistory, onAddSim, onAssignAgent, onMarkSpam, onReactivate, onDeactivate, onRefresh,
 }) => {
   const [search, setSearch] = useState("");
+  const [expandedSimId, setExpandedSimId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterOperator, setFilterOperator] = useState<string>("all");
   // Add SIM dialog
@@ -171,44 +174,103 @@ export const SimTable: React.FC<SimTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((sim) => (
-              <TableRow key={sim.id}>
-                <TableCell className="font-mono font-medium">{sim.sim_number}</TableCell>
-                <TableCell><Badge variant="outline">{sim.operator}</Badge></TableCell>
-                <TableCell><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[sim.current_status] || ""}`}>{sim.current_status}</span></TableCell>
-                <TableCell>{sim.agent_name || "—"}</TableCell>
-                <TableCell>{sim.project_name || "—"}</TableCell>
-                <TableCell>
-                  <span className={sim.spam_count > 0 ? "text-amber-600 font-semibold" : ""}>{sim.spam_count}</span>
-                </TableCell>
-                <TableCell><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${riskColors[sim.risk_level] || ""}`}>{sim.risk_level}</span></TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setAssignSimId(sim.id); setAssignOpen(true); }} disabled={sim.current_status === "Deactivated"}>
-                        <UserPlus className="h-4 w-4 mr-2" />Assign Agent
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSpamSimId(sim.id); setSpamOpen(true); }} className="text-amber-600">
-                        <AlertTriangle className="h-4 w-4 mr-2" />Mark Spam
-                      </DropdownMenuItem>
-                      {(sim.current_status === "Spam" || sim.current_status === "Deactivated") && (
-                        <DropdownMenuItem onClick={() => onReactivate(sim.id)} className="text-green-600">
-                          <RotateCcw className="h-4 w-4 mr-2" />Reactivate
-                        </DropdownMenuItem>
+            {filtered.map((sim) => {
+              const simSpamEvents = spamHistory.filter((h) => h.sim_id === sim.id);
+              const isExpanded = expandedSimId === sim.id;
+              const hasSpamHistory = simSpamEvents.length > 0;
+
+              return (
+                <React.Fragment key={sim.id}>
+                  <TableRow 
+                    className={hasSpamHistory ? "cursor-pointer hover:bg-muted/30" : ""}
+                    onClick={() => hasSpamHistory && setExpandedSimId(isExpanded ? null : sim.id)}
+                  >
+                    <TableCell className="font-mono font-medium">
+                      <div className="flex items-center gap-2">
+                        {hasSpamHistory && (
+                          isExpanded ? <ChevronDown className="h-4 w-4 text-amber-500" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        {sim.sim_number}
+                      </div>
+                    </TableCell>
+                    <TableCell><Badge variant="outline">{sim.operator}</Badge></TableCell>
+                    <TableCell><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[sim.current_status] || ""}`}>{sim.current_status}</span></TableCell>
+                    <TableCell>{sim.agent_name || "—"}</TableCell>
+                    <TableCell>{sim.project_name || "—"}</TableCell>
+                    <TableCell>
+                      <span className={sim.spam_count > 0 ? "text-amber-600 font-semibold" : ""}>{sim.spam_count}</span>
+                      {hasSpamHistory && (
+                        <History className="inline h-3.5 w-3.5 ml-1.5 text-muted-foreground" />
                       )}
-                      {sim.current_status !== "Deactivated" && (
-                        <DropdownMenuItem onClick={() => { setDeactSimId(sim.id); setDeactOpen(true); }} className="text-red-600">
-                          <Ban className="h-4 w-4 mr-2" />Deactivate
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+                    </TableCell>
+                    <TableCell><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${riskColors[sim.risk_level] || ""}`}>{sim.risk_level}</span></TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { setAssignSimId(sim.id); setAssignOpen(true); }} disabled={sim.current_status === "Deactivated"}>
+                            <UserPlus className="h-4 w-4 mr-2" />Assign Agent
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSpamSimId(sim.id); setSpamOpen(true); }} className="text-amber-600">
+                            <AlertTriangle className="h-4 w-4 mr-2" />Mark Spam
+                          </DropdownMenuItem>
+                          {(sim.current_status === "Spam" || sim.current_status === "Deactivated") && (
+                            <DropdownMenuItem onClick={() => onReactivate(sim.id)} className="text-green-600">
+                              <RotateCcw className="h-4 w-4 mr-2" />Reactivate
+                            </DropdownMenuItem>
+                          )}
+                          {sim.current_status !== "Deactivated" && (
+                            <DropdownMenuItem onClick={() => { setDeactSimId(sim.id); setDeactOpen(true); }} className="text-red-600">
+                              <Ban className="h-4 w-4 mr-2" />Deactivate
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Inline Spam History */}
+                  {isExpanded && (
+                    <TableRow className="bg-amber-50/50">
+                      <TableCell colSpan={8} className="p-0">
+                        <div className="px-6 py-3 border-l-4 border-amber-400">
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                            <span className="text-sm font-semibold text-amber-700">Spam History ({simSpamEvents.length} events)</span>
+                          </div>
+                          <div className="rounded border border-amber-200 overflow-hidden">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-amber-100/60 text-amber-800">
+                                  <th className="text-left px-3 py-1.5 font-medium">#</th>
+                                  <th className="text-left px-3 py-1.5 font-medium">Date</th>
+                                  <th className="text-left px-3 py-1.5 font-medium">Agent</th>
+                                  <th className="text-left px-3 py-1.5 font-medium">Remarks</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {simSpamEvents
+                                  .sort((a, b) => new Date(a.spam_date).getTime() - new Date(b.spam_date).getTime())
+                                  .map((event, idx) => (
+                                  <tr key={event.id} className="border-t border-amber-200/60">
+                                    <td className="px-3 py-1.5 text-amber-600 font-medium">{idx + 1}</td>
+                                    <td className="px-3 py-1.5">{format(new Date(event.spam_date), "dd MMM yyyy")}</td>
+                                    <td className="px-3 py-1.5">{event.agent_name || "—"}</td>
+                                    <td className="px-3 py-1.5 text-muted-foreground">{event.remarks || "—"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              );
+            })}
             {filtered.length === 0 && (
               <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No SIM cards found</TableCell></TableRow>
             )}
