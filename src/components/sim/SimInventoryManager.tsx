@@ -6,8 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SimDashboard } from "./SimDashboard";
 import { SimTable } from "./SimTable";
 import { SimAgentManager } from "./SimAgentManager";
-import { SimSpamHistory } from "./SimSpamHistory";
-import { LayoutDashboard, Smartphone, Users, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Smartphone, Users } from "lucide-react";
 
 // Types
 export interface SimRecord {
@@ -250,7 +249,7 @@ export const SimInventoryManager: React.FC = () => {
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />Dashboard
           </TabsTrigger>
@@ -259,9 +258,6 @@ export const SimInventoryManager: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="agents" className="flex items-center gap-2">
             <Users className="h-4 w-4" />Agents
-          </TabsTrigger>
-          <TabsTrigger value="spam" className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />Spam History
           </TabsTrigger>
         </TabsList>
 
@@ -287,9 +283,6 @@ export const SimInventoryManager: React.FC = () => {
           <SimAgentManager agents={agents} onRefresh={fetchAll} />
         </TabsContent>
 
-        <TabsContent value="spam" className="mt-6">
-          <SimSpamHistory history={spamHistory} />
-        </TabsContent>
       </Tabs>
     </div>
   );
