@@ -64,7 +64,7 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
       case "spam": return sims.filter(s => s.current_status === "Spam");
       case "deactivated": return sims.filter(s => s.current_status === "Deactivated");
       case "inactive": return sims.filter(s => s.current_status === "Inactive");
-      case "highRisk": return sims.filter(s => s.risk_level === "High Risk");
+      case "highRisk": return sims.filter(s => s.spam_count >= 3);
       default: return [];
     }
   };
