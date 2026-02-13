@@ -117,7 +117,7 @@ export const SimInventoryManager: React.FC = () => {
   useEffect(() => { fetchAll(true); }, [fetchAll]);
 
   const stats = {
-    total: sims.length,
+    total: sims.filter((s) => s.current_status !== "Deactivated").length,
     active: sims.filter((s) => s.current_status === "Active").length,
     spam: sims.filter((s) => s.current_status === "Spam").length,
     deactivated: sims.filter((s) => s.current_status === "Deactivated").length,

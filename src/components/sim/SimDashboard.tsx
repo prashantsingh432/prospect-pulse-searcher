@@ -45,7 +45,7 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
   const [activeFilter, setActiveFilter] = useState<FilterType>(null);
 
   const cards: { label: string; value: number; icon: any; color: string; bg: string; filter: FilterType }[] = [
-    { label: "Total SIMs", value: stats.total, icon: Smartphone, color: "text-blue-600", bg: "bg-blue-50", filter: "total" },
+    { label: "Total Active SIMs", value: stats.total, icon: Smartphone, color: "text-blue-600", bg: "bg-blue-50", filter: "total" },
     { label: "Active", value: stats.active, icon: Activity, color: "text-green-600", bg: "bg-green-50", filter: "active" },
     { label: "Spam", value: stats.spam, icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50", filter: "spam" },
     { label: "Deactivated", value: stats.deactivated, icon: XCircle, color: "text-red-600", bg: "bg-red-50", filter: "deactivated" },
@@ -59,7 +59,7 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
 
   const getFilteredSims = (): SimRecord[] => {
     switch (activeFilter) {
-      case "total": return sims;
+      case "total": return sims.filter(s => s.current_status !== "Deactivated");
       case "active": return sims.filter(s => s.current_status === "Active");
       case "spam": return sims.filter(s => s.current_status === "Spam");
       case "deactivated": return sims.filter(s => s.current_status === "Deactivated");
