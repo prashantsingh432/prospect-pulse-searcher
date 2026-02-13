@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History } from "lucide-react";
-import { SimRecord, SimAgent, SpamHistoryRecord } from "./SimInventoryManager";
+import { SimRecord, SimAgent, SpamHistoryRecord, detectOperator, cleanSimNumber } from "./SimInventoryManager";
 import { format } from "date-fns";
 
 interface SimTableProps {
@@ -74,9 +74,12 @@ export const SimTable: React.FC<SimTableProps> = ({
   }, [sims, search, filterStatus, filterOperator]);
 
   const handleAdd = async () => {
-    if (!newSim.trim() || !newOperator) { return; }
+    if (!newSim.trim()) { return; }
+    const autoOp = detectOperator(newSim);
+    const operator = newOperator || autoOp;
+    if (!operator) { return; } // need operator
     setAddLoading(true);
-    const ok = await onAddSim(newSim, newOperator, newAgent || undefined, newProject || undefined);
+    const ok = await onAddSim(newSim, operator, newAgent || undefined, newProject || undefined);
     if (ok) { setNewSim(""); setNewOperator(""); setNewAgent(""); setNewProject(""); setAddOpen(false); }
     setAddLoading(false);
   };
@@ -121,11 +124,15 @@ export const SimTable: React.FC<SimTableProps> = ({
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium">SIM Number *</label>
-                <Input placeholder="e.g. +919520650678 or 9520650678" value={newSim} onChange={(e) => setNewSim(e.target.value)} />
-                <p className="text-xs text-muted-foreground mt-1">Auto-formats to +91XXXXXXXXXX</p>
+                <Input placeholder="e.g. 9520650678" value={newSim} onChange={(e) => {
+                  setNewSim(e.target.value);
+                  const auto = detectOperator(e.target.value);
+                  if (auto) setNewOperator(auto);
+                }} />
+                <p className="text-xs text-muted-foreground mt-1">10-digit number. Operator auto-detected (92=Jio, 95=Airtel)</p>
               </div>
               <div>
-                <label className="text-sm font-medium">Operator *</label>
+                <label className="text-sm font-medium">Operator {detectOperator(newSim) ? "(auto-detected)" : "*"}</label>
                 <Select value={newOperator} onValueChange={setNewOperator}>
                   <SelectTrigger><SelectValue placeholder="Select operator" /></SelectTrigger>
                   <SelectContent>
@@ -150,7 +157,7 @@ export const SimTable: React.FC<SimTableProps> = ({
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleAdd} disabled={addLoading || !newSim.trim() || !newOperator}>
+              <Button onClick={handleAdd} disabled={addLoading || !newSim.trim() || (!newOperator && !detectOperator(newSim))}>
                 {addLoading ? "Adding..." : "Add SIM"}
               </Button>
             </DialogFooter>
