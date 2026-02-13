@@ -71,9 +71,9 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
 
   const filteredSims = getFilteredSims();
 
-  // For spam view, build a map of last spam info per sim
+  // For spam/highRisk view, build a map of last spam info per sim
   const spamInfoMap = new Map<string, { date: string; agent: string }>();
-  if (activeFilter === "spam") {
+  if (activeFilter === "spam" || activeFilter === "highRisk") {
     spamHistory.forEach(h => {
       if (!spamInfoMap.has(h.sim_id)) {
         spamInfoMap.set(h.sim_id, { date: h.spam_date, agent: h.agent_name || "—" });
@@ -144,7 +144,11 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
                       <TableHead className="sticky top-0 bg-background">Project</TableHead>
                     )}
                     {activeFilter === "highRisk" && (
-                      <TableHead className="sticky top-0 bg-background">Spam Count</TableHead>
+                      <>
+                        <TableHead className="sticky top-0 bg-background">Spam Count</TableHead>
+                        <TableHead className="sticky top-0 bg-background">Last Spam Date</TableHead>
+                        <TableHead className="sticky top-0 bg-background">Spam By</TableHead>
+                      </>
                     )}
                   </TableRow>
                 </TableHeader>
@@ -172,7 +176,11 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
                           <TableCell>{sim.project_name || "—"}</TableCell>
                         )}
                         {activeFilter === "highRisk" && (
-                          <TableCell><Badge variant="destructive">{sim.spam_count}</Badge></TableCell>
+                          <>
+                            <TableCell><Badge variant="destructive">{sim.spam_count}</Badge></TableCell>
+                            <TableCell>{spamInfoMap.get(sim.id)?.date ? new Date(spamInfoMap.get(sim.id)!.date).toLocaleDateString() : sim.last_spam_date ? new Date(sim.last_spam_date).toLocaleDateString() : "—"}</TableCell>
+                            <TableCell>{spamInfoMap.get(sim.id)?.agent || "—"}</TableCell>
+                          </>
                         )}
                       </TableRow>
                     );
