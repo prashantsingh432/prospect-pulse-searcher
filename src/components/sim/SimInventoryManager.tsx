@@ -173,16 +173,24 @@ export const SimInventoryManager: React.FC = () => {
   const markSpam = async (simId: string, remarks?: string) => {
     const sim = sims.find((s) => s.id === simId);
     if (!sim) return;
-    const newCount = sim.spam_count + 1;
-    const newRisk = calculateRiskLevel(newCount);
 
-    // Create spam history entry
-    await supabase.from("sim_spam_history" as any).insert({
+    // Insert spam history (unique constraint prevents same sim+date duplicates)
+    const { error: histError } = await supabase.from("sim_spam_history" as any).upsert({
       sim_id: simId,
       agent_id: sim.assigned_agent_id,
+      spam_date: new Date().toISOString().split("T")[0],
       remarks: remarks || null,
       marked_by: user?.id,
-    } as any);
+    } as any, { onConflict: "sim_id,spam_date" });
+
+    if (histError) {
+      console.error("Spam history insert error:", histError);
+    }
+
+    // Count actual distinct spam dates for this SIM
+    const { count } = await supabase.from("sim_spam_history" as any).select("*", { count: "exact", head: true }).eq("sim_id", simId);
+    const newCount = count || sim.spam_count + 1;
+    const newRisk = calculateRiskLevel(newCount);
 
     // Update SIM
     const { error } = await supabase.from("sim_master" as any).update({
