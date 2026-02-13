@@ -263,7 +263,7 @@ export const SimInventoryManager: React.FC = () => {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-6">
-          <SimDashboard stats={stats} />
+          <SimDashboard stats={stats} sims={sims} spamHistory={spamHistory} />
         </TabsContent>
 
         <TabsContent value="sims" className="mt-6">
