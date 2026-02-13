@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Smartphone, AlertTriangle, XCircle, Activity, Shield, Ban } from "lucide-react";
+import { Smartphone, AlertTriangle, XCircle, Activity, Shield, Ban, ChevronDown, ChevronRight } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 
 interface SimRecord {
   id: string;
@@ -43,6 +44,7 @@ type FilterType = "total" | "active" | "spam" | "deactivated" | "inactive" | "hi
 
 export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], spamHistory = [] }) => {
   const [activeFilter, setActiveFilter] = useState<FilterType>(null);
+  const [expandedSimId, setExpandedSimId] = useState<string | null>(null);
 
   const cards: { label: string; value: number; icon: any; color: string; bg: string; filter: FilterType }[] = [
     { label: "Total Active SIMs", value: stats.total, icon: Smartphone, color: "text-blue-600", bg: "bg-blue-50", filter: "total" },
@@ -148,6 +150,7 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
                         <TableHead className="sticky top-0 bg-background">Spam Count</TableHead>
                         <TableHead className="sticky top-0 bg-background">Last Spam Date</TableHead>
                         <TableHead className="sticky top-0 bg-background">Spam By</TableHead>
+                        <TableHead className="sticky top-0 bg-background">History</TableHead>
                       </>
                     )}
                   </TableRow>
@@ -155,34 +158,85 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
                 <TableBody>
                   {filteredSims.map((sim, idx) => {
                     const spamInfo = spamInfoMap.get(sim.id);
+                    const simSpamEvents = activeFilter === "highRisk" ? spamHistory.filter(h => h.sim_id === sim.id) : [];
+                    const isExpanded = expandedSimId === sim.id;
+                    const colSpan = activeFilter === "highRisk" ? 8 : activeFilter === "total" ? 5 : activeFilter === "active" ? 5 : activeFilter === "spam" ? 5 : 3;
                     return (
-                      <TableRow key={sim.id}>
-                        <TableCell className="font-medium">{idx + 1}</TableCell>
-                        <TableCell className="font-mono text-sm">{sim.sim_number}</TableCell>
-                        <TableCell>{sim.operator}</TableCell>
-                        {(activeFilter === "total" || activeFilter === "active" || activeFilter === "highRisk") && (
-                          <TableCell>{sim.agent_name || "—"}</TableCell>
+                      <React.Fragment key={sim.id}>
+                        <TableRow
+                          className={activeFilter === "highRisk" && simSpamEvents.length > 0 ? "cursor-pointer hover:bg-muted/30" : ""}
+                          onClick={() => activeFilter === "highRisk" && simSpamEvents.length > 0 && setExpandedSimId(isExpanded ? null : sim.id)}
+                        >
+                          <TableCell className="font-medium">{idx + 1}</TableCell>
+                          <TableCell className="font-mono text-sm">{sim.sim_number}</TableCell>
+                          <TableCell>{sim.operator}</TableCell>
+                          {(activeFilter === "total" || activeFilter === "active" || activeFilter === "highRisk") && (
+                            <TableCell>{sim.agent_name || "—"}</TableCell>
+                          )}
+                          {(activeFilter === "total" || activeFilter === "highRisk") && (
+                            <TableCell>{statusBadge(sim.current_status)}</TableCell>
+                          )}
+                          {activeFilter === "spam" && (
+                            <>
+                              <TableCell>{spamInfo?.date ? new Date(spamInfo.date).toLocaleDateString() : sim.last_spam_date ? new Date(sim.last_spam_date).toLocaleDateString() : "—"}</TableCell>
+                              <TableCell>{spamInfo?.agent || "—"}</TableCell>
+                            </>
+                          )}
+                          {activeFilter === "active" && (
+                            <TableCell>{sim.project_name || "—"}</TableCell>
+                          )}
+                          {activeFilter === "highRisk" && (
+                            <>
+                              <TableCell><Badge variant="destructive">{sim.spam_count}</Badge></TableCell>
+                              <TableCell>{spamInfoMap.get(sim.id)?.date ? new Date(spamInfoMap.get(sim.id)!.date).toLocaleDateString() : sim.last_spam_date ? new Date(sim.last_spam_date).toLocaleDateString() : "—"}</TableCell>
+                              <TableCell>{spamInfoMap.get(sim.id)?.agent || "—"}</TableCell>
+                              <TableCell>
+                                {simSpamEvents.length > 0 && (
+                                  isExpanded ? <ChevronDown className="h-4 w-4 text-amber-500" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </TableCell>
+                            </>
+                          )}
+                        </TableRow>
+
+                        {/* Inline Spam History for High Risk */}
+                        {activeFilter === "highRisk" && isExpanded && simSpamEvents.length > 0 && (
+                          <TableRow className="bg-amber-50/50">
+                            <TableCell colSpan={colSpan} className="p-0">
+                              <div className="px-6 py-3 border-l-4 border-amber-400">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                  <span className="text-sm font-semibold text-amber-700">Spam History ({simSpamEvents.length} events)</span>
+                                </div>
+                                <div className="rounded border border-amber-200 overflow-hidden">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="bg-amber-100/60 text-amber-800">
+                                        <th className="text-left px-3 py-1.5 font-medium">#</th>
+                                        <th className="text-left px-3 py-1.5 font-medium">Date</th>
+                                        <th className="text-left px-3 py-1.5 font-medium">Agent</th>
+                                        <th className="text-left px-3 py-1.5 font-medium">Remarks</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {simSpamEvents
+                                        .sort((a, b) => new Date(a.spam_date).getTime() - new Date(b.spam_date).getTime())
+                                        .map((event, i) => (
+                                        <tr key={event.id} className="border-t border-amber-200/60">
+                                          <td className="px-3 py-1.5 text-amber-600 font-medium">{i + 1}</td>
+                                          <td className="px-3 py-1.5">{format(new Date(event.spam_date), "dd MMM yyyy")}</td>
+                                          <td className="px-3 py-1.5">{event.agent_name || "—"}</td>
+                                          <td className="px-3 py-1.5 text-muted-foreground">{event.remarks || "—"}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
                         )}
-                        {(activeFilter === "total" || activeFilter === "highRisk") && (
-                          <TableCell>{statusBadge(sim.current_status)}</TableCell>
-                        )}
-                        {activeFilter === "spam" && (
-                          <>
-                            <TableCell>{spamInfo?.date ? new Date(spamInfo.date).toLocaleDateString() : sim.last_spam_date ? new Date(sim.last_spam_date).toLocaleDateString() : "—"}</TableCell>
-                            <TableCell>{spamInfo?.agent || "—"}</TableCell>
-                          </>
-                        )}
-                        {activeFilter === "active" && (
-                          <TableCell>{sim.project_name || "—"}</TableCell>
-                        )}
-                        {activeFilter === "highRisk" && (
-                          <>
-                            <TableCell><Badge variant="destructive">{sim.spam_count}</Badge></TableCell>
-                            <TableCell>{spamInfoMap.get(sim.id)?.date ? new Date(spamInfoMap.get(sim.id)!.date).toLocaleDateString() : sim.last_spam_date ? new Date(sim.last_spam_date).toLocaleDateString() : "—"}</TableCell>
-                            <TableCell>{spamInfoMap.get(sim.id)?.agent || "—"}</TableCell>
-                          </>
-                        )}
-                      </TableRow>
+                      </React.Fragment>
                     );
                   })}
                 </TableBody>
