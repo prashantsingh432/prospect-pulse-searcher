@@ -79,8 +79,8 @@ export const SimInventoryManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async (showLoader = false) => {
+    if (showLoader) setLoading(true);
     try {
       const [simRes, agentRes, spamRes] = await Promise.all([
         supabase.from("sim_master" as any).select("*").order("created_at", { ascending: false }),
@@ -111,10 +111,10 @@ export const SimInventoryManager: React.FC = () => {
       console.error("Error fetching SIM data:", err);
       toast.error("Failed to load SIM data");
     }
-    setLoading(false);
+    if (showLoader) setLoading(false);
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchAll(true); }, [fetchAll]);
 
   const stats = {
     total: sims.length,
