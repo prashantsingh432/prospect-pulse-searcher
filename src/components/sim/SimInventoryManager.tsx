@@ -66,7 +66,7 @@ export function cleanSimNumber(input: string): string {
 
 // Risk level calculation
 export function calculateRiskLevel(spamCount: number): string {
-  if (spamCount >= 3) return "High Risk";
+  if (spamCount > 3) return "High Risk";
   return "Normal";
 }
 
@@ -121,7 +121,7 @@ export const SimInventoryManager: React.FC = () => {
     spam: sims.filter((s) => s.current_status === "Spam").length,
     deactivated: sims.filter((s) => s.current_status === "Deactivated").length,
     inactive: sims.filter((s) => s.current_status === "Inactive").length,
-    highRisk: sims.filter((s) => s.spam_count >= 3).length,
+    highRisk: sims.filter((s) => s.spam_count > 3).length,
   };
 
   // --- SIM Actions ---
