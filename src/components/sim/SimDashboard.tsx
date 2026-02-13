@@ -138,8 +138,10 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
                     )}
                     {activeFilter === "spam" && (
                       <>
+                        <TableHead className="sticky top-0 bg-background">Spam Count</TableHead>
                         <TableHead className="sticky top-0 bg-background">Last Spam Date</TableHead>
                         <TableHead className="sticky top-0 bg-background">Spam By</TableHead>
+                        <TableHead className="sticky top-0 bg-background">History</TableHead>
                       </>
                     )}
                     {activeFilter === "active" && (
@@ -158,14 +160,14 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
                 <TableBody>
                   {filteredSims.map((sim, idx) => {
                     const spamInfo = spamInfoMap.get(sim.id);
-                    const simSpamEvents = activeFilter === "highRisk" ? spamHistory.filter(h => h.sim_id === sim.id) : [];
+                    const simSpamEvents = (activeFilter === "highRisk" || activeFilter === "spam") ? spamHistory.filter(h => h.sim_id === sim.id) : [];
                     const isExpanded = expandedSimId === sim.id;
-                    const colSpan = activeFilter === "highRisk" ? 8 : activeFilter === "total" ? 5 : activeFilter === "active" ? 5 : activeFilter === "spam" ? 5 : 3;
+                    const hasExpandable = (activeFilter === "highRisk" || activeFilter === "spam") && simSpamEvents.length > 0;
                     return (
                       <React.Fragment key={sim.id}>
                         <TableRow
-                          className={activeFilter === "highRisk" && simSpamEvents.length > 0 ? "cursor-pointer hover:bg-muted/30" : ""}
-                          onClick={() => activeFilter === "highRisk" && simSpamEvents.length > 0 && setExpandedSimId(isExpanded ? null : sim.id)}
+                          className={hasExpandable ? "cursor-pointer hover:bg-muted/30" : ""}
+                          onClick={() => hasExpandable && setExpandedSimId(isExpanded ? null : sim.id)}
                         >
                           <TableCell className="font-medium">{idx + 1}</TableCell>
                           <TableCell className="font-mono text-sm">{sim.sim_number}</TableCell>
@@ -178,8 +180,14 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
                           )}
                           {activeFilter === "spam" && (
                             <>
+                              <TableCell><Badge variant="destructive">{sim.spam_count}</Badge></TableCell>
                               <TableCell>{spamInfo?.date ? new Date(spamInfo.date).toLocaleDateString() : sim.last_spam_date ? new Date(sim.last_spam_date).toLocaleDateString() : "—"}</TableCell>
                               <TableCell>{spamInfo?.agent || "—"}</TableCell>
+                              <TableCell>
+                                {simSpamEvents.length > 0 && (
+                                  isExpanded ? <ChevronDown className="h-4 w-4 text-amber-500" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </TableCell>
                             </>
                           )}
                           {activeFilter === "active" && (
@@ -199,10 +207,10 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
                           )}
                         </TableRow>
 
-                        {/* Inline Spam History for High Risk */}
-                        {activeFilter === "highRisk" && isExpanded && simSpamEvents.length > 0 && (
+                        {/* Inline Spam History for Spam & High Risk */}
+                        {hasExpandable && isExpanded && (
                           <TableRow className="bg-amber-50/50">
-                            <TableCell colSpan={colSpan} className="p-0">
+                            <TableCell colSpan={10} className="p-0">
                               <div className="px-6 py-3 border-l-4 border-amber-400">
                                 <div className="flex items-center gap-2 mb-2">
                                   <AlertTriangle className="h-4 w-4 text-amber-500" />
