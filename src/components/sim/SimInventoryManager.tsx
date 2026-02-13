@@ -158,6 +158,7 @@ export const SimInventoryManager: React.FC = () => {
     const { error } = await supabase.from("sim_master" as any).update({
       assigned_agent_id: agentId,
       project_name: projectName || undefined,
+      current_status: "Active",
     } as any).eq("id", simId);
     if (error) toast.error(error.message);
     else {
