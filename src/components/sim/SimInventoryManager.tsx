@@ -44,24 +44,25 @@ export interface SpamHistoryRecord {
   agent_name?: string;
 }
 
-// Phone number cleaning
+// Phone number cleaning - store as 10 digits only
 export function cleanSimNumber(input: string): string {
   let digits = input.replace(/\D/g, "");
-  // Ensure it starts with +91
-  if (digits.startsWith("91") && digits.length === 12) {
-    return `+${digits}`;
+  // Remove country code prefix
+  if (digits.startsWith("91") && digits.length >= 12) {
+    digits = digits.slice(2);
   }
-  if (digits.length === 10) {
-    return `+91${digits}`;
+  if (digits.startsWith("0")) {
+    digits = digits.slice(1);
   }
-  if (digits.startsWith("0") && digits.length === 11) {
-    return `+91${digits.slice(1)}`;
-  }
-  // Already has country code
-  if (digits.length > 12 && digits.startsWith("91")) {
-    return `+91${digits.slice(2, 12)}`;
-  }
-  return `+91${digits.slice(0, 10)}`;
+  return digits.slice(0, 10);
+}
+
+// Auto-detect operator from number
+export function detectOperator(number: string): "Jio" | "Airtel" | "" {
+  const clean = cleanSimNumber(number);
+  if (clean.startsWith("92")) return "Jio";
+  if (clean.startsWith("95")) return "Airtel";
+  return "";
 }
 
 // Risk level calculation
