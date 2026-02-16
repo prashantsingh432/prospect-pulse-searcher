@@ -6,8 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History, RefreshCw } from "lucide-react";
+import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History, RefreshCw, Filter } from "lucide-react";
 import { SimRecord, SimAgent, SpamHistoryRecord, detectOperator, cleanSimNumber } from "./SimInventoryManager";
 import { format } from "date-fns";
 
@@ -42,7 +44,7 @@ export const SimTable: React.FC<SimTableProps> = ({
 }) => {
   const [search, setSearch] = useState("");
   const [expandedSimId, setExpandedSimId] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatuses, setFilterStatuses] = useState<string[]>(["Active", "Spam", "Inactive"]);
   const [filterOperator, setFilterOperator] = useState<string>("all");
   // Add SIM dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -72,12 +74,19 @@ export const SimTable: React.FC<SimTableProps> = ({
   const filtered = useMemo(() => {
     return sims.filter((s) => {
       const matchSearch = !search || s.sim_number.includes(search) || s.agent_name?.toLowerCase().includes(search.toLowerCase()) || s.project_name?.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = filterStatus === "all" || s.current_status === filterStatus;
+      const matchStatus = filterStatuses.length === 0 || filterStatuses.includes(s.current_status);
       const matchOp = filterOperator === "all" || s.operator === filterOperator;
       return matchSearch && matchStatus && matchOp;
     });
-  }, [sims, search, filterStatus, filterOperator]);
+  }, [sims, search, filterStatuses, filterOperator]);
 
+  const allStatuses = ["Active", "Spam", "Inactive", "Deactivated"];
+  const toggleStatus = (status: string) => {
+    setFilterStatuses((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
+  };
+  const statusLabel = filterStatuses.length === 4 ? "All Status" : filterStatuses.length === 0 ? "None" : filterStatuses.join(", ");
   const handleAdd = async () => {
     if (!newSim.trim()) { return; }
     const autoOp = detectOperator(newSim);
@@ -100,16 +109,25 @@ export const SimTable: React.FC<SimTableProps> = ({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search SIM, agent, project..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[130px]"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Spam">Spam</SelectItem>
-              <SelectItem value="Deactivated">Deactivated</SelectItem>
-              <SelectItem value="Inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[160px] justify-between text-sm">
+                <span className="truncate">{statusLabel}</span>
+                <Filter className="h-3.5 w-3.5 ml-1 shrink-0" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[180px] p-2 bg-background border z-50" align="start">
+              {allStatuses.map((status) => (
+                <label key={status} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm">
+                  <Checkbox
+                    checked={filterStatuses.includes(status)}
+                    onCheckedChange={() => toggleStatus(status)}
+                  />
+                  {status}
+                </label>
+              ))}
+            </PopoverContent>
+          </Popover>
           <Select value={filterOperator} onValueChange={setFilterOperator}>
             <SelectTrigger className="w-[120px]"><SelectValue placeholder="Operator" /></SelectTrigger>
             <SelectContent>
