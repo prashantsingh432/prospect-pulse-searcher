@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SimDashboard } from "./SimDashboard";
 import { SimTable } from "./SimTable";
 import { SimAgentManager } from "./SimAgentManager";
-import { LayoutDashboard, Smartphone, Users } from "lucide-react";
+import { LayoutDashboard, Smartphone, Users, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // Types
 export interface SimRecord {
@@ -77,6 +78,7 @@ export function calculateRiskLevel(spamCount: number): string {
 
 export const SimInventoryManager: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [sims, setSims] = useState<SimRecord[]>([]);
   const [agents, setAgents] = useState<SimAgent[]>([]);
   const [spamHistory, setSpamHistory] = useState<SpamHistoryRecord[]>([]);
@@ -290,16 +292,29 @@ export const SimInventoryManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={(val) => {
+        if (val === "admin") {
+          navigate("/admin");
+          return;
+        }
+        setActiveTab(val);
+      }}>
         <div className="flex p-1 bg-slate-100 dark:bg-slate-900/50 rounded w-fit">
           {[
             { value: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
             { value: "sims", icon: Smartphone, label: "SIM Cards" },
             { value: "agents", icon: Users, label: "Agents" },
+            { value: "admin", icon: Settings, label: "Admin Panel" },
           ].map((tab) => (
             <button
               key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => {
+                if (tab.value === "admin") {
+                  navigate("/admin");
+                  return;
+                }
+                setActiveTab(tab.value);
+              }}
               className={`flex items-center gap-2 px-5 py-2 rounded font-medium text-sm transition-all ${
                 activeTab === tab.value
                   ? "bg-slate-800 dark:bg-slate-600 text-white shadow-sm"

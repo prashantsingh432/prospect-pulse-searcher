@@ -41,7 +41,7 @@ interface SimDashboardProps {
 
 type FilterType = "total" | "active" | "spam" | "deactivated" | "inactive" | "highRisk" | null;
 
-const ITEMS_PER_PAGE = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 const KPI_CARDS: { label: string; key: FilterType; iconName: string }[] = [
   { label: "Total Active SIMs", key: "total", iconName: "smartphone" },
@@ -65,6 +65,7 @@ const ICON_COLORS: Record<string, string> = {
 export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], spamHistory = [] }) => {
   const [activeFilter, setActiveFilter] = useState<FilterType>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [expandedSimId, setExpandedSimId] = useState<string | null>(null);
 
   const handleCardClick = (filter: FilterType) => {
@@ -90,8 +91,8 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
   };
 
   const filteredSims = getFilteredSims();
-  const totalPages = Math.ceil(filteredSims.length / ITEMS_PER_PAGE);
-  const paginatedSims = filteredSims.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredSims.length / pageSize);
+  const paginatedSims = filteredSims.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const statValues: Record<string, number> = {
     total: stats.total,
@@ -224,7 +225,7 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-[13px]">
                 {paginatedSims.map((sim, idx) => {
-                  const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx + 1;
+                  const globalIdx = (currentPage - 1) * pageSize + idx + 1;
                   const spamInfo = spamInfoMap.get(sim.id);
                   const simSpamEvents = (activeFilter === "highRisk" || activeFilter === "spam")
                     ? spamHistory.filter(h => h.sim_id === sim.id)
@@ -354,9 +355,27 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
 
           {/* Pagination Footer */}
           <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-[11px] font-medium text-slate-500 uppercase tracking-widest">
-            <div>
-              Items {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{" "}
-              {Math.min(currentPage * ITEMS_PER_PAGE, filteredSims.length)} of {filteredSims.length} Total
+            <div className="flex items-center gap-4">
+              <span>
+                Items {(currentPage - 1) * pageSize + 1} to{" "}
+                {Math.min(currentPage * pageSize, filteredSims.length)} of {filteredSims.length} Total
+              </span>
+              <div className="flex items-center gap-1.5 normal-case tracking-normal">
+                <span className="text-slate-400">Show</span>
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => { setPageSize(size); setCurrentPage(1); }}
+                    className={`px-2 py-0.5 rounded text-xs ${
+                      pageSize === size
+                        ? "bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-800 font-bold"
+                        : "hover:bg-slate-100 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
