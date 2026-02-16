@@ -60,14 +60,18 @@ export function cleanSimNumber(input: string): string {
 // Auto-detect operator from number
 export function detectOperator(number: string): "Jio" | "Airtel" | "" {
   const clean = cleanSimNumber(number);
-  if (clean.startsWith("92")) return "Jio";
-  if (clean.startsWith("95")) return "Airtel";
+  const jio = ["70","71","72","73","74","75","76","79","80","81","82","83","84","85","86","87","88","89","90","91","92","93","94","95"];
+  const airtel = ["96","97","98","99"];
+  const prefix = clean.slice(0, 2);
+  if (jio.includes(prefix)) return "Jio";
+  if (airtel.includes(prefix)) return "Airtel";
   return "";
 }
 
 // Risk level calculation
 export function calculateRiskLevel(spamCount: number): string {
   if (spamCount > 3) return "High Risk";
+  if (spamCount >= 2) return "Warning";
   return "Normal";
 }
 
@@ -85,7 +89,7 @@ export const SimInventoryManager: React.FC = () => {
       const [simRes, agentRes, spamRes] = await Promise.all([
         supabase.from("sim_master" as any).select("*").order("created_at", { ascending: false }),
         supabase.from("sim_agents" as any).select("*").order("name"),
-        supabase.from("sim_spam_history" as any).select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("sim_spam_history" as any).select("*").order("created_at", { ascending: false }).limit(500),
       ]);
 
       const simsData = (simRes.data || []) as any[] as SimRecord[];
@@ -169,7 +173,7 @@ export const SimInventoryManager: React.FC = () => {
     }
     const { error } = await supabase.from("sim_master" as any).update({
       assigned_agent_id: agentId,
-      project_name: projectName || undefined,
+      project_name: projectName || null,
       current_status: "Active",
     } as any).eq("id", simId);
     if (error) toast.error(error.message);
@@ -216,7 +220,7 @@ export const SimInventoryManager: React.FC = () => {
     const { error } = await supabase.from("sim_master" as any).update({
       current_status: "Spam",
       spam_count: newCount,
-      last_spam_date: dateToUse,
+      last_spam_date: new Date(dateToUse + "T00:00:00").toISOString(),
       risk_level: newRisk,
     } as any).eq("id", simId);
 
@@ -311,8 +315,6 @@ export const SimInventoryManager: React.FC = () => {
             onAddSim={addSim}
             onAssignAgent={assignAgent}
             onMarkSpam={markSpam}
-            onReactivate={reactivate}
-            onDeactivate={deactivate}
             onChangeStatus={changeStatus}
             onDeleteSim={deleteSim}
             onRefresh={fetchAll}
