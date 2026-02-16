@@ -4,13 +4,13 @@ import { Navbar } from "@/components/Navbar";
 import { UserCreator } from "@/components/UserCreator";
 import { LushaApiManager } from "@/components/LushaApiManager";
 import { ProjectManager } from "@/components/ProjectManager";
-import { SimInventoryManager } from "@/components/sim/SimInventoryManager";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Admin = () => {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
 
   if (!isAdmin()) {
     return <Navigate to="/" />;
@@ -20,7 +20,11 @@ const Admin = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="container mx-auto px-4 py-8 space-y-8">
-        <Tabs defaultValue="users" className="w-full">
+        <Tabs defaultValue="users" className="w-full" onValueChange={(val) => {
+          if (val === "sim") {
+            navigate("/sim-inventory");
+          }
+        }}>
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="users">User Management</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
@@ -38,10 +42,6 @@ const Admin = () => {
 
           <TabsContent value="lusha" className="mt-6">
             <LushaApiManager />
-          </TabsContent>
-
-          <TabsContent value="sim" className="mt-6">
-            <SimInventoryManager />
           </TabsContent>
         </Tabs>
       </div>
