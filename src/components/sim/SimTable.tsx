@@ -9,9 +9,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History, RefreshCw, Filter } from "lucide-react";
+import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { SimRecord, SimAgent, SpamHistoryRecord, detectOperator, cleanSimNumber } from "./SimInventoryManager";
 import { format } from "date-fns";
+
+type SortKey = "sim_number" | "operator" | "current_status" | "agent_name" | "project_name" | "spam_count" | "risk_level";
+type SortDir = "asc" | "desc";
 
 interface SimTableProps {
   sims: SimRecord[];
@@ -46,6 +49,8 @@ export const SimTable: React.FC<SimTableProps> = ({
   const [expandedSimId, setExpandedSimId] = useState<string | null>(null);
   const [filterStatuses, setFilterStatuses] = useState<string[]>(["Active", "Spam", "Inactive"]);
   const [filterOperator, setFilterOperator] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   // Add SIM dialog
   const [addOpen, setAddOpen] = useState(false);
   const [newSim, setNewSim] = useState("");
@@ -79,6 +84,41 @@ export const SimTable: React.FC<SimTableProps> = ({
       return matchSearch && matchStatus && matchOp;
     });
   }, [sims, search, filterStatuses, filterOperator]);
+
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
+    return [...filtered].sort((a, b) => {
+      let aVal: string | number = "";
+      let bVal: string | number = "";
+      if (sortKey === "spam_count") {
+        aVal = a.spam_count; bVal = b.spam_count;
+      } else if (sortKey === "agent_name") {
+        aVal = (a.agent_name || "").toLowerCase(); bVal = (b.agent_name || "").toLowerCase();
+      } else if (sortKey === "project_name") {
+        aVal = (a.project_name || "").toLowerCase(); bVal = (b.project_name || "").toLowerCase();
+      } else {
+        aVal = ((a as any)[sortKey] || "").toString().toLowerCase();
+        bVal = ((b as any)[sortKey] || "").toString().toLowerCase();
+      }
+      if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filtered, sortKey, sortDir]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5 ml-1" /> : <ArrowDown className="h-3.5 w-3.5 ml-1" />;
+  };
 
   const allStatuses = ["Active", "Spam", "Inactive", "Deactivated"];
   const toggleStatus = (status: string) => {
@@ -207,18 +247,32 @@ export const SimTable: React.FC<SimTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead>SIM Number</TableHead>
-              <TableHead>Operator</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Agent</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Spam Count</TableHead>
-              <TableHead>Risk</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("sim_number")}>
+                <span className="flex items-center">SIM Number<SortIcon col="sim_number" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("operator")}>
+                <span className="flex items-center">Operator<SortIcon col="operator" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("current_status")}>
+                <span className="flex items-center">Status<SortIcon col="current_status" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("agent_name")}>
+                <span className="flex items-center">Agent<SortIcon col="agent_name" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("project_name")}>
+                <span className="flex items-center">Project<SortIcon col="project_name" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("spam_count")}>
+                <span className="flex items-center">Spam Count<SortIcon col="spam_count" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("risk_level")}>
+                <span className="flex items-center">Risk<SortIcon col="risk_level" /></span>
+              </TableHead>
               <TableHead className="w-[60px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((sim) => {
+            {sorted.map((sim) => {
               const simSpamEvents = spamHistory.filter((h) => h.sim_id === sim.id);
               const isExpanded = expandedSimId === sim.id;
               const hasSpamHistory = simSpamEvents.length > 0;
@@ -318,14 +372,14 @@ export const SimTable: React.FC<SimTableProps> = ({
                 </React.Fragment>
               );
             })}
-            {filtered.length === 0 && (
+            {sorted.length === 0 && (
               <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No SIM cards found</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
-      <p className="text-sm text-muted-foreground">Showing {filtered.length} of {sims.length} SIMs</p>
+      <p className="text-sm text-muted-foreground">Showing {sorted.length} of {sims.length} SIMs</p>
 
       {/* Spam Dialog */}
       <Dialog open={spamOpen} onOpenChange={setSpamOpen}>
