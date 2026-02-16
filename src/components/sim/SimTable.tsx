@@ -284,12 +284,7 @@ export const SimTable: React.FC<SimTableProps> = ({
                     onClick={() => hasSpamHistory && setExpandedSimId(isExpanded ? null : sim.id)}
                   >
                     <TableCell className="font-mono font-medium">
-                      <div className="flex items-center gap-2">
-                        {hasSpamHistory && (
-                          isExpanded ? <ChevronDown className="h-4 w-4 text-amber-500" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        {sim.sim_number}
-                      </div>
+                      {sim.sim_number}
                     </TableCell>
                     <TableCell><Badge variant="outline">{sim.operator}</Badge></TableCell>
                     <TableCell><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[sim.current_status] || ""}`}>{sim.current_status}</span></TableCell>
