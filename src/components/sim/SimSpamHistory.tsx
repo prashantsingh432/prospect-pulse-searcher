@@ -11,7 +11,7 @@ interface SimSpamHistoryProps {
 export const SimSpamHistory: React.FC<SimSpamHistoryProps> = ({ history }) => {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Spam History (Last 100)</h3>
+      <h3 className="text-lg font-semibold">Spam History (Last 500)</h3>
       <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>

@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal, Search, AlertTriangle, UserPlus, History, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import { SimRecord, SimAgent, SpamHistoryRecord, detectOperator, cleanSimNumber } from "./SimInventoryManager";
 import { format } from "date-fns";
 
@@ -23,8 +23,6 @@ interface SimTableProps {
   onAddSim: (simNumber: string, operator: string, agentId?: string, projectName?: string, status?: string) => Promise<boolean>;
   onAssignAgent: (simId: string, agentId: string, projectName?: string) => void;
   onMarkSpam: (simId: string, remarks?: string, spamDate?: string, agentId?: string) => void;
-  onReactivate: (simId: string) => void;
-  onDeactivate: (simId: string, reason?: string) => void;
   onChangeStatus: (simId: string, newStatus: string) => void;
   onDeleteSim: (simId: string) => void;
   onRefresh: () => void;
@@ -44,7 +42,7 @@ const riskColors: Record<string, string> = {
 };
 
 export const SimTable: React.FC<SimTableProps> = ({
-  sims, agents, spamHistory, onAddSim, onAssignAgent, onMarkSpam, onReactivate, onDeactivate, onChangeStatus, onDeleteSim, onRefresh,
+  sims, agents, spamHistory, onAddSim, onAssignAgent, onMarkSpam, onChangeStatus, onDeleteSim, onRefresh,
 }) => {
   const [search, setSearch] = useState("");
   const [expandedSimId, setExpandedSimId] = useState<string | null>(null);
@@ -81,10 +79,6 @@ export const SimTable: React.FC<SimTableProps> = ({
     }
     setSpamOpen(true);
   };
-  // Deactivate dialog
-  const [deactOpen, setDeactOpen] = useState(false);
-  const [deactSimId, setDeactSimId] = useState("");
-  const [deactReason, setDeactReason] = useState("");
   // Assign dialog
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignSimId, setAssignSimId] = useState("");
@@ -429,17 +423,7 @@ export const SimTable: React.FC<SimTableProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Deactivate Dialog */}
-      <Dialog open={deactOpen} onOpenChange={setDeactOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Ban className="h-5 w-5 text-red-500" />Deactivate SIM</DialogTitle></DialogHeader>
-          <Textarea placeholder="Reason for deactivation (optional)" value={deactReason} onChange={(e) => setDeactReason(e.target.value)} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeactOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => { onDeactivate(deactSimId, deactReason); setDeactOpen(false); setDeactReason(""); }}>Deactivate</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
 
       {/* Assign Agent Dialog */}
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
