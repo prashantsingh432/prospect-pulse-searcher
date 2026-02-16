@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Plus, UserPlus, Trash2 } from "lucide-react";
@@ -26,6 +26,9 @@ export const SimAgentManager: React.FC<SimAgentManagerProps> = ({ agents, onRefr
   const [name, setName] = useState("");
   const [project, setProject] = useState("");
   const [loading, setLoading] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteAgentId, setDeleteAgentId] = useState("");
+  const [deleteAgentName, setDeleteAgentName] = useState("");
 
   const handleAdd = async () => {
     if (!name.trim()) { toast.error("Name is required"); return; }
@@ -41,6 +44,15 @@ export const SimAgentManager: React.FC<SimAgentManagerProps> = ({ agents, onRefr
     const { error } = await supabase.from("sim_agents" as any).update({ status: newStatus } as any).eq("id", agent.id);
     if (error) toast.error(error.message);
     else { toast.success(`Agent ${newStatus === "Active" ? "activated" : "deactivated"}`); onRefresh(); }
+  };
+
+  const handleDelete = async () => {
+    // Unassign agent from any SIMs first
+    await supabase.from("sim_master" as any).update({ assigned_agent_id: null } as any).eq("assigned_agent_id", deleteAgentId);
+    const { error } = await supabase.from("sim_agents" as any).delete().eq("id", deleteAgentId);
+    if (error) toast.error(error.message);
+    else { toast.success("Agent deleted permanently"); onRefresh(); }
+    setDeleteOpen(false);
   };
 
   return (
@@ -79,9 +91,14 @@ export const SimAgentManager: React.FC<SimAgentManagerProps> = ({ agents, onRefr
                 <Badge variant={a.status === "Active" ? "default" : "secondary"}>{a.status}</Badge>
               </TableCell>
               <TableCell>
-                <Button variant="ghost" size="sm" onClick={() => toggleStatus(a)}>
-                  {a.status === "Active" ? "Deactivate" : "Activate"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => toggleStatus(a)}>
+                    {a.status === "Active" ? "Deactivate" : "Activate"}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => { setDeleteAgentId(a.id); setDeleteAgentName(a.name); setDeleteOpen(true); }}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
@@ -90,6 +107,18 @@ export const SimAgentManager: React.FC<SimAgentManagerProps> = ({ agents, onRefr
           )}
         </TableBody>
       </Table>
+
+      {/* Delete Agent Confirm */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-destructive"><Trash2 className="h-5 w-5" />Delete Agent</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Are you sure you want to permanently delete <strong>{deleteAgentName}</strong>? Any SIMs assigned to this agent will be unassigned.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete}>Delete Permanently</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History, RefreshCw, Filter, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import { SimRecord, SimAgent, SpamHistoryRecord, detectOperator, cleanSimNumber } from "./SimInventoryManager";
 import { format } from "date-fns";
 
@@ -26,6 +26,7 @@ interface SimTableProps {
   onReactivate: (simId: string) => void;
   onDeactivate: (simId: string, reason?: string) => void;
   onChangeStatus: (simId: string, newStatus: string) => void;
+  onDeleteSim: (simId: string) => void;
   onRefresh: () => void;
 }
 
@@ -43,7 +44,7 @@ const riskColors: Record<string, string> = {
 };
 
 export const SimTable: React.FC<SimTableProps> = ({
-  sims, agents, spamHistory, onAddSim, onAssignAgent, onMarkSpam, onReactivate, onDeactivate, onChangeStatus, onRefresh,
+  sims, agents, spamHistory, onAddSim, onAssignAgent, onMarkSpam, onReactivate, onDeactivate, onChangeStatus, onDeleteSim, onRefresh,
 }) => {
   const [search, setSearch] = useState("");
   const [expandedSimId, setExpandedSimId] = useState<string | null>(null);
@@ -76,6 +77,9 @@ export const SimTable: React.FC<SimTableProps> = ({
   const [statusOpen, setStatusOpen] = useState(false);
   const [statusSimId, setStatusSimId] = useState("");
   const [statusValue, setStatusValue] = useState("");
+  // Delete dialog
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteSimId, setDeleteSimId] = useState("");
   const filtered = useMemo(() => {
     return sims.filter((s) => {
       const matchSearch = !search || s.sim_number.includes(search) || s.agent_name?.toLowerCase().includes(search.toLowerCase()) || s.project_name?.toLowerCase().includes(search.toLowerCase());
@@ -322,6 +326,9 @@ export const SimTable: React.FC<SimTableProps> = ({
                               <Ban className="h-4 w-4 mr-2" />Deactivate
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => { setDeleteSimId(sim.id); setDeleteOpen(true); }} className="text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" />Delete SIM
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -436,6 +443,18 @@ export const SimTable: React.FC<SimTableProps> = ({
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusOpen(false)}>Cancel</Button>
             <Button onClick={() => { onChangeStatus(statusSimId, statusValue); setStatusOpen(false); }} disabled={!statusValue}>Update Status</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete SIM Confirm Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-destructive"><Trash2 className="h-5 w-5" />Delete SIM Permanently</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">This will permanently delete this SIM card and all its history. This action cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => { onDeleteSim(deleteSimId); setDeleteOpen(false); }}>Delete Permanently</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
