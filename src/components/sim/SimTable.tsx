@@ -86,7 +86,7 @@ export const SimTable: React.FC<SimTableProps> = ({
       prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
     );
   };
-  const statusLabel = filterStatuses.length === 4 ? "All Status" : filterStatuses.length === 0 ? "None" : filterStatuses.join(", ");
+  const statusBadgeCount = 4 - filterStatuses.length; // how many are hidden
   const handleAdd = async () => {
     if (!newSim.trim()) { return; }
     const autoOp = detectOperator(newSim);
@@ -111,9 +111,12 @@ export const SimTable: React.FC<SimTableProps> = ({
           </div>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="w-[160px] justify-between text-sm">
-                <span className="truncate">{statusLabel}</span>
-                <Filter className="h-3.5 w-3.5 ml-1 shrink-0" />
+              <Button variant="outline" className="justify-between text-sm gap-2">
+                <Filter className="h-3.5 w-3.5 shrink-0" />
+                Status
+                {statusBadgeCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{filterStatuses.length}/{allStatuses.length}</Badge>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[180px] p-2 bg-background border z-50" align="start">
@@ -129,7 +132,7 @@ export const SimTable: React.FC<SimTableProps> = ({
             </PopoverContent>
           </Popover>
           <Select value={filterOperator} onValueChange={setFilterOperator}>
-            <SelectTrigger className="w-[120px]"><SelectValue placeholder="Operator" /></SelectTrigger>
+            <SelectTrigger className="w-[130px]"><SelectValue placeholder="Operator" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Operators</SelectItem>
               <SelectItem value="Airtel">Airtel</SelectItem>
