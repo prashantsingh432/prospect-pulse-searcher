@@ -259,6 +259,16 @@ export const SimInventoryManager: React.FC = () => {
     }
   };
 
+  const deleteSim = async (simId: string) => {
+    // Delete related records first, then the SIM
+    await supabase.from("sim_spam_history" as any).delete().eq("sim_id", simId);
+    await supabase.from("sim_deactivation_history" as any).delete().eq("sim_id", simId);
+    await supabase.from("sim_audit_log" as any).delete().eq("sim_id", simId);
+    const { error } = await supabase.from("sim_master" as any).delete().eq("id", simId);
+    if (error) toast.error(error.message);
+    else { toast.success("SIM deleted permanently"); fetchAll(); }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -297,6 +307,7 @@ export const SimInventoryManager: React.FC = () => {
             onReactivate={reactivate}
             onDeactivate={deactivate}
             onChangeStatus={changeStatus}
+            onDeleteSim={deleteSim}
             onRefresh={fetchAll}
           />
         </TabsContent>
