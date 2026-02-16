@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History } from "lucide-react";
+import { Plus, MoreHorizontal, Search, AlertTriangle, CheckCircle, XCircle, Ban, RotateCcw, UserPlus, ChevronDown, ChevronRight, History, RefreshCw } from "lucide-react";
 import { SimRecord, SimAgent, SpamHistoryRecord, detectOperator, cleanSimNumber } from "./SimInventoryManager";
 import { format } from "date-fns";
 
@@ -15,11 +15,12 @@ interface SimTableProps {
   sims: SimRecord[];
   agents: SimAgent[];
   spamHistory: SpamHistoryRecord[];
-  onAddSim: (simNumber: string, operator: string, agentId?: string, projectName?: string) => Promise<boolean>;
+  onAddSim: (simNumber: string, operator: string, agentId?: string, projectName?: string, status?: string) => Promise<boolean>;
   onAssignAgent: (simId: string, agentId: string, projectName?: string) => void;
   onMarkSpam: (simId: string, remarks?: string) => void;
   onReactivate: (simId: string) => void;
   onDeactivate: (simId: string, reason?: string) => void;
+  onChangeStatus: (simId: string, newStatus: string) => void;
   onRefresh: () => void;
 }
 
@@ -37,7 +38,7 @@ const riskColors: Record<string, string> = {
 };
 
 export const SimTable: React.FC<SimTableProps> = ({
-  sims, agents, spamHistory, onAddSim, onAssignAgent, onMarkSpam, onReactivate, onDeactivate, onRefresh,
+  sims, agents, spamHistory, onAddSim, onAssignAgent, onMarkSpam, onReactivate, onDeactivate, onChangeStatus, onRefresh,
 }) => {
   const [search, setSearch] = useState("");
   const [expandedSimId, setExpandedSimId] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export const SimTable: React.FC<SimTableProps> = ({
   const [newOperator, setNewOperator] = useState<string>("");
   const [newAgent, setNewAgent] = useState<string>("");
   const [newProject, setNewProject] = useState("");
+  const [newStatus, setNewStatus] = useState<string>("Inactive");
   const [addLoading, setAddLoading] = useState(false);
   // Spam dialog
   const [spamOpen, setSpamOpen] = useState(false);
@@ -63,7 +65,10 @@ export const SimTable: React.FC<SimTableProps> = ({
   const [assignSimId, setAssignSimId] = useState("");
   const [assignAgentId, setAssignAgentId] = useState("");
   const [assignProject, setAssignProject] = useState("");
-
+  // Change status dialog
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [statusSimId, setStatusSimId] = useState("");
+  const [statusValue, setStatusValue] = useState("");
   const filtered = useMemo(() => {
     return sims.filter((s) => {
       const matchSearch = !search || s.sim_number.includes(search) || s.agent_name?.toLowerCase().includes(search.toLowerCase()) || s.project_name?.toLowerCase().includes(search.toLowerCase());
@@ -79,8 +84,8 @@ export const SimTable: React.FC<SimTableProps> = ({
     const operator = newOperator || autoOp;
     if (!operator) { return; } // need operator
     setAddLoading(true);
-    const ok = await onAddSim(newSim, operator, (newAgent && newAgent !== "none") ? newAgent : undefined, newProject || undefined);
-    if (ok) { setNewSim(""); setNewOperator(""); setNewAgent(""); setNewProject(""); setAddOpen(false); }
+    const ok = await onAddSim(newSim, operator, (newAgent && newAgent !== "none") ? newAgent : undefined, newProject || undefined, newStatus);
+    if (ok) { setNewSim(""); setNewOperator(""); setNewAgent(""); setNewProject(""); setNewStatus("Inactive"); setAddOpen(false); }
     setAddLoading(false);
   };
 
@@ -155,6 +160,17 @@ export const SimTable: React.FC<SimTableProps> = ({
                 <label className="text-sm font-medium">Project (optional)</label>
                 <Input placeholder="Project name" value={newProject} onChange={(e) => setNewProject(e.target.value)} />
               </div>
+              <div>
+                <label className="text-sm font-medium">Initial Status</label>
+                <Select value={newStatus} onValueChange={setNewStatus}>
+                  <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Set to "Inactive" if not assigning to anyone yet</p>
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={handleAdd} disabled={addLoading || !newSim.trim() || (!newOperator && !detectOperator(newSim))}>
@@ -217,6 +233,9 @@ export const SimTable: React.FC<SimTableProps> = ({
                           <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { setStatusSimId(sim.id); setStatusValue(sim.current_status); setStatusOpen(true); }}>
+                            <RefreshCw className="h-4 w-4 mr-2" />Change Status
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { setAssignSimId(sim.id); setAssignOpen(true); }} disabled={sim.current_status === "Deactivated"}>
                             <UserPlus className="h-4 w-4 mr-2" />Assign Agent
                           </DropdownMenuItem>
@@ -327,6 +346,26 @@ export const SimTable: React.FC<SimTableProps> = ({
           <DialogFooter>
             <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
             <Button onClick={() => { if (assignAgentId) { onAssignAgent(assignSimId, assignAgentId, assignProject); setAssignOpen(false); setAssignAgentId(""); setAssignProject(""); } }} disabled={!assignAgentId}>Assign</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Status Dialog */}
+      <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><RefreshCw className="h-5 w-5" />Change SIM Status</DialogTitle></DialogHeader>
+          <Select value={statusValue} onValueChange={setStatusValue}>
+            <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Active">Active</SelectItem>
+              <SelectItem value="Inactive">Inactive</SelectItem>
+              <SelectItem value="Spam">Spam</SelectItem>
+              <SelectItem value="Deactivated">Deactivated</SelectItem>
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusOpen(false)}>Cancel</Button>
+            <Button onClick={() => { onChangeStatus(statusSimId, statusValue); setStatusOpen(false); }} disabled={!statusValue}>Update Status</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

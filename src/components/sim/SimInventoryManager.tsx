@@ -126,28 +126,39 @@ export const SimInventoryManager: React.FC = () => {
   };
 
   // --- SIM Actions ---
-  const addSim = async (simNumber: string, operator: string, agentId?: string, projectName?: string) => {
+  const addSim = async (simNumber: string, operator: string, agentId?: string, projectName?: string, status?: string) => {
     const cleaned = cleanSimNumber(simNumber);
     const { error } = await supabase.from("sim_master" as any).insert({
       sim_number: cleaned,
       operator,
       assigned_agent_id: (agentId && agentId !== "none") ? agentId : null,
       project_name: projectName || null,
+      current_status: status || "Inactive",
     } as any);
     if (error) {
       if (error.message.includes("duplicate")) toast.error("SIM number already exists");
       else toast.error(error.message);
       return false;
     }
-    // Audit log
     await supabase.from("sim_audit_log" as any).insert({
       action: "SIM_ADDED",
-      details: { sim_number: cleaned, operator },
+      details: { sim_number: cleaned, operator, status: status || "Inactive" },
       performed_by: user?.id,
     } as any);
     toast.success(`SIM ${cleaned} added`);
     fetchAll();
     return true;
+  };
+
+  const changeStatus = async (simId: string, newStatus: string) => {
+    const { error } = await supabase.from("sim_master" as any).update({ current_status: newStatus } as any).eq("id", simId);
+    if (error) { toast.error(error.message); return; }
+    await supabase.from("sim_audit_log" as any).insert({
+      sim_id: simId, action: "STATUS_CHANGED",
+      details: { new_status: newStatus }, performed_by: user?.id,
+    } as any);
+    toast.success(`Status changed to ${newStatus}`);
+    fetchAll();
   };
 
   const assignAgent = async (simId: string, agentId: string, projectName?: string) => {
@@ -285,6 +296,7 @@ export const SimInventoryManager: React.FC = () => {
             onMarkSpam={markSpam}
             onReactivate={reactivate}
             onDeactivate={deactivate}
+            onChangeStatus={changeStatus}
             onRefresh={fetchAll}
           />
         </TabsContent>
