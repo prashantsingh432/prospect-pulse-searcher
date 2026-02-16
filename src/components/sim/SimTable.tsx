@@ -476,7 +476,17 @@ export const SimTable: React.FC<SimTableProps> = ({
           </Select>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusOpen(false)}>Cancel</Button>
-            <Button onClick={() => { onChangeStatus(statusSimId, statusValue); setStatusOpen(false); }} disabled={!statusValue}>Update Status</Button>
+            <Button onClick={() => { 
+              if (statusValue === "Spam") {
+                // Redirect to spam dialog to properly record spam history
+                setStatusOpen(false);
+                const sim = sims.find(s => s.id === statusSimId);
+                if (sim) openSpamDialog(sim);
+              } else {
+                onChangeStatus(statusSimId, statusValue); 
+                setStatusOpen(false); 
+              }
+            }} disabled={!statusValue}>Update Status</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
