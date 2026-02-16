@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Smartphone, AlertTriangle, XCircle, Activity, Shield, Ban, ChevronDown, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Smartphone, AlertTriangle, XCircle, Activity, Shield, Ban, ChevronDown, ChevronRight, Download } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface SimRecord {
   id: string;
@@ -93,6 +95,31 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
     return <Badge className={colors[status] || ""}>{status}</Badge>;
   };
 
+  const exportToCSV = () => {
+    if (filteredSims.length === 0) return;
+    const label = cards.find(c => c.filter === activeFilter)?.label || "SIMs";
+    const headers = ["#", "SIM Number", "Operator", "Agent", "Project", "Status", "Spam Count", "Risk Level"];
+    const rows = filteredSims.map((sim, idx) => [
+      idx + 1,
+      sim.sim_number,
+      sim.operator,
+      sim.agent_name || "",
+      sim.project_name || "",
+      sim.current_status,
+      sim.spam_count,
+      sim.risk_level,
+    ]);
+    const csvContent = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `SIM_${label.replace(/\s+/g, "_")}_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${filteredSims.length} SIMs to CSV`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
@@ -117,10 +144,13 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
 
       {activeFilter && filteredSims.length > 0 && (
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-base">
               {cards.find(c => c.filter === activeFilter)?.label} — {filteredSims.length} SIM{filteredSims.length !== 1 ? "s" : ""}
             </CardTitle>
+            <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-1.5">
+              <Download className="h-4 w-4" />Export CSV
+            </Button>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-auto max-h-[400px]">
