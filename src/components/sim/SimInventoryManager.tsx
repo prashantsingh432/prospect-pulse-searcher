@@ -183,20 +183,27 @@ export const SimInventoryManager: React.FC = () => {
     }
   };
 
-  const markSpam = async (simId: string, remarks?: string) => {
+  const markSpam = async (simId: string, remarks?: string, spamDate?: string, agentId?: string) => {
     const sim = sims.find((s) => s.id === simId);
     if (!sim) return;
 
-    // Insert spam history (unique constraint prevents same sim+date duplicates)
-    const { error: histError } = await supabase.from("sim_spam_history" as any).upsert({
+    const dateToUse = spamDate || new Date().toISOString().split("T")[0];
+    const agentToUse = agentId || sim.assigned_agent_id;
+
+    // Insert spam history record
+    const { error: histError } = await supabase.from("sim_spam_history" as any).insert({
       sim_id: simId,
-      agent_id: sim.assigned_agent_id,
-      spam_date: new Date().toISOString().split("T")[0],
+      agent_id: agentToUse || null,
+      spam_date: dateToUse,
       remarks: remarks || null,
       marked_by: user?.id,
-    } as any, { onConflict: "sim_id,spam_date" });
+    } as any);
 
     if (histError) {
+      if (histError.message.includes("duplicate") || histError.message.includes("unique")) {
+        toast.error("Spam already recorded for this SIM on this date");
+        return;
+      }
       console.error("Spam history insert error:", histError);
     }
 
@@ -209,7 +216,7 @@ export const SimInventoryManager: React.FC = () => {
     const { error } = await supabase.from("sim_master" as any).update({
       current_status: "Spam",
       spam_count: newCount,
-      last_spam_date: new Date().toISOString(),
+      last_spam_date: dateToUse,
       risk_level: newRisk,
     } as any).eq("id", simId);
 
@@ -217,7 +224,7 @@ export const SimInventoryManager: React.FC = () => {
     else {
       await supabase.from("sim_audit_log" as any).insert({
         sim_id: simId, action: "MARKED_SPAM",
-        details: { spam_count: newCount, risk_level: newRisk, remarks },
+        details: { spam_count: newCount, risk_level: newRisk, remarks, spam_date: dateToUse },
         performed_by: user?.id,
       } as any);
       toast.success(`SIM marked as Spam (Count: ${newCount}, Risk: ${newRisk})`);
