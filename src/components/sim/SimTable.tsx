@@ -79,7 +79,7 @@ export const SimTable: React.FC<SimTableProps> = ({
     const operator = newOperator || autoOp;
     if (!operator) { return; } // need operator
     setAddLoading(true);
-    const ok = await onAddSim(newSim, operator, newAgent || undefined, newProject || undefined);
+    const ok = await onAddSim(newSim, operator, (newAgent && newAgent !== "none") ? newAgent : undefined, newProject || undefined);
     if (ok) { setNewSim(""); setNewOperator(""); setNewAgent(""); setNewProject(""); setAddOpen(false); }
     setAddLoading(false);
   };

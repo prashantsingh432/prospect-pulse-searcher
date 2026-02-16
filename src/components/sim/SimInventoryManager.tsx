@@ -131,7 +131,7 @@ export const SimInventoryManager: React.FC = () => {
     const { error } = await supabase.from("sim_master" as any).insert({
       sim_number: cleaned,
       operator,
-      assigned_agent_id: agentId || null,
+      assigned_agent_id: (agentId && agentId !== "none") ? agentId : null,
       project_name: projectName || null,
     } as any);
     if (error) {
