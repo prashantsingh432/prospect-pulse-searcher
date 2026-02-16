@@ -22,7 +22,7 @@ interface SimTableProps {
   spamHistory: SpamHistoryRecord[];
   onAddSim: (simNumber: string, operator: string, agentId?: string, projectName?: string, status?: string) => Promise<boolean>;
   onAssignAgent: (simId: string, agentId: string, projectName?: string) => void;
-  onMarkSpam: (simId: string, remarks?: string) => void;
+  onMarkSpam: (simId: string, remarks?: string, spamDate?: string, agentId?: string) => void;
   onReactivate: (simId: string) => void;
   onDeactivate: (simId: string, reason?: string) => void;
   onChangeStatus: (simId: string, newStatus: string) => void;
@@ -64,6 +64,23 @@ export const SimTable: React.FC<SimTableProps> = ({
   const [spamOpen, setSpamOpen] = useState(false);
   const [spamSimId, setSpamSimId] = useState("");
   const [spamRemarks, setSpamRemarks] = useState("");
+  const [spamAgentId, setSpamAgentId] = useState<string>("");
+  const [spamDate, setSpamDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [spamSimHasAgent, setSpamSimHasAgent] = useState(false);
+
+  const openSpamDialog = (sim: SimRecord) => {
+    setSpamSimId(sim.id);
+    setSpamRemarks("");
+    setSpamDate(new Date().toISOString().split("T")[0]);
+    if (sim.assigned_agent_id) {
+      setSpamAgentId(sim.assigned_agent_id);
+      setSpamSimHasAgent(true);
+    } else {
+      setSpamAgentId("");
+      setSpamSimHasAgent(false);
+    }
+    setSpamOpen(true);
+  };
   // Deactivate dialog
   const [deactOpen, setDeactOpen] = useState(false);
   const [deactSimId, setDeactSimId] = useState("");
@@ -306,30 +323,20 @@ export const SimTable: React.FC<SimTableProps> = ({
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => { setStatusSimId(sim.id); setStatusValue(sim.current_status); setStatusOpen(true); }}>
-                            <RefreshCw className="h-4 w-4 mr-2" />Change Status
+                             <RefreshCw className="h-4 w-4 mr-2" />Change Status
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { setAssignSimId(sim.id); setAssignOpen(true); }} disabled={sim.current_status === "Deactivated"}>
-                            <UserPlus className="h-4 w-4 mr-2" />Assign Agent
+                             <UserPlus className="h-4 w-4 mr-2" />Assign Agent
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setSpamSimId(sim.id); setSpamOpen(true); }} className="text-amber-600">
-                            <AlertTriangle className="h-4 w-4 mr-2" />Mark Spam
+                          <DropdownMenuItem onClick={() => { openSpamDialog(sim); }} className="text-amber-600">
+                             <AlertTriangle className="h-4 w-4 mr-2" />Mark Spam
                           </DropdownMenuItem>
-                          {(sim.current_status === "Spam" || sim.current_status === "Deactivated") && (
-                            <DropdownMenuItem onClick={() => onReactivate(sim.id)} className="text-green-600">
-                              <RotateCcw className="h-4 w-4 mr-2" />Reactivate
-                            </DropdownMenuItem>
-                          )}
-                          {sim.current_status !== "Deactivated" && (
-                            <DropdownMenuItem onClick={() => { setDeactSimId(sim.id); setDeactOpen(true); }} className="text-red-600">
-                              <Ban className="h-4 w-4 mr-2" />Deactivate
-                            </DropdownMenuItem>
-                          )}
                           <DropdownMenuItem onClick={() => { setDeleteSimId(sim.id); setDeleteOpen(true); }} className="text-destructive">
-                            <Trash2 className="h-4 w-4 mr-2" />Delete SIM
+                             <Trash2 className="h-4 w-4 mr-2" />Delete SIM
                           </DropdownMenuItem>
-                        </DropdownMenuContent>
+                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
@@ -387,10 +394,37 @@ export const SimTable: React.FC<SimTableProps> = ({
       <Dialog open={spamOpen} onOpenChange={setSpamOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Mark SIM as Spam</DialogTitle></DialogHeader>
-          <Textarea placeholder="Remarks (optional)" value={spamRemarks} onChange={(e) => setSpamRemarks(e.target.value)} />
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Spam Date</label>
+              <Input type="date" value={spamDate} onChange={(e) => setSpamDate(e.target.value)} />
+            </div>
+            {!spamSimHasAgent && (
+              <div>
+                <label className="text-sm font-medium">Agent (optional)</label>
+                <Select value={spamAgentId} onValueChange={setSpamAgentId}>
+                  <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {agents.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {spamSimHasAgent && (
+              <div>
+                <label className="text-sm font-medium">Agent</label>
+                <p className="text-sm text-muted-foreground">{agents.find(a => a.id === spamAgentId)?.name || "Assigned agent"}</p>
+              </div>
+            )}
+            <Textarea placeholder="Remarks (optional)" value={spamRemarks} onChange={(e) => setSpamRemarks(e.target.value)} />
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSpamOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => { onMarkSpam(spamSimId, spamRemarks); setSpamOpen(false); setSpamRemarks(""); }}>Confirm Spam</Button>
+            <Button variant="destructive" onClick={() => { 
+              onMarkSpam(spamSimId, spamRemarks, spamDate, (spamAgentId && spamAgentId !== "none") ? spamAgentId : undefined); 
+              setSpamOpen(false); setSpamRemarks(""); 
+            }}>Confirm Spam</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
