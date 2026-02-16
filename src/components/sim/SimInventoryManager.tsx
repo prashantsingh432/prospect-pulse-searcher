@@ -291,17 +291,26 @@ export const SimInventoryManager: React.FC = () => {
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="dashboard" className="flex items-center gap-2">
-            <LayoutDashboard className="h-4 w-4" />Dashboard
-          </TabsTrigger>
-          <TabsTrigger value="sims" className="flex items-center gap-2">
-            <Smartphone className="h-4 w-4" />SIM Cards
-          </TabsTrigger>
-          <TabsTrigger value="agents" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />Agents
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex p-1 bg-slate-100 dark:bg-slate-900/50 rounded w-fit">
+          {[
+            { value: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+            { value: "sims", icon: Smartphone, label: "SIM Cards" },
+            { value: "agents", icon: Users, label: "Agents" },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={`flex items-center gap-2 px-5 py-2 rounded font-medium text-sm transition-all ${
+                activeTab === tab.value
+                  ? "bg-slate-800 dark:bg-slate-600 text-white shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <tab.icon className="h-4 w-4" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
 
         <TabsContent value="dashboard" className="mt-6">
           <SimDashboard stats={stats} sims={sims} spamHistory={spamHistory} />

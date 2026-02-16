@@ -12,6 +12,7 @@ import Admin from "./pages/Admin";
 import DataManagement from "./pages/DataManagement";
 import NotFound from "./pages/NotFound";
 import Rtne from "./pages/Rtne";
+import SimInventory from "./pages/SimInventory";
 import { RtnpDashboard } from "./pages/RtnpDashboard";
 import { RtnpProjectView } from "./pages/RtnpProjectView";
 
@@ -126,6 +127,14 @@ const App = () => (
               element={
                 <AdminRoute>
                   <Admin />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/sim-inventory"
+              element={
+                <AdminRoute>
+                  <SimInventory />
                 </AdminRoute>
               }
             />
