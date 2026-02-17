@@ -33,6 +33,9 @@ export const SimAgentManager: React.FC<SimAgentManagerProps> = ({ agents, onRefr
   const [statusFilter, setStatusFilter] = useState<"all" | "Active" | "Inactive">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editProject, setEditProject] = useState("");
 
   const handleAdd = async () => {
     if (!name.trim()) { toast.error("Name is required"); return; }
@@ -42,6 +45,21 @@ export const SimAgentManager: React.FC<SimAgentManagerProps> = ({ agents, onRefr
     else { toast.success("Agent added"); setName(""); setProject(""); setOpen(false); onRefresh(); }
     setLoading(false);
   };
+
+  const startEdit = (agent: Agent) => {
+    setEditingId(agent.id);
+    setEditName(agent.name);
+    setEditProject(agent.project || "");
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || !editName.trim()) { toast.error("Name is required"); return; }
+    const { error } = await supabase.from("sim_agents" as any).update({ name: editName.trim(), project: editProject.trim() || null } as any).eq("id", editingId);
+    if (error) toast.error(error.message);
+    else { toast.success("Agent updated"); setEditingId(null); onRefresh(); }
+  };
+
+  const cancelEdit = () => setEditingId(null);
 
   const toggleStatus = async (agent: Agent) => {
     const newStatus = agent.status === "Active" ? "Inactive" : "Active";
@@ -129,8 +147,31 @@ export const SimAgentManager: React.FC<SimAgentManagerProps> = ({ agents, onRefr
             <tbody className="divide-y divide-slate-100 text-[13px]">
               {paginated.map((a) => (
                 <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-800">{a.name}</td>
-                  <td className="px-6 py-4 text-slate-500">{a.project || <span className="text-slate-300 italic">Unassigned</span>}</td>
+                  <td className="px-6 py-4 font-medium text-slate-800">
+                    {editingId === a.id ? (
+                      <input
+                        className="w-full px-2 py-1 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-400 outline-none"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") cancelEdit(); }}
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="cursor-pointer hover:underline" onDoubleClick={() => startEdit(a)}>{a.name}</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-slate-500">
+                    {editingId === a.id ? (
+                      <input
+                        className="w-full px-2 py-1 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-slate-400 outline-none"
+                        value={editProject}
+                        onChange={(e) => setEditProject(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") cancelEdit(); }}
+                      />
+                    ) : (
+                      <span className="cursor-pointer hover:underline" onDoubleClick={() => startEdit(a)}>{a.project || <span className="text-slate-300 italic">Unassigned</span>}</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     {a.status === "Active" ? (
                       <span className="inline-flex items-center bg-green-50 text-green-700 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-tight">
@@ -149,22 +190,37 @@ export const SimAgentManager: React.FC<SimAgentManagerProps> = ({ agents, onRefr
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => toggleStatus(a)}
-                        className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${
-                          a.status === "Active"
-                            ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                            : "bg-green-50 text-green-700 hover:bg-green-100"
-                        }`}
-                      >
-                        {a.status === "Active" ? "Deactivate" : "Activate"}
-                      </button>
-                      <button
-                        onClick={() => { setDeleteAgentId(a.id); setDeleteAgentName(a.name); setDeleteOpen(true); }}
-                        className="p-1.5 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {editingId === a.id ? (
+                        <>
+                          <button onClick={saveEdit} className="px-3 py-1 rounded text-[11px] font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors">Save</button>
+                          <button onClick={cancelEdit} className="px-3 py-1 rounded text-[11px] font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Cancel</button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => startEdit(a)}
+                            className="px-3 py-1 rounded text-[11px] font-medium bg-slate-50 text-slate-600 hover:bg-slate-100 transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => toggleStatus(a)}
+                            className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${
+                              a.status === "Active"
+                                ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                : "bg-green-50 text-green-700 hover:bg-green-100"
+                            }`}
+                          >
+                            {a.status === "Active" ? "Deactivate" : "Activate"}
+                          </button>
+                          <button
+                            onClick={() => { setDeleteAgentId(a.id); setDeleteAgentName(a.name); setDeleteOpen(true); }}
+                            className="p-1.5 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
