@@ -213,16 +213,17 @@ export const SimInventoryManager: React.FC = () => {
       console.error("Spam history insert error:", histError);
     }
 
-    // Count actual distinct spam dates for this SIM
-    const { count } = await supabase.from("sim_spam_history" as any).select("*", { count: "exact", head: true }).eq("sim_id", simId);
+    // Count actual distinct spam dates and get latest date for this SIM
+    const { data: spamRows, count } = await supabase.from("sim_spam_history" as any).select("spam_date", { count: "exact" }).eq("sim_id", simId).order("spam_date", { ascending: false });
     const newCount = count || sim.spam_count + 1;
     const newRisk = calculateRiskLevel(newCount);
+    const latestSpamDate = (spamRows as any)?.[0]?.spam_date || dateToUse;
 
-    // Update SIM
+    // Update SIM with latest spam date from history
     const { error } = await supabase.from("sim_master" as any).update({
       current_status: "Spam",
       spam_count: newCount,
-      last_spam_date: new Date(dateToUse + "T00:00:00").toISOString(),
+      last_spam_date: new Date(latestSpamDate + "T00:00:00").toISOString(),
       risk_level: newRisk,
     } as any).eq("id", simId);
 
