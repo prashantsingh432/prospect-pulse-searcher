@@ -63,7 +63,7 @@ const ICON_COLORS: Record<string, string> = {
 };
 
 export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], spamHistory = [] }) => {
-  const [activeFilter, setActiveFilter] = useState<FilterType>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("total");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [expandedSimId, setExpandedSimId] = useState<string | null>(null);
