@@ -107,7 +107,8 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
   const spamInfoMap = new Map<string, { date: string; agent: string }>();
   if (activeFilter === "spam" || activeFilter === "highRisk") {
     spamHistory.forEach(h => {
-      if (!spamInfoMap.has(h.sim_id)) {
+      const existing = spamInfoMap.get(h.sim_id);
+      if (!existing || h.spam_date > existing.date) {
         spamInfoMap.set(h.sim_id, { date: h.spam_date, agent: h.agent_name || "—" });
       }
     });
