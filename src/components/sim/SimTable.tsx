@@ -318,16 +318,16 @@ export const SimTable: React.FC<SimTableProps> = ({
                           <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => { setStatusSimId(sim.id); setStatusValue(sim.current_status); setStatusOpen(true); }}>
+                          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setStatusSimId(sim.id); setStatusValue(sim.current_status); setStatusOpen(true); }}>
                              <RefreshCw className="h-4 w-4 mr-2" />Change Status
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setAssignSimId(sim.id); setAssignOpen(true); }} disabled={sim.current_status === "Deactivated"}>
+                          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setAssignSimId(sim.id); setAssignOpen(true); }} disabled={sim.current_status === "Deactivated"}>
                              <UserPlus className="h-4 w-4 mr-2" />Assign Agent
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { openSpamDialog(sim); }} className="text-amber-600">
+                          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); openSpamDialog(sim); }} className="text-amber-600">
                              <AlertTriangle className="h-4 w-4 mr-2" />Mark Spam
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setDeleteSimId(sim.id); setDeleteOpen(true); }} className="text-destructive">
+                          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setDeleteSimId(sim.id); setDeleteOpen(true); }} className="text-destructive">
                              <Trash2 className="h-4 w-4 mr-2" />Delete SIM
                           </DropdownMenuItem>
                          </DropdownMenuContent>
