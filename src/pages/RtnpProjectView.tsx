@@ -500,14 +500,18 @@ export const RtnpProjectView: React.FC = () => {
     }
   };
 
-  if (!isRtnpUser) {
-    return null;
-  }
-
   // Save acknowledged rows to localStorage
   useEffect(() => {
     localStorage.setItem(`rtnp-acknowledged-${projectName}`, JSON.stringify([...acknowledgedRows]));
   }, [acknowledgedRows, projectName]);
+
+  if (!isRtnpUser) {
+    return null;
+  }
+
+  const isNewRow = (request: RtneRequest) => {
+    return request.status === 'pending' && !acknowledgedRows.has(request.id);
+  };
 
   const isNewRow = (request: RtneRequest) => {
     return request.status === 'pending' && !acknowledgedRows.has(request.id);
