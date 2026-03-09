@@ -56,6 +56,17 @@ export const RtnpProjectView: React.FC = () => {
   // Lusha enrichment state
   const [enrichingRows, setEnrichingRows] = useState<{[key: string]: 'phone' | 'email' | null}>({});
 
+  // Filter state
+  const [filterUserName, setFilterUserName] = useState('');
+  const [filterProspectName, setFilterProspectName] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Track which rows are "new" (pending and not yet acknowledged by provider)
+  const [acknowledgedRows, setAcknowledgedRows] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem(`rtnp-acknowledged-${projectName}`);
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
   const isRtnpUser = user?.email === 'realtimenumberprovider@amplior.com' || isAdmin();
   const decodedProjectName = decodeURIComponent(projectName || '');
 
