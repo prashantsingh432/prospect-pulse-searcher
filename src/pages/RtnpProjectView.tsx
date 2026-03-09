@@ -670,6 +670,12 @@ export const RtnpProjectView: React.FC = () => {
                       User
                     </div>
                   </th>
+                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[100px]">
+                    <div className="flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-2 text-gray-600" />
+                      Action
+                    </div>
+                  </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[300px]">
                     <div className="flex items-center">
                       <svg className="w-4 h-4 mr-2 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
@@ -679,234 +685,71 @@ export const RtnpProjectView: React.FC = () => {
                     </div>
                   </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                    <div className="flex items-center">
-                      <Phone className="h-4 w-4 mr-2 text-gray-600" />
-                      Phone 1
-                    </div>
+                    <div className="flex items-center"><Phone className="h-4 w-4 mr-2 text-gray-600" />Phone 1</div>
                   </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                    <div className="flex items-center">
-                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                      Phone 2
-                    </div>
+                    <div className="flex items-center"><PhoneCall className="h-4 w-4 mr-2 text-gray-600" />Phone 2</div>
                   </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                    <div className="flex items-center">
-                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                      Phone 3
-                    </div>
+                    <div className="flex items-center"><PhoneCall className="h-4 w-4 mr-2 text-gray-600" />Phone 3</div>
                   </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                    <div className="flex items-center">
-                      <PhoneCall className="h-4 w-4 mr-2 text-gray-600" />
-                      Phone 4
-                    </div>
+                    <div className="flex items-center"><PhoneCall className="h-4 w-4 mr-2 text-gray-600" />Phone 4</div>
                   </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[250px]">
-                    <div className="flex items-center">
-                      <Mail className="h-4 w-4 mr-2 text-gray-600" />
-                      Email Address
-                    </div>
-                  </th>
-                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[100px]">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 mr-2 text-gray-600" />
-                      Status
-                    </div>
+                    <div className="flex items-center"><Mail className="h-4 w-4 mr-2 text-gray-600" />Email Address</div>
                   </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                    <div className="flex items-center">
-                      <User className="h-4 w-4 mr-2 text-gray-600" />
-                      Full Name
-                    </div>
+                    <div className="flex items-center"><User className="h-4 w-4 mr-2 text-gray-600" />Full Name</div>
                   </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[150px]">
-                    <div className="flex items-center">
-                      <MapPin className="h-4 w-4 mr-2 text-gray-600" />
-                      City
-                    </div>
+                    <div className="flex items-center"><MapPin className="h-4 w-4 mr-2 text-gray-600" />City</div>
                   </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                    <div className="flex items-center">
-                      <Briefcase className="h-4 w-4 mr-2 text-gray-600" />
-                      Job Title
-                    </div>
+                    <div className="flex items-center"><Briefcase className="h-4 w-4 mr-2 text-gray-600" />Job Title</div>
                   </th>
                   <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[200px]">
-                    <div className="flex items-center">
-                      <Building className="h-4 w-4 mr-2 text-gray-600" />
-                      Company Name
-                    </div>
-                  </th>
-                  <th className="px-3 py-2 border-b border-r border-gray-300 text-sm font-semibold text-gray-700 bg-gray-200 text-left sticky top-0 min-w-[120px]">
-                    <div className="flex items-center">
-                      Action
-                    </div>
+                    <div className="flex items-center"><Building className="h-4 w-4 mr-2 text-gray-600" />Company Name</div>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {requests.map((request) => (
+                {sortedRequests.map((request) => {
+                  const rowIsNew = isNewRow(request);
+                  return (
                   <tr 
                     key={request.id} 
-                    className={`group hover:bg-blue-50/50 ${
+                    className={`group hover:bg-blue-50/50 transition-colors ${
+                      rowIsNew ? 'bg-amber-100 border-l-4 border-l-amber-500 animate-pulse' : ''
+                    } ${
                       request.status === 'completed' ? 'bg-green-50/30' : ''
                     } ${isRowCut(request.id) ? 'opacity-50 bg-red-50' : ''}`}
                   >
+                    {/* # */}
                     <td 
-                      className="px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 bg-white group-hover:bg-blue-50/50 text-center text-gray-500 z-10 cursor-context-menu select-none"
+                      className={`px-3 py-2 border-b border-r border-gray-300 text-sm sticky left-0 group-hover:bg-blue-50/50 text-center text-gray-500 z-10 cursor-context-menu select-none ${rowIsNew ? 'bg-amber-100' : 'bg-white'}`}
                       onContextMenu={(e) => handleRowRightClick(e, request.id)}
                     >
                       {request.row_number}
+                      {rowIsNew && <span className="ml-1 inline-block w-2 h-2 bg-amber-500 rounded-full" />}
                     </td>
+                    {/* User */}
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
                       <div className="flex items-center gap-1">
                         <User className="h-3 w-3 text-gray-400" />
                         <span className="text-xs font-medium">{request.user_name}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={request.linkedin_url}
-                          readOnly
-                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 cursor-not-allowed"
-                        />
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleLushaFetch(request.id, 'PHONE_ONLY')}
-                            disabled={request.status === 'completed' || enrichingRows[request.id] === 'phone'}
-                            className="h-8 px-2 text-xs"
-                            title="Fetch Phone with Lusha"
-                          >
-                            {enrichingRows[request.id] === 'phone' ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Phone className="h-3 w-3" />
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleLushaFetch(request.id, 'EMAIL_ONLY')}
-                            disabled={request.status === 'completed' || enrichingRows[request.id] === 'email'}
-                            className="h-8 px-2 text-xs"
-                            title="Fetch Email with Lusha"
-                          >
-                            {enrichingRows[request.id] === 'email' ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Mail className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.primary_phone || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'primary_phone', e.target.value)}
-                        placeholder="Enter phone 1"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.phone2 || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'phone2', e.target.value)}
-                        placeholder="Enter phone 2"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.phone3 || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'phone3', e.target.value)}
-                        placeholder="Enter phone 3"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.phone4 || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'phone4', e.target.value)}
-                        placeholder="Enter phone 4"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.email_address || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'email_address', e.target.value)}
-                        placeholder="Enter email"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      {request.status === 'pending' ? (
-                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">Pending</span>
-                      ) : (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Done</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.full_name || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'full_name', e.target.value)}
-                        placeholder="Enter name"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.city || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'city', e.target.value)}
-                        placeholder="Enter city"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.job_title || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'job_title', e.target.value)}
-                        placeholder="Enter job title"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
-                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
-                      <input
-                        type="text"
-                        value={request.company_name || ''}
-                        onChange={(e) => handleFieldChange(request.id, 'company_name', e.target.value)}
-                        placeholder="Enter company"
-                        disabled={request.status === 'completed'}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      />
-                    </td>
+                    {/* Action / Done - moved here right after User */}
                     <td className="px-3 py-2 border-b border-r border-gray-300 text-sm text-center">
                       {request.status === 'pending' && (
                         <button
                           onClick={() => markAsCompleted(request.id)}
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium flex items-center gap-1 mx-auto"
+                          className={`px-3 py-1 rounded text-xs font-medium flex items-center gap-1 mx-auto ${
+                            rowIsNew 
+                              ? 'bg-amber-600 hover:bg-amber-700 text-white' 
+                              : 'bg-green-600 hover:bg-green-700 text-white'
+                          }`}
                         >
                           <CheckCircle className="h-3 w-3" />
                           Done
@@ -916,8 +759,64 @@ export const RtnpProjectView: React.FC = () => {
                         <CheckCircle className="h-5 w-5 text-green-600 mx-auto" />
                       )}
                     </td>
+                    {/* LinkedIn URL */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={request.linkedin_url}
+                          readOnly
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 cursor-not-allowed"
+                        />
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="outline" onClick={() => handleLushaFetch(request.id, 'PHONE_ONLY')} disabled={request.status === 'completed' || enrichingRows[request.id] === 'phone'} className="h-8 px-2 text-xs" title="Fetch Phone with Lusha">
+                            {enrichingRows[request.id] === 'phone' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3" />}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleLushaFetch(request.id, 'EMAIL_ONLY')} disabled={request.status === 'completed' || enrichingRows[request.id] === 'email'} className="h-8 px-2 text-xs" title="Fetch Email with Lusha">
+                            {enrichingRows[request.id] === 'email' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                          </Button>
+                        </div>
+                      </div>
+                    </td>
+                    {/* Phone 1 */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input type="text" value={request.primary_phone || ''} onChange={(e) => handleFieldChange(request.id, 'primary_phone', e.target.value)} placeholder="Enter phone 1" disabled={request.status === 'completed'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed" />
+                    </td>
+                    {/* Phone 2 */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input type="text" value={request.phone2 || ''} onChange={(e) => handleFieldChange(request.id, 'phone2', e.target.value)} placeholder="Enter phone 2" disabled={request.status === 'completed'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed" />
+                    </td>
+                    {/* Phone 3 */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input type="text" value={request.phone3 || ''} onChange={(e) => handleFieldChange(request.id, 'phone3', e.target.value)} placeholder="Enter phone 3" disabled={request.status === 'completed'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed" />
+                    </td>
+                    {/* Phone 4 */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input type="text" value={request.phone4 || ''} onChange={(e) => handleFieldChange(request.id, 'phone4', e.target.value)} placeholder="Enter phone 4" disabled={request.status === 'completed'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed" />
+                    </td>
+                    {/* Email */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input type="text" value={request.email_address || ''} onChange={(e) => handleFieldChange(request.id, 'email_address', e.target.value)} placeholder="Enter email" disabled={request.status === 'completed'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed" />
+                    </td>
+                    {/* Full Name */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input type="text" value={request.full_name || ''} onChange={(e) => handleFieldChange(request.id, 'full_name', e.target.value)} placeholder="Enter name" disabled={request.status === 'completed'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed" />
+                    </td>
+                    {/* City */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input type="text" value={request.city || ''} onChange={(e) => handleFieldChange(request.id, 'city', e.target.value)} placeholder="Enter city" disabled={request.status === 'completed'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed" />
+                    </td>
+                    {/* Job Title */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input type="text" value={request.job_title || ''} onChange={(e) => handleFieldChange(request.id, 'job_title', e.target.value)} placeholder="Enter job title" disabled={request.status === 'completed'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed" />
+                    </td>
+                    {/* Company Name */}
+                    <td className="px-3 py-2 border-b border-r border-gray-300 text-sm">
+                      <input type="text" value={request.company_name || ''} onChange={(e) => handleFieldChange(request.id, 'company_name', e.target.value)} placeholder="Enter company" disabled={request.status === 'completed'} className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed" />
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
