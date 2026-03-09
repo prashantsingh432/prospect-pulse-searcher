@@ -200,6 +200,9 @@ export const RtnpProjectView: React.FC = () => {
 
   const markAsCompleted = async (requestId: string) => {
     try {
+      // Acknowledge the row (remove highlight)
+      setAcknowledgedRows(prev => new Set([...prev, requestId]));
+
       const { error } = await supabase
         .from('rtne_requests')
         .update({
