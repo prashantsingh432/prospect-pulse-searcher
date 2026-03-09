@@ -316,6 +316,46 @@ const Rtne: React.FC = () => {
               }
               return row;
             }));
+
+            // 🔥 CRITICAL: Also sync RTNP-provided data to the prospects table
+            // so that LinkedIn URL searches on the dashboard find this data
+            const linkedinUrl = updatedRecord.linkedin_url;
+            if (linkedinUrl) {
+              const normalizedUrl = linkedinUrl.trim().toLowerCase().replace(/\/+$/, '');
+              const username = normalizedUrl.split('/in/')[1]?.split('/')[0];
+              const prospectData: any = {
+                full_name: updatedRecord.full_name || 'Unknown',
+                company_name: updatedRecord.company_name || 'Unknown',
+                prospect_linkedin: normalizedUrl,
+                prospect_city: updatedRecord.city || null,
+                prospect_designation: updatedRecord.job_title || null,
+                prospect_number: updatedRecord.primary_phone || null,
+                prospect_number2: updatedRecord.phone2 || null,
+                prospect_number3: updatedRecord.phone3 || null,
+                prospect_number4: updatedRecord.phone4 || null,
+                prospect_email: updatedRecord.email_address || null,
+              };
+
+              // Upsert to prospects table
+              const { data: existingProspect } = await supabase
+                .from('prospects')
+                .select('id')
+                .ilike('prospect_linkedin', `%${username || normalizedUrl}%`)
+                .maybeSingle();
+
+              if (existingProspect) {
+                await supabase
+                  .from('prospects')
+                  .update(prospectData)
+                  .eq('id', existingProspect.id);
+                console.log('✅ [Realtime] Updated prospect in database from RTNP data');
+              } else {
+                await supabase
+                  .from('prospects')
+                  .insert([prospectData]);
+                console.log('✅ [Realtime] Inserted new prospect in database from RTNP data');
+              }
+            }
           }
         }
       )
