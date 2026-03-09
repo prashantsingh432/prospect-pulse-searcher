@@ -603,6 +603,46 @@ export const RtnpProjectView: React.FC = () => {
                 {completedRequests.length} Completed
               </span>
             </div>
+            {/* Filter Bar */}
+            <div className="flex items-center gap-2 mt-1 mb-1">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100"
+              >
+                <Filter className="h-3 w-3" />
+                Filters
+              </button>
+              {showFilters && (
+                <>
+                  <div className="flex items-center gap-1">
+                    <Search className="h-3 w-3 text-gray-400" />
+                    <Input
+                      placeholder="Filter by user name..."
+                      value={filterUserName}
+                      onChange={(e) => setFilterUserName(e.target.value)}
+                      className="h-7 w-40 text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Search className="h-3 w-3 text-gray-400" />
+                    <Input
+                      placeholder="Filter by prospect name..."
+                      value={filterProspectName}
+                      onChange={(e) => setFilterProspectName(e.target.value)}
+                      className="h-7 w-40 text-xs"
+                    />
+                  </div>
+                  {(filterUserName || filterProspectName) && (
+                    <button
+                      onClick={() => { setFilterUserName(''); setFilterProspectName(''); }}
+                      className="text-xs text-red-500 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
