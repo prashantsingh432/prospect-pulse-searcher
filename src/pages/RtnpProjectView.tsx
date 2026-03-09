@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, CheckCircle, Star, Share, Sparkles, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, Loader2, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, CheckCircle, Star, Share, Sparkles, Wifi, WifiOff, Search, Filter } from "lucide-react";
 import RowContextMenu from "@/components/RowContextMenu";
 import { enrichProspect } from "@/services/lushaService";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { toast as sonnerToast } from "sonner";
 
 interface RtneRequest {
