@@ -513,9 +513,6 @@ export const RtnpProjectView: React.FC = () => {
     return request.status === 'pending' && !acknowledgedRows.has(request.id);
   };
 
-  const isNewRow = (request: RtneRequest) => {
-    return request.status === 'pending' && !acknowledgedRows.has(request.id);
-  };
 
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const completedRequests = requests.filter(r => r.status === 'completed');
