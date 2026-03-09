@@ -504,8 +504,35 @@ export const RtnpProjectView: React.FC = () => {
     return null;
   }
 
+  // Save acknowledged rows to localStorage
+  useEffect(() => {
+    localStorage.setItem(`rtnp-acknowledged-${projectName}`, JSON.stringify([...acknowledgedRows]));
+  }, [acknowledgedRows, projectName]);
+
+  const isNewRow = (request: RtneRequest) => {
+    return request.status === 'pending' && !acknowledgedRows.has(request.id);
+  };
+
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const completedRequests = requests.filter(r => r.status === 'completed');
+
+  // Filter requests
+  const filteredRequests = requests.filter(r => {
+    if (filterUserName && !r.user_name.toLowerCase().includes(filterUserName.toLowerCase())) return false;
+    if (filterProspectName && !(r.full_name || '').toLowerCase().includes(filterProspectName.toLowerCase())) return false;
+    return true;
+  });
+
+  // Sort: new pending rows first (highlighted), then other pending, then completed
+  const sortedRequests = [...filteredRequests].sort((a, b) => {
+    const aNew = isNewRow(a) ? 0 : 1;
+    const bNew = isNewRow(b) ? 0 : 1;
+    if (aNew !== bNew) return aNew - bNew;
+    const aStatus = a.status === 'pending' ? 0 : 1;
+    const bStatus = b.status === 'pending' ? 0 : 1;
+    if (aStatus !== bStatus) return aStatus - bStatus;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   return (
     <div className="min-h-screen bg-[#F3F2EF]">
