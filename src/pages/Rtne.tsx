@@ -280,7 +280,7 @@ const Rtne: React.FC = () => {
           table: 'rtne_requests',
           filter: `user_id=eq.${user?.id}`,
         },
-        (payload) => {
+        async (payload) => {
           console.log('[RTNE Agent] Real-time update:', payload);
           const updatedRecord = payload.new as any;
           
