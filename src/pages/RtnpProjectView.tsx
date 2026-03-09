@@ -199,6 +199,44 @@ export const RtnpProjectView: React.FC = () => {
 
       if (error) throw error;
 
+      // 🔥 CRITICAL: Sync completed data to prospects table for dashboard searches
+      const request = requests.find(r => r.id === requestId);
+      if (request?.linkedin_url) {
+        const normalizedUrl = request.linkedin_url.trim().toLowerCase().replace(/\/+$/, '');
+        const username = normalizedUrl.split('/in/')[1]?.split('/')[0];
+        const prospectData: any = {
+          full_name: request.full_name || 'Unknown',
+          company_name: request.company_name || 'Unknown',
+          prospect_linkedin: normalizedUrl,
+          prospect_city: request.city || null,
+          prospect_designation: request.job_title || null,
+          prospect_number: request.primary_phone || null,
+          prospect_number2: request.phone2 || null,
+          prospect_number3: request.phone3 || null,
+          prospect_number4: request.phone4 || null,
+          prospect_email: request.email_address || null,
+        };
+
+        const { data: existingProspect } = await supabase
+          .from('prospects')
+          .select('id')
+          .ilike('prospect_linkedin', `%${username || normalizedUrl}%`)
+          .maybeSingle();
+
+        if (existingProspect) {
+          await supabase
+            .from('prospects')
+            .update(prospectData)
+            .eq('id', existingProspect.id);
+          console.log('✅ [RTNP] Updated prospect in database');
+        } else {
+          await supabase
+            .from('prospects')
+            .insert([prospectData]);
+          console.log('✅ [RTNP] Inserted new prospect in database');
+        }
+      }
+
       toast({
         title: "Success",
         description: "Request marked as completed",
