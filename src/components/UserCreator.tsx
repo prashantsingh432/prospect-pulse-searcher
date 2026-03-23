@@ -21,6 +21,7 @@ type UserData = {
   role: string;
   status: string;
   last_active: string | null;
+  last_sign_in_at: string | null;
   project_name: string;
   created_at: string;
   updated_at?: string;
