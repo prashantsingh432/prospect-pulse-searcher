@@ -268,6 +268,35 @@ export const RtnpProjectView: React.FC = () => {
     }
   };
 
+  const undoCompleted = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('rtne_requests')
+        .update({
+          status: 'pending',
+          completed_at: null,
+          completed_by: null
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Undone",
+        description: "Request moved back to pending — you can now edit and re-submit",
+      });
+
+      loadProjectRequests();
+    } catch (error: any) {
+      console.error("Error undoing completion:", error);
+      toast({
+        title: "Error",
+        description: "Failed to undo completion",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Context menu handlers
   const handleRowRightClick = (e: React.MouseEvent, requestId: string) => {
     e.preventDefault();
