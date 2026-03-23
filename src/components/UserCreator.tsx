@@ -21,6 +21,7 @@ type UserData = {
   role: string;
   status: string;
   last_active: string | null;
+  last_sign_in_at: string | null;
   project_name: string;
   created_at: string;
   updated_at?: string;
@@ -895,6 +896,7 @@ export const UserCreator = () => {
                           {sortField !== 'created_at' && <ArrowUpDown className="h-4 w-4 opacity-50" />}
                         </div>
                       </TableHead>
+                      <TableHead>LAST SIGN IN</TableHead>
                       <TableHead>ACTIONS</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -960,6 +962,13 @@ export const UserCreator = () => {
                           <TableCell>
                             <p className="text-sm text-gray-500">
                               {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm text-gray-500">
+                              {user.last_sign_in_at 
+                                ? new Date(user.last_sign_in_at).toLocaleDateString() + ' ' + new Date(user.last_sign_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                : 'Never'}
                             </p>
                           </TableCell>
                           <TableCell>

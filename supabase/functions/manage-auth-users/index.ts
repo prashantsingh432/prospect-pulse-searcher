@@ -89,6 +89,7 @@ serve(async (req) => {
         role: authUser.user_metadata?.project_name === 'ADMIN' ? 'admin' : 'caller',
         project_name: authUser.user_metadata?.project_name || 'Unknown',
         last_active: authUser.last_sign_in_at,
+        last_sign_in_at: authUser.last_sign_in_at,
         created_at: authUser.created_at,
         updated_at: authUser.updated_at,
         status: 'active'
