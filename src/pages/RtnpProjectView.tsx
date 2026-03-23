@@ -268,6 +268,35 @@ export const RtnpProjectView: React.FC = () => {
     }
   };
 
+  const undoCompleted = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('rtne_requests')
+        .update({
+          status: 'pending',
+          completed_at: null,
+          completed_by: null
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Undone",
+        description: "Request moved back to pending — you can now edit and re-submit",
+      });
+
+      loadProjectRequests();
+    } catch (error: any) {
+      console.error("Error undoing completion:", error);
+      toast({
+        title: "Error",
+        description: "Failed to undo completion",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Context menu handlers
   const handleRowRightClick = (e: React.MouseEvent, requestId: string) => {
     e.preventDefault();
@@ -756,7 +785,14 @@ export const RtnpProjectView: React.FC = () => {
                         </button>
                       )}
                       {request.status === 'completed' && (
-                        <CheckCircle className="h-5 w-5 text-green-600 mx-auto" />
+                        <button
+                          onClick={() => undoCompleted(request.id)}
+                          className="px-3 py-1 rounded text-xs font-medium flex items-center gap-1 mx-auto bg-gray-200 hover:bg-orange-100 text-gray-700 hover:text-orange-700 transition-colors"
+                          title="Undo — move back to pending to edit numbers"
+                        >
+                          <CheckCircle className="h-3 w-3" />
+                          Undo
+                        </button>
                       )}
                     </td>
                     {/* LinkedIn URL */}
