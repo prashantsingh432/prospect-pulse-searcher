@@ -965,6 +965,13 @@ export const UserCreator = () => {
                             </p>
                           </TableCell>
                           <TableCell>
+                            <p className="text-sm text-gray-500">
+                              {user.last_sign_in_at 
+                                ? new Date(user.last_sign_in_at).toLocaleDateString() + ' ' + new Date(user.last_sign_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                : 'Never'}
+                            </p>
+                          </TableCell>
+                          <TableCell>
                             <div className="flex space-x-2">
                               <Button
                                 variant="ghost"
