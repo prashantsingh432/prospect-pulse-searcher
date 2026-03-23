@@ -896,6 +896,7 @@ export const UserCreator = () => {
                           {sortField !== 'created_at' && <ArrowUpDown className="h-4 w-4 opacity-50" />}
                         </div>
                       </TableHead>
+                      <TableHead>LAST SIGN IN</TableHead>
                       <TableHead>ACTIONS</TableHead>
                     </TableRow>
                   </TableHeader>
