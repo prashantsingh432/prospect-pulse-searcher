@@ -972,29 +972,15 @@ export const UserCreator = () => {
                             </p>
                           </TableCell>
                           <TableCell>
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-blue-600 hover:text-blue-800"
-                                onClick={() => openEditModal(user)}
-                              >
-                                <Edit className="h-4 w-4 mr-1" />
-                                Edit
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-600 hover:text-red-800"
-                                onClick={() => {
-                                  setSelectedUserIds(new Set([user.id]));
-                                  setIsRemoveModalOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Delete
-                              </Button>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-600 hover:text-blue-800"
+                              onClick={() => openEditModal(user)}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
