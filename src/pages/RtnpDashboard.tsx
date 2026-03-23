@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FolderOpen, Clock, Wifi, WifiOff } from "lucide-react";
+import { Loader2, FolderOpen, Clock, Wifi, WifiOff, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 interface ProjectStats {
@@ -140,7 +141,13 @@ export const RtnpDashboard: React.FC = () => {
     <div className="container mx-auto p-6">
       <div className="mb-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold mb-2">Real-Time Number Provider Dashboard</h1>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Dashboard
+            </Button>
+            <h1 className="text-3xl font-bold">Real-Time Number Provider Dashboard</h1>
+          </div>
           <div className="flex items-center gap-2">
             {isRealtimeConnected ? (
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
