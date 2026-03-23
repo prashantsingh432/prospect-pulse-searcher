@@ -785,7 +785,14 @@ export const RtnpProjectView: React.FC = () => {
                         </button>
                       )}
                       {request.status === 'completed' && (
-                        <CheckCircle className="h-5 w-5 text-green-600 mx-auto" />
+                        <button
+                          onClick={() => undoCompleted(request.id)}
+                          className="px-3 py-1 rounded text-xs font-medium flex items-center gap-1 mx-auto bg-gray-200 hover:bg-orange-100 text-gray-700 hover:text-orange-700 transition-colors"
+                          title="Undo — move back to pending to edit numbers"
+                        >
+                          <CheckCircle className="h-3 w-3" />
+                          Undo
+                        </button>
                       )}
                     </td>
                     {/* LinkedIn URL */}
