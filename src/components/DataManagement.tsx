@@ -386,11 +386,10 @@ export const DataManagement: React.FC = () => {
         return obj;
       });
 
-      // Filter out completely blank rows (where all required fields are empty)
+      // Keep any row that has a LinkedIn URL — that's the only required field
       const nonBlankRecords = records.filter(record => {
-        const hasFullName = record.full_name && String(record.full_name).trim() !== "";
-        const hasCompanyName = record.company_name && String(record.company_name).trim() !== "";
-        return hasFullName || hasCompanyName; // Keep row if at least one field has data
+        const hasLinkedin = record.prospect_linkedin && String(record.prospect_linkedin).trim() !== "";
+        return hasLinkedin;
       });
 
       // Filter and normalize data
