@@ -401,8 +401,26 @@ export const UserCreator = () => {
 
     setIsLoading(true);
     try {
+      // Filter out super admins if current user is not super admin
+      const filteredIds = !currentUserIsSuperAdmin() 
+        ? ids.filter(id => {
+            const u = users.find(user => user.id === id);
+            return u?.role !== 'admin';
+          })
+        : ids;
+
+      if (filteredIds.length === 0) {
+        toast({
+          title: "Access Denied",
+          description: "You cannot delete Super Admin accounts.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Delete sequentially to keep service role usage simple and predictable
-      for (const id of ids) {
+      for (const id of filteredIds) {
         console.log('Deleting user:', id);
         await callAuthFunction('delete', { userId: id });
       }
