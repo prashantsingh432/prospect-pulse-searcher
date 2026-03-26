@@ -417,10 +417,15 @@ export const DataManagement: React.FC = () => {
 
       // Filter out records with missing required NOT NULL fields (full_name, company_name)
       // These columns have database constraints and cannot be null
-      const validRecords = normalized.filter((record) => {
+      // Fill missing values with defaults so we don't lose rows
+      const validRecords = normalized.map((record) => {
         const fullName = String(record.full_name || "").trim();
         const companyName = String(record.company_name || "").trim();
-        return fullName !== "" && companyName !== "";
+        return {
+          ...record,
+          full_name: fullName || "Unknown",
+          company_name: companyName || "Unknown",
+        };
       });
 
       const skippedCount = normalized.length - validRecords.length;
@@ -470,13 +475,10 @@ export const DataManagement: React.FC = () => {
         } else {
           const { error } = await supabase
             .from("prospects")
-            .upsert(chunk, {
-              onConflict: "id",
-              ignoreDuplicates: false
-            });
+            .insert(chunk);
 
           if (error) {
-            console.error("Upsert error:", error);
+            console.error("Insert error:", error);
             throw new Error(`Database error at records ${i + 1}-${chunkEnd}: ${error.message}`);
           }
         }
