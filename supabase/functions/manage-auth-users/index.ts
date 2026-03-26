@@ -304,6 +304,18 @@ serve(async (req) => {
           console.log('Warning: Could not get user info before deletion:', getUserError.message)
         } else {
           console.log('Deleting user:', userInfo?.user?.email || userId)
+          
+          // Sub-admins cannot delete super admins
+          if (!isSuperAdmin) {
+            const targetMeta = userInfo?.user?.user_metadata || {}
+            const targetIsSuperAdmin = targetMeta.project_name === 'ADMIN' && (targetMeta.admin_level === 'super' || !targetMeta.admin_level)
+            if (targetIsSuperAdmin) {
+              return new Response(JSON.stringify({ error: 'Cannot delete Super Admin account' }), {
+                status: 403,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              })
+            }
+          }
         }
 
         // Use the cascade delete function to clean up all related data first
