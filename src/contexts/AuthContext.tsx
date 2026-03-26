@@ -10,6 +10,7 @@ interface AuthUser {
   fullName?: string;
   projectName?: string;
   role?: string;
+  adminLevel?: string; // 'super' | 'sub' | undefined
 }
 
 interface AuthContextType {
@@ -19,6 +20,8 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   isAdmin: () => boolean;
+  isSuperAdmin: () => boolean;
+  isSubAdmin: () => boolean;
   isRtnpUser: () => boolean;
 }
 
@@ -41,12 +44,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Convert Supabase user to our AuthUser format
   const createAuthUser = (supabaseUser: User): AuthUser => {
     const metadata = supabaseUser.user_metadata || {};
+    const isAdminProject = metadata.project_name === 'ADMIN';
+    const adminLevel = metadata.admin_level || (isAdminProject ? 'super' : undefined);
+    const role = isAdminProject ? 'admin' : metadata.admin_level === 'sub' ? 'sub_admin' : 'caller';
     return {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
       fullName: metadata.full_name || supabaseUser.email?.split('@')[0] || '',
       projectName: metadata.project_name || '',
-      role: metadata.project_name === 'ADMIN' ? 'admin' : 'caller'
+      role,
+      adminLevel,
     };
   };
 
@@ -136,8 +143,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setSession(null);
   };
   
+  const isSuperAdmin = () => {
+    return (user?.role === 'admin' && user?.adminLevel === 'super') || user?.projectName === 'ADMIN' && !user?.adminLevel;
+  };
+
+  const isSubAdmin = () => {
+    return user?.role === 'sub_admin' || user?.adminLevel === 'sub';
+  };
+
   const isAdmin = () => {
-    return user?.role === 'admin' || user?.projectName === 'ADMIN';
+    return isSuperAdmin() || isSubAdmin();
   };
 
   const isRtnpUser = () => {
@@ -151,6 +166,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     logout,
     loading,
     isAdmin,
+    isSuperAdmin,
+    isSubAdmin,
     isRtnpUser
   };
 

@@ -9,12 +9,17 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Admin = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
 
   if (!isAdmin()) {
     return <Navigate to="/" />;
   }
+
+  // Sub-admins see: User Management, Projects, SIM Inventory
+  // Super admins see: User Management, Projects, Lusha API Manager, SIM Inventory
+  const showLusha = isSuperAdmin();
+  const tabCount = showLusha ? 4 : 3;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -25,10 +30,10 @@ const Admin = () => {
             navigate("/sim-inventory");
           }
         }}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className={showLusha ? "grid w-full grid-cols-4" : "grid w-full grid-cols-3"}>
             <TabsTrigger value="users">User Management</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
-            <TabsTrigger value="lusha">Lusha API Manager</TabsTrigger>
+            {showLusha && <TabsTrigger value="lusha">Lusha API Manager</TabsTrigger>}
             <TabsTrigger value="sim">SIM Inventory</TabsTrigger>
           </TabsList>
 
@@ -40,9 +45,11 @@ const Admin = () => {
             <ProjectManager />
           </TabsContent>
 
-          <TabsContent value="lusha" className="mt-6">
-            <LushaApiManager />
-          </TabsContent>
+          {showLusha && (
+            <TabsContent value="lusha" className="mt-6">
+              <LushaApiManager />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

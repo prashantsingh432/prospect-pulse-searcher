@@ -6,6 +6,7 @@ export const Navbar = () => {
   const {
     logout,
     isAdmin,
+    isSuperAdmin,
     isRtnpUser,
     user
   } = useAuth();
@@ -42,20 +43,21 @@ export const Navbar = () => {
           )}
           
           {isAdmin() && (
-            <>
-              <Button variant="outline" asChild>
-                <Link to="/admin" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Admin Panel
-                </Link>
-              </Button>
-              <Button variant="default" asChild className="bg-blue-600 hover:bg-blue-700">
-                <Link to="/data-management" className="flex items-center gap-2">
-                  <Database className="h-4 w-4" />
-                  Data Management
-                </Link>
-              </Button>
-            </>
+            <Button variant="outline" asChild>
+              <Link to="/admin" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Admin Panel
+              </Link>
+            </Button>
+          )}
+          
+          {isSuperAdmin() && (
+            <Button variant="default" asChild className="bg-blue-600 hover:bg-blue-700">
+              <Link to="/data-management" className="flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                Data Management
+              </Link>
+            </Button>
           )}
           
           {/* User Name Display */}

@@ -9,16 +9,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/contexts/AuthContext";
 
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, ShieldCheck } from "lucide-react";
 
 type UserData = {
   id: string;
   email: string;
   name: string;
   role: string;
+  admin_level?: string;
   status: string;
   last_active: string | null;
   last_sign_in_at: string | null;
@@ -30,12 +32,14 @@ type UserData = {
 type UserStats = {
   totalUsers: number;
   admins: number;
+  subAdmins: number;
   callers: number;
 };
 
 export const UserCreator = () => {
+  const { isSuperAdmin: currentUserIsSuperAdmin } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
-  const [userStats, setUserStats] = useState<UserStats>({ totalUsers: 0, admins: 0, callers: 0 });
+  const [userStats, setUserStats] = useState<UserStats>({ totalUsers: 0, admins: 0, subAdmins: 0, callers: 0 });
   const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -73,6 +77,7 @@ export const UserCreator = () => {
     const stats = {
       totalUsers: userList.length,
       admins: userList.filter(u => u.role === 'admin').length,
+      subAdmins: userList.filter(u => u.role === 'sub_admin').length,
       callers: userList.filter(u => u.role === 'caller').length
     };
     setUserStats(stats);
@@ -285,7 +290,7 @@ export const UserCreator = () => {
       return;
     }
 
-    if (newUserRole !== 'admin' && (!newUserProjectName?.trim())) {
+    if (newUserRole === 'caller' && (!newUserProjectName?.trim())) {
       toast({
         title: "Missing Project Name",
         description: "Project name is required for caller users",
@@ -307,7 +312,7 @@ export const UserCreator = () => {
         email: newUserEmail.trim(),
         password: newUserPassword,
         fullName: newUserName.trim(),
-        projectName: newUserRole === 'admin' ? 'ADMIN' : newUserProjectName?.trim(),
+        projectName: newUserRole === 'admin' ? 'ADMIN' : (newUserRole === 'sub_admin' ? 'ADMIN' : newUserProjectName?.trim()),
         role: newUserRole
       });
 
@@ -356,7 +361,7 @@ export const UserCreator = () => {
         userId: selectedUserToEdit.id,
         email: editUserEmail,
         fullName: editUserName,
-        projectName: editUserRole === 'admin' ? 'ADMIN' : editUserProjectName,
+        projectName: editUserRole === 'admin' ? 'ADMIN' : (editUserRole === 'sub_admin' ? 'ADMIN' : editUserProjectName),
         role: editUserRole
       });
 
@@ -396,8 +401,26 @@ export const UserCreator = () => {
 
     setIsLoading(true);
     try {
+      // Filter out super admins if current user is not super admin
+      const filteredIds = !currentUserIsSuperAdmin() 
+        ? ids.filter(id => {
+            const u = users.find(user => user.id === id);
+            return u?.role !== 'admin';
+          })
+        : ids;
+
+      if (filteredIds.length === 0) {
+        toast({
+          title: "Access Denied",
+          description: "You cannot delete Super Admin accounts.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Delete sequentially to keep service role usage simple and predictable
-      for (const id of ids) {
+      for (const id of filteredIds) {
         console.log('Deleting user:', id);
         await callAuthFunction('delete', { userId: id });
       }
@@ -427,6 +450,15 @@ export const UserCreator = () => {
 
   // Open edit modal with user data
   const openEditModal = (user: UserData) => {
+    // Sub-admins cannot edit super admins
+    if (!currentUserIsSuperAdmin() && user.role === 'admin') {
+      toast({
+        title: "Access Denied",
+        description: "You cannot edit a Super Admin account.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSelectedUserToEdit(user);
     setEditUserName(user.name || "");
     setEditUserEmail(user.email);
@@ -550,9 +582,22 @@ export const UserCreator = () => {
                 <div className="flex items-center">
                   <Shield className="h-8 w-8 text-green-600" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-green-900">Admins</p>
+                    <p className="text-sm font-medium text-green-900">Super Admins</p>
                     <p className="text-2xl font-bold text-green-600">{userStats.admins}</p>
-                    <p className="text-xs text-green-700">admin users</p>
+                    <p className="text-xs text-green-700">super admin users</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-orange-50 border-orange-200">
+              <CardContent className="p-4">
+                <div className="flex items-center">
+                  <ShieldCheck className="h-8 w-8 text-orange-600" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-orange-900">Sub Admins</p>
+                    <p className="text-2xl font-bold text-orange-600">{userStats.subAdmins}</p>
+                    <p className="text-xs text-orange-700">sub admin users</p>
                   </div>
                 </div>
               </CardContent>
@@ -636,12 +681,13 @@ export const UserCreator = () => {
                         <SelectValue placeholder="Choose a role" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        {currentUserIsSuperAdmin() && <SelectItem value="admin">Super Admin</SelectItem>}
+                        {currentUserIsSuperAdmin() && <SelectItem value="sub_admin">Sub Admin</SelectItem>}
                         <SelectItem value="caller">Caller</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  {newUserRole !== 'admin' && (
+                  {newUserRole === 'caller' && (
                     <div>
                       <Label htmlFor="projectName">Project Name</Label>
                       <Select value={newUserProjectName} onValueChange={setNewUserProjectName}>
@@ -718,12 +764,13 @@ export const UserCreator = () => {
                         <SelectValue placeholder="Choose a role" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        {currentUserIsSuperAdmin() && <SelectItem value="admin">Super Admin</SelectItem>}
+                        {currentUserIsSuperAdmin() && <SelectItem value="sub_admin">Sub Admin</SelectItem>}
                         <SelectItem value="caller">Caller</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  {editUserRole !== 'admin' && (
+                  {editUserRole === 'caller' && (
                     <div>
                       <Label htmlFor="editProjectName">Project Name</Label>
                       <Select value={editUserProjectName} onValueChange={setEditUserProjectName}>
@@ -949,9 +996,13 @@ export const UserCreator = () => {
                           <TableCell>
                             <Badge
                               variant={user.role === 'admin' ? "default" : "secondary"}
-                              className={user.role === 'admin' ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}
+                              className={
+                                user.role === 'admin' ? "bg-blue-100 text-blue-800" : 
+                                user.role === 'sub_admin' ? "bg-orange-100 text-orange-800" : 
+                                "bg-green-100 text-green-800"
+                              }
                             >
-                              {user.role === 'admin' ? 'Admin' : 'Caller'}
+                              {user.role === 'admin' ? 'Super Admin' : user.role === 'sub_admin' ? 'Sub Admin' : 'Caller'}
                             </Badge>
                           </TableCell>
                           <TableCell>

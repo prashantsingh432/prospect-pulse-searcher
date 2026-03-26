@@ -5,9 +5,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 
 const DataManagement = () => {
-  const { isAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
 
-  if (!isAdmin()) {
+  if (!isSuperAdmin()) {
     return <Navigate to="/" />;
   }
 
