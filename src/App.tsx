@@ -58,6 +58,28 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isSuperAdmin, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (!isSuperAdmin()) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 const RtnpRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isRtnpUser, isAdmin, loading } = useAuth();
   
@@ -141,9 +163,9 @@ const App = () => (
             <Route
               path="/data-management"
               element={
-                <AdminRoute>
+                <SuperAdminRoute>
                   <DataManagement />
-                </AdminRoute>
+                </SuperAdminRoute>
               }
             />
             <Route path="*" element={<NotFound />} />
