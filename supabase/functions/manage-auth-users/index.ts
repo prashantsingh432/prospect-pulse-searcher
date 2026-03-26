@@ -55,9 +55,9 @@ serve(async (req) => {
       })
     }
 
-    // Check if user is admin
+    // Check if user is admin (super or sub)
     const userMetadata = user.user_metadata || {}
-    const isAdmin = userMetadata.project_name === 'ADMIN'
+    const isAdmin = userMetadata.project_name === 'ADMIN' || userMetadata.admin_level === 'sub'
     
     if (!isAdmin) {
       console.error('User is not admin:', user.email, 'metadata:', userMetadata)
@@ -66,6 +66,9 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
+    // Check if requesting user is super admin
+    const isSuperAdmin = userMetadata.project_name === 'ADMIN' && (userMetadata.admin_level === 'super' || !userMetadata.admin_level)
 
     const { method } = req
     const url = new URL(req.url)
@@ -82,18 +85,27 @@ serve(async (req) => {
         throw error
       }
 
-      const enrichedUsers = users.map(authUser => ({
-        id: authUser.id,
-        email: authUser.email,
-        name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || '',
-        role: authUser.user_metadata?.project_name === 'ADMIN' ? 'admin' : 'caller',
-        project_name: authUser.user_metadata?.project_name || 'Unknown',
-        last_active: authUser.last_sign_in_at,
-        last_sign_in_at: authUser.last_sign_in_at,
-        created_at: authUser.created_at,
-        updated_at: authUser.updated_at,
-        status: 'active'
-      }))
+      const enrichedUsers = users.map(authUser => {
+        const meta = authUser.user_metadata || {}
+        const adminLevel = meta.admin_level || (meta.project_name === 'ADMIN' ? 'super' : undefined)
+        let role = 'caller'
+        if (meta.project_name === 'ADMIN') role = 'admin'
+        else if (meta.admin_level === 'sub') role = 'sub_admin'
+        
+        return {
+          id: authUser.id,
+          email: authUser.email,
+          name: meta.full_name || authUser.email?.split('@')[0] || '',
+          role,
+          admin_level: adminLevel,
+          project_name: meta.project_name || 'Unknown',
+          last_active: authUser.last_sign_in_at,
+          last_sign_in_at: authUser.last_sign_in_at,
+          created_at: authUser.created_at,
+          updated_at: authUser.updated_at,
+          status: 'active'
+        }
+      })
 
       return new Response(JSON.stringify({ users: enrichedUsers }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -129,6 +141,7 @@ serve(async (req) => {
       }
 
       const effectiveProjectName = role === 'admin' ? 'ADMIN' : projectName
+      const adminLevel = role === 'admin' ? 'super' : (role === 'sub_admin' ? 'sub' : undefined)
 
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email: cleanEmail,
@@ -136,7 +149,8 @@ serve(async (req) => {
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
-          project_name: effectiveProjectName
+          project_name: effectiveProjectName,
+          admin_level: adminLevel
         }
       })
 
@@ -157,7 +171,7 @@ serve(async (req) => {
           id: data.user.id,
           email: data.user.email,
           name: fullName,
-          role: role === 'admin' ? 'admin' : 'caller',
+          role: role === 'admin' ? 'admin' : (role === 'sub_admin' ? 'sub_admin' : 'caller'),
           project_name: effectiveProjectName,
           status: 'active'
         })
@@ -173,7 +187,8 @@ serve(async (req) => {
           id: data.user.id,
           email: data.user.email,
           name: fullName,
-          role: role === 'admin' ? 'admin' : 'caller',
+          role: role === 'admin' ? 'admin' : (role === 'sub_admin' ? 'sub_admin' : 'caller'),
+          admin_level: adminLevel,
           project_name: effectiveProjectName
         }
       }), {
@@ -196,12 +211,27 @@ serve(async (req) => {
       }
 
       const effectiveProjectName = role === 'admin' ? 'ADMIN' : projectName
+      const adminLevel = role === 'admin' ? 'super' : (role === 'sub_admin' ? 'sub' : undefined)
+
+      // Sub-admins cannot edit super admins
+      if (!isSuperAdmin) {
+        const { data: targetUser } = await supabaseAdmin.auth.admin.getUserById(userId)
+        const targetMeta = targetUser?.user?.user_metadata || {}
+        const targetIsSuperAdmin = targetMeta.project_name === 'ADMIN' && (targetMeta.admin_level === 'super' || !targetMeta.admin_level)
+        if (targetIsSuperAdmin) {
+          return new Response(JSON.stringify({ error: 'Cannot modify Super Admin account' }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          })
+        }
+      }
 
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
         email,
         user_metadata: {
           full_name: fullName,
-          project_name: effectiveProjectName
+          project_name: effectiveProjectName,
+          admin_level: adminLevel
         }
       })
 
@@ -221,7 +251,7 @@ serve(async (req) => {
         .update({
           email,
           name: fullName,
-          role: role === 'admin' ? 'admin' : 'caller',
+          role: role === 'admin' ? 'admin' : (role === 'sub_admin' ? 'sub_admin' : 'caller'),
           project_name: effectiveProjectName
         })
         .eq('id', userId)
