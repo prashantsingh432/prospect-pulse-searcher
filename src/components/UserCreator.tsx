@@ -290,7 +290,7 @@ export const UserCreator = () => {
       return;
     }
 
-    if (newUserRole !== 'admin' && (!newUserProjectName?.trim())) {
+    if (newUserRole === 'caller' && (!newUserProjectName?.trim())) {
       toast({
         title: "Missing Project Name",
         description: "Project name is required for caller users",
@@ -312,7 +312,7 @@ export const UserCreator = () => {
         email: newUserEmail.trim(),
         password: newUserPassword,
         fullName: newUserName.trim(),
-        projectName: newUserRole === 'admin' ? 'ADMIN' : newUserProjectName?.trim(),
+        projectName: newUserRole === 'admin' ? 'ADMIN' : (newUserRole === 'sub_admin' ? 'ADMIN' : newUserProjectName?.trim()),
         role: newUserRole
       });
 
@@ -361,7 +361,7 @@ export const UserCreator = () => {
         userId: selectedUserToEdit.id,
         email: editUserEmail,
         fullName: editUserName,
-        projectName: editUserRole === 'admin' ? 'ADMIN' : editUserProjectName,
+        projectName: editUserRole === 'admin' ? 'ADMIN' : (editUserRole === 'sub_admin' ? 'ADMIN' : editUserProjectName),
         role: editUserRole
       });
 
@@ -432,6 +432,15 @@ export const UserCreator = () => {
 
   // Open edit modal with user data
   const openEditModal = (user: UserData) => {
+    // Sub-admins cannot edit super admins
+    if (!currentUserIsSuperAdmin() && user.role === 'admin') {
+      toast({
+        title: "Access Denied",
+        description: "You cannot edit a Super Admin account.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSelectedUserToEdit(user);
     setEditUserName(user.name || "");
     setEditUserEmail(user.email);
