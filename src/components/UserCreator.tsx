@@ -9,16 +9,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/contexts/AuthContext";
 
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, ShieldCheck } from "lucide-react";
 
 type UserData = {
   id: string;
   email: string;
   name: string;
   role: string;
+  admin_level?: string;
   status: string;
   last_active: string | null;
   last_sign_in_at: string | null;
@@ -30,12 +32,14 @@ type UserData = {
 type UserStats = {
   totalUsers: number;
   admins: number;
+  subAdmins: number;
   callers: number;
 };
 
 export const UserCreator = () => {
+  const { isSuperAdmin: currentUserIsSuperAdmin } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
-  const [userStats, setUserStats] = useState<UserStats>({ totalUsers: 0, admins: 0, callers: 0 });
+  const [userStats, setUserStats] = useState<UserStats>({ totalUsers: 0, admins: 0, subAdmins: 0, callers: 0 });
   const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -73,6 +77,7 @@ export const UserCreator = () => {
     const stats = {
       totalUsers: userList.length,
       admins: userList.filter(u => u.role === 'admin').length,
+      subAdmins: userList.filter(u => u.role === 'sub_admin').length,
       callers: userList.filter(u => u.role === 'caller').length
     };
     setUserStats(stats);
