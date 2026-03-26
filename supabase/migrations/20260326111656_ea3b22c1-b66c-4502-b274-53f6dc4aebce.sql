@@ -1,0 +1,1 @@
+ALTER TABLE public.prospects ADD COLUMN IF NOT EXISTS prospect_number5 text;
