@@ -634,6 +634,7 @@ export type Database = {
           prospect_number2: string | null
           prospect_number3: string | null
           prospect_number4: string | null
+          prospect_number5: string | null
         }
         Insert: {
           company_linkedin_url?: string | null
@@ -648,6 +649,7 @@ export type Database = {
           prospect_number2?: string | null
           prospect_number3?: string | null
           prospect_number4?: string | null
+          prospect_number5?: string | null
         }
         Update: {
           company_linkedin_url?: string | null
@@ -662,6 +664,7 @@ export type Database = {
           prospect_number2?: string | null
           prospect_number3?: string | null
           prospect_number4?: string | null
+          prospect_number5?: string | null
         }
         Relationships: []
       }
