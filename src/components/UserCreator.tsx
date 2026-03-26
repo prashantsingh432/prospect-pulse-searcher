@@ -733,12 +733,13 @@ export const UserCreator = () => {
                         <SelectValue placeholder="Choose a role" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        {currentUserIsSuperAdmin() && <SelectItem value="admin">Super Admin</SelectItem>}
+                        {currentUserIsSuperAdmin() && <SelectItem value="sub_admin">Sub Admin</SelectItem>}
                         <SelectItem value="caller">Caller</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  {editUserRole !== 'admin' && (
+                  {editUserRole === 'caller' && (
                     <div>
                       <Label htmlFor="editProjectName">Project Name</Label>
                       <Select value={editUserProjectName} onValueChange={setEditUserProjectName}>
