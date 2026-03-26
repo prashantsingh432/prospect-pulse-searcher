@@ -502,7 +502,8 @@ export const DataManagement: React.FC = () => {
 
       setLastUpload(now);
       setProgress("");
-      setDownloadComplete(false); // Reset cycle for safety
+      setDownloadComplete(false);
+      loadDbStats(); // Refresh stats after upload
 
       if (fileRef.current) {
         fileRef.current.value = "";
