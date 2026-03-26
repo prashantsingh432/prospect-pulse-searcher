@@ -30,7 +30,7 @@ const Admin = () => {
             navigate("/sim-inventory");
           }
         }}>
-          <TabsList className={`grid w-full grid-cols-${tabCount}`}>
+          <TabsList className={showLusha ? "grid w-full grid-cols-4" : "grid w-full grid-cols-3"}>
             <TabsTrigger value="users">User Management</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             {showLusha && <TabsTrigger value="lusha">Lusha API Manager</TabsTrigger>}
