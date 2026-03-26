@@ -104,6 +104,33 @@ export const DataManagement: React.FC = () => {
   const [existingRecordCount, setExistingRecordCount] = useState<number>(0);
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [dbStats, setDbStats] = useState<{ total: number; withLinkedin: number; withEmail: number; withPhone: number } | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+
+  // Load database stats on mount
+  React.useEffect(() => {
+    loadDbStats();
+  }, []);
+
+  const loadDbStats = async () => {
+    setIsLoadingStats(true);
+    try {
+      const { count: total } = await supabase.from("prospects").select("*", { count: "exact", head: true });
+      const { count: withLinkedin } = await supabase.from("prospects").select("*", { count: "exact", head: true }).not("prospect_linkedin", "is", null).neq("prospect_linkedin", "");
+      const { count: withEmail } = await supabase.from("prospects").select("*", { count: "exact", head: true }).not("prospect_email", "is", null).neq("prospect_email", "");
+      const { count: withPhone } = await supabase.from("prospects").select("*", { count: "exact", head: true }).not("prospect_number", "is", null);
+      setDbStats({
+        total: total || 0,
+        withLinkedin: withLinkedin || 0,
+        withEmail: withEmail || 0,
+        withPhone: withPhone || 0,
+      });
+    } catch (err) {
+      console.error("Failed to load stats:", err);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
 
   const acceptedTypes = useMemo(() => ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"], []);
 
@@ -371,7 +398,7 @@ export const DataManagement: React.FC = () => {
       const allowedColumns = [
         "full_name", "company_name", "prospect_city", "prospect_designation",
         "prospect_email", "prospect_linkedin", "prospect_number", "prospect_number2",
-        "prospect_number3", "prospect_number4"
+        "prospect_number3", "prospect_number4", "prospect_number5", "company_linkedin_url"
       ];
 
       const normalized = nonBlankRecords.map((record) => {
@@ -501,7 +528,35 @@ export const DataManagement: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto mt-6">
+    <div className="max-w-6xl mx-auto mt-6 space-y-6">
+      {/* Database Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-xs text-muted-foreground">Total Prospects</p>
+            <p className="text-2xl font-bold">{isLoadingStats ? "..." : (dbStats?.total?.toLocaleString() || "0")}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-xs text-muted-foreground">With LinkedIn URL</p>
+            <p className="text-2xl font-bold text-blue-600">{isLoadingStats ? "..." : (dbStats?.withLinkedin?.toLocaleString() || "0")}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-xs text-muted-foreground">With Email</p>
+            <p className="text-2xl font-bold text-green-600">{isLoadingStats ? "..." : (dbStats?.withEmail?.toLocaleString() || "0")}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-xs text-muted-foreground">With Phone</p>
+            <p className="text-2xl font-bold text-orange-600">{isLoadingStats ? "..." : (dbStats?.withPhone?.toLocaleString() || "0")}</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -509,7 +564,7 @@ export const DataManagement: React.FC = () => {
             Data Management
           </CardTitle>
           <CardDescription>
-            Admin-only tools to backup and update the prospects dataset. Enhanced with security features and audit logging.
+            Admin-only tools to backup and update the prospects dataset. Accepted columns: full_name, company_name, prospect_city, prospect_email, prospect_linkedin, prospect_number, prospect_number2, prospect_number3, prospect_number4, prospect_number5, prospect_designation, company_linkedin_url
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
