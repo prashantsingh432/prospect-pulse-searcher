@@ -564,9 +564,22 @@ export const UserCreator = () => {
                 <div className="flex items-center">
                   <Shield className="h-8 w-8 text-green-600" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-green-900">Admins</p>
+                    <p className="text-sm font-medium text-green-900">Super Admins</p>
                     <p className="text-2xl font-bold text-green-600">{userStats.admins}</p>
-                    <p className="text-xs text-green-700">admin users</p>
+                    <p className="text-xs text-green-700">super admin users</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-orange-50 border-orange-200">
+              <CardContent className="p-4">
+                <div className="flex items-center">
+                  <ShieldCheck className="h-8 w-8 text-orange-600" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-orange-900">Sub Admins</p>
+                    <p className="text-2xl font-bold text-orange-600">{userStats.subAdmins}</p>
+                    <p className="text-xs text-orange-700">sub admin users</p>
                   </div>
                 </div>
               </CardContent>
@@ -965,9 +978,13 @@ export const UserCreator = () => {
                           <TableCell>
                             <Badge
                               variant={user.role === 'admin' ? "default" : "secondary"}
-                              className={user.role === 'admin' ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}
+                              className={
+                                user.role === 'admin' ? "bg-blue-100 text-blue-800" : 
+                                user.role === 'sub_admin' ? "bg-orange-100 text-orange-800" : 
+                                "bg-green-100 text-green-800"
+                              }
                             >
-                              {user.role === 'admin' ? 'Admin' : 'Caller'}
+                              {user.role === 'admin' ? 'Super Admin' : user.role === 'sub_admin' ? 'Sub Admin' : 'Caller'}
                             </Badge>
                           </TableCell>
                           <TableCell>
