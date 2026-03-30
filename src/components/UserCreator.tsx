@@ -1069,15 +1069,28 @@ export const UserCreator = () => {
                             </p>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-blue-600 hover:text-blue-800"
-                              onClick={() => openEditModal(user)}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-800"
+                                onClick={() => openEditModal(user)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              {currentUserIsSuperAdmin() && user.role !== 'admin' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-orange-600 hover:text-orange-800"
+                                  onClick={() => openResetPasswordModal(user)}
+                                >
+                                  <KeyRound className="h-4 w-4 mr-1" />
+                                  Reset
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
