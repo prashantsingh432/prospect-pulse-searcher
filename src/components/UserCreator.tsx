@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, ShieldCheck } from "lucide-react";
+import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, ShieldCheck, KeyRound } from "lucide-react";
 
 type UserData = {
   id: string;
@@ -44,7 +44,10 @@ export const UserCreator = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<UserData | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserData | null>(null);
+  const [resetNewPassword, setResetNewPassword] = useState("");
 
   // Projects from database
   const [availableProjects, setAvailableProjects] = useState<string[]>([]);
@@ -467,6 +470,49 @@ export const UserCreator = () => {
     setIsEditModalOpen(true);
   };
 
+  // Reset password for a user
+  const resetPassword = async () => {
+    if (!resetPasswordUser || !resetNewPassword || resetNewPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await callAuthFunction('reset-password', {
+        userId: resetPasswordUser.id,
+        newPassword: resetNewPassword
+      });
+
+      toast({
+        title: "Success",
+        description: `Password reset for ${resetPasswordUser.email}`,
+      });
+
+      setIsResetPasswordModalOpen(false);
+      setResetPasswordUser(null);
+      setResetNewPassword("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reset password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openResetPasswordModal = (user: UserData) => {
+    setResetPasswordUser(user);
+    setResetNewPassword("");
+    setIsResetPasswordModalOpen(true);
+  };
+
   // Sorting function
   const handleSort = (field: 'name' | 'email' | 'created_at') => {
     if (sortField === field) {
@@ -876,6 +922,50 @@ export const UserCreator = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            {/* Reset Password Dialog */}
+            <Dialog open={isResetPasswordModalOpen} onOpenChange={setIsResetPasswordModalOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Reset Password</DialogTitle>
+                  <DialogDescription>
+                    Set a new password for {resetPasswordUser?.name || resetPasswordUser?.email}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>User</Label>
+                    <Input value={resetPasswordUser?.email || ''} disabled />
+                  </div>
+                  <div>
+                    <Label htmlFor="resetPassword">New Password</Label>
+                    <Input
+                      id="resetPassword"
+                      type="password"
+                      placeholder="Enter new password (min 6 chars)"
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={resetPassword}
+                    disabled={isLoading || resetNewPassword.length < 6}
+                    className="bg-orange-600 hover:bg-orange-700"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Resetting...
+                      </>
+                    ) : (
+                      "Reset Password"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
@@ -1023,15 +1113,28 @@ export const UserCreator = () => {
                             </p>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-blue-600 hover:text-blue-800"
-                              onClick={() => openEditModal(user)}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-800"
+                                onClick={() => openEditModal(user)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              {currentUserIsSuperAdmin() && user.role !== 'admin' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-orange-600 hover:text-orange-800"
+                                  onClick={() => openResetPasswordModal(user)}
+                                >
+                                  <KeyRound className="h-4 w-4 mr-1" />
+                                  Reset
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );

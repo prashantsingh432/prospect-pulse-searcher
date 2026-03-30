@@ -369,6 +369,42 @@ serve(async (req) => {
       }
     }
 
+    if (method === 'PUT' && action === 'reset-password') {
+      const body = await req.json()
+      const { userId, newPassword } = body
+
+      if (!userId || !newPassword || newPassword.length < 6) {
+        return new Response(JSON.stringify({ error: 'Valid userId and password (min 6 chars) required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      // Only super admins can reset passwords
+      if (!isSuperAdmin) {
+        return new Response(JSON.stringify({ error: 'Only Super Admins can reset passwords' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: newPassword
+      })
+
+      if (error) {
+        console.error('Error resetting password:', error)
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     return new Response(JSON.stringify({ error: 'Invalid action' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
