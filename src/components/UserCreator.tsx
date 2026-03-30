@@ -470,6 +470,49 @@ export const UserCreator = () => {
     setIsEditModalOpen(true);
   };
 
+  // Reset password for a user
+  const resetPassword = async () => {
+    if (!resetPasswordUser || !resetNewPassword || resetNewPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await callAuthFunction('reset-password', {
+        userId: resetPasswordUser.id,
+        newPassword: resetNewPassword
+      });
+
+      toast({
+        title: "Success",
+        description: `Password reset for ${resetPasswordUser.email}`,
+      });
+
+      setIsResetPasswordModalOpen(false);
+      setResetPasswordUser(null);
+      setResetNewPassword("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reset password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openResetPasswordModal = (user: UserData) => {
+    setResetPasswordUser(user);
+    setResetNewPassword("");
+    setIsResetPasswordModalOpen(true);
+  };
+
   // Sorting function
   const handleSort = (field: 'name' | 'email' | 'created_at') => {
     if (sortField === field) {
