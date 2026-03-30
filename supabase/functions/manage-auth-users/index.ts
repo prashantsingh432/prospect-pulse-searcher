@@ -142,6 +142,7 @@ serve(async (req) => {
 
       const effectiveProjectName = role === 'admin' ? 'ADMIN' : projectName
       const adminLevel = role === 'admin' ? 'super' : (role === 'sub_admin' ? 'sub' : undefined)
+      const effectiveProjectNameForMeta = role === 'sub_admin' ? 'ADMIN' : effectiveProjectName
 
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email: cleanEmail,
@@ -149,8 +150,9 @@ serve(async (req) => {
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
-          project_name: effectiveProjectName,
-          admin_level: adminLevel
+          project_name: effectiveProjectNameForMeta,
+          admin_level: adminLevel,
+          assigned_project: role === 'sub_admin' ? projectName : undefined
         }
       })
 
