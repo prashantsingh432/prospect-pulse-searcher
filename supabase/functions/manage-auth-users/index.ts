@@ -214,6 +214,7 @@ serve(async (req) => {
 
       const effectiveProjectName = role === 'admin' ? 'ADMIN' : projectName
       const adminLevel = role === 'admin' ? 'super' : (role === 'sub_admin' ? 'sub' : undefined)
+      const effectiveProjectNameForMeta = role === 'sub_admin' ? 'ADMIN' : effectiveProjectName
 
       // Sub-admins cannot edit super admins
       if (!isSuperAdmin) {
@@ -232,8 +233,9 @@ serve(async (req) => {
         email,
         user_metadata: {
           full_name: fullName,
-          project_name: effectiveProjectName,
-          admin_level: adminLevel
+          project_name: effectiveProjectNameForMeta,
+          admin_level: adminLevel,
+          assigned_project: role === 'sub_admin' ? projectName : undefined
         }
       })
 
