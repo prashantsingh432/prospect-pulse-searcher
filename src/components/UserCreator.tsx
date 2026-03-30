@@ -922,6 +922,50 @@ export const UserCreator = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            {/* Reset Password Dialog */}
+            <Dialog open={isResetPasswordModalOpen} onOpenChange={setIsResetPasswordModalOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Reset Password</DialogTitle>
+                  <DialogDescription>
+                    Set a new password for {resetPasswordUser?.name || resetPasswordUser?.email}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>User</Label>
+                    <Input value={resetPasswordUser?.email || ''} disabled />
+                  </div>
+                  <div>
+                    <Label htmlFor="resetPassword">New Password</Label>
+                    <Input
+                      id="resetPassword"
+                      type="password"
+                      placeholder="Enter new password (min 6 chars)"
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={resetPassword}
+                    disabled={isLoading || resetNewPassword.length < 6}
+                    className="bg-orange-600 hover:bg-orange-700"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Resetting...
+                      </>
+                    ) : (
+                      "Reset Password"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
