@@ -89,8 +89,8 @@ serve(async (req) => {
         const meta = authUser.user_metadata || {}
         const adminLevel = meta.admin_level || (meta.project_name === 'ADMIN' ? 'super' : undefined)
         let role = 'caller'
-        if (meta.project_name === 'ADMIN') role = 'admin'
-        else if (meta.admin_level === 'sub') role = 'sub_admin'
+        if (meta.project_name === 'ADMIN' && meta.admin_level === 'sub') role = 'sub_admin'
+        else if (meta.project_name === 'ADMIN') role = 'admin'
         
         return {
           id: authUser.id,

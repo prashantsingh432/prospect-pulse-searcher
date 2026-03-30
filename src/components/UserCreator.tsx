@@ -682,12 +682,12 @@ export const UserCreator = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {currentUserIsSuperAdmin() && <SelectItem value="admin">Super Admin</SelectItem>}
-                        {currentUserIsSuperAdmin() && <SelectItem value="sub_admin">Sub Admin</SelectItem>}
+                        <SelectItem value="sub_admin">Sub Admin</SelectItem>
                         <SelectItem value="caller">Caller</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  {newUserRole === 'caller' && (
+                  {(newUserRole === 'caller' || newUserRole === 'sub_admin') && (
                     <div>
                       <Label htmlFor="projectName">Project Name</Label>
                       <Select value={newUserProjectName} onValueChange={setNewUserProjectName}>
@@ -765,12 +765,12 @@ export const UserCreator = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {currentUserIsSuperAdmin() && <SelectItem value="admin">Super Admin</SelectItem>}
-                        {currentUserIsSuperAdmin() && <SelectItem value="sub_admin">Sub Admin</SelectItem>}
+                        <SelectItem value="sub_admin">Sub Admin</SelectItem>
                         <SelectItem value="caller">Caller</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  {editUserRole === 'caller' && (
+                  {(editUserRole === 'caller' || editUserRole === 'sub_admin') && (
                     <div>
                       <Label htmlFor="editProjectName">Project Name</Label>
                       <Select value={editUserProjectName} onValueChange={setEditUserProjectName}>
