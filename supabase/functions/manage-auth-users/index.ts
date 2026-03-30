@@ -89,8 +89,8 @@ serve(async (req) => {
         const meta = authUser.user_metadata || {}
         const adminLevel = meta.admin_level || (meta.project_name === 'ADMIN' ? 'super' : undefined)
         let role = 'caller'
-        if (meta.project_name === 'ADMIN') role = 'admin'
-        else if (meta.admin_level === 'sub') role = 'sub_admin'
+        if (meta.project_name === 'ADMIN' && meta.admin_level === 'sub') role = 'sub_admin'
+        else if (meta.project_name === 'ADMIN') role = 'admin'
         
         return {
           id: authUser.id,
@@ -142,6 +142,7 @@ serve(async (req) => {
 
       const effectiveProjectName = role === 'admin' ? 'ADMIN' : projectName
       const adminLevel = role === 'admin' ? 'super' : (role === 'sub_admin' ? 'sub' : undefined)
+      const effectiveProjectNameForMeta = role === 'sub_admin' ? 'ADMIN' : effectiveProjectName
 
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email: cleanEmail,
@@ -149,8 +150,9 @@ serve(async (req) => {
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
-          project_name: effectiveProjectName,
-          admin_level: adminLevel
+          project_name: effectiveProjectNameForMeta,
+          admin_level: adminLevel,
+          assigned_project: role === 'sub_admin' ? projectName : undefined
         }
       })
 
@@ -212,6 +214,7 @@ serve(async (req) => {
 
       const effectiveProjectName = role === 'admin' ? 'ADMIN' : projectName
       const adminLevel = role === 'admin' ? 'super' : (role === 'sub_admin' ? 'sub' : undefined)
+      const effectiveProjectNameForMeta = role === 'sub_admin' ? 'ADMIN' : effectiveProjectName
 
       // Sub-admins cannot edit super admins
       if (!isSuperAdmin) {
@@ -230,8 +233,9 @@ serve(async (req) => {
         email,
         user_metadata: {
           full_name: fullName,
-          project_name: effectiveProjectName,
-          admin_level: adminLevel
+          project_name: effectiveProjectNameForMeta,
+          admin_level: adminLevel,
+          assigned_project: role === 'sub_admin' ? projectName : undefined
         }
       })
 
