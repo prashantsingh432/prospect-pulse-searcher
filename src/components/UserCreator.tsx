@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, ShieldCheck } from "lucide-react";
+import { Loader2, Users, UserPlus, UserMinus, Shield, Phone, Trash2, Edit, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, ShieldCheck, KeyRound } from "lucide-react";
 
 type UserData = {
   id: string;
