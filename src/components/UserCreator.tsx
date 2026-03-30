@@ -290,10 +290,10 @@ export const UserCreator = () => {
       return;
     }
 
-    if (newUserRole === 'caller' && (!newUserProjectName?.trim())) {
+    if ((newUserRole === 'caller' || newUserRole === 'sub_admin') && (!newUserProjectName?.trim())) {
       toast({
         title: "Missing Project Name",
-        description: "Project name is required for caller users",
+        description: "Project name is required",
         variant: "destructive",
       });
       return;
@@ -312,7 +312,7 @@ export const UserCreator = () => {
         email: newUserEmail.trim(),
         password: newUserPassword,
         fullName: newUserName.trim(),
-        projectName: newUserRole === 'admin' ? 'ADMIN' : (newUserRole === 'sub_admin' ? 'ADMIN' : newUserProjectName?.trim()),
+        projectName: newUserRole === 'admin' ? 'ADMIN' : newUserProjectName?.trim(),
         role: newUserRole
       });
 
@@ -361,7 +361,7 @@ export const UserCreator = () => {
         userId: selectedUserToEdit.id,
         email: editUserEmail,
         fullName: editUserName,
-        projectName: editUserRole === 'admin' ? 'ADMIN' : (editUserRole === 'sub_admin' ? 'ADMIN' : editUserProjectName),
+        projectName: editUserRole === 'admin' ? 'ADMIN' : editUserProjectName,
         role: editUserRole
       });
 
