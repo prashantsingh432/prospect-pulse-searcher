@@ -44,7 +44,10 @@ export const UserCreator = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<UserData | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserData | null>(null);
+  const [resetNewPassword, setResetNewPassword] = useState("");
 
   // Projects from database
   const [availableProjects, setAvailableProjects] = useState<string[]>([]);
