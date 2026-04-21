@@ -1,6 +1,7 @@
 import React from "react";
 import { Navbar } from "@/components/Navbar";
 import { DataManagement as DataManagementComponent } from "@/components/DataManagement";
+import { CsvEnrichTool } from "@/components/CsvEnrichTool";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 
@@ -14,7 +15,8 @@ const DataManagement = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto py-6 space-y-6">
+        <CsvEnrichTool />
         <DataManagementComponent />
       </div>
     </div>
