@@ -252,9 +252,11 @@ export const CsvEnrichTool: React.FC = () => {
         if (enriched) { dbHits++; usedSource = "Database"; }
       }
 
+      let lushaError = "";
       if (!enriched && (source === "lusha" || source === "both")) {
-        enriched = await lookupLusha(url);
-        if (enriched) { lushaUsed++; usedSource = "Lusha"; }
+        const res = await lookupLusha(url);
+        if (res.data) { enriched = res.data; lushaUsed++; usedSource = "Lusha"; }
+        else { lushaError = res.error || ""; }
       }
 
       const hasPhone = enriched && (enriched.phone1 || enriched.phone2);
@@ -271,7 +273,7 @@ export const CsvEnrichTool: React.FC = () => {
         phone2: enriched?.phone2 || "",
         phone3: enriched?.phone3 || "",
         phone4: enriched?.phone4 || "",
-        source: usedSource || "Not Found",
+        source: usedSource || (lushaError ? `Error: ${lushaError}` : "Not Found"),
         status: hasPhone ? "Found" : "Not Found",
       });
 
