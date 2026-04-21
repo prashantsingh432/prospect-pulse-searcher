@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 type EnrichSource = "database" | "lusha" | "both";
+type DataType = "phone" | "email" | "both";
 
 interface EnrichedRow {
   linkedin_url: string;
@@ -68,6 +69,7 @@ export const CsvEnrichTool: React.FC = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const cancelRef = useRef(false);
   const [source, setSource] = useState<EnrichSource>("both");
+  const [dataType, setDataType] = useState<DataType>("both");
   const [linkedInUrls, setLinkedInUrls] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
   const [processing, setProcessing] = useState(false);
@@ -152,15 +154,21 @@ export const CsvEnrichTool: React.FC = () => {
 
   const lookupLusha = async (url: string): Promise<{ data: Partial<EnrichedRow> | null; error?: string }> => {
     try {
-      // Fetch the next available key directly (round-robin by last_used_at)
-      const { data: keys, error: keyErr } = await supabase
+      // Sequential rotation: pick least-recently-used active key (1st → 2nd → 3rd …)
+      // Filter category by data type: EMAIL_ONLY for emails, PHONE_ONLY for phones, any for both
+      let query = supabase
         .from("lusha_api_keys")
-        .select("id, key_value, credits_remaining")
-        .eq("category", "PHONE_ONLY")
+        .select("id, key_value, credits_remaining, category")
         .eq("is_active", true)
         .eq("status", "ACTIVE")
+        .gt("credits_remaining", 0)
         .order("last_used_at", { ascending: true, nullsFirst: true })
         .limit(1);
+
+      if (dataType === "phone") query = query.eq("category", "PHONE_ONLY");
+      else if (dataType === "email") query = query.eq("category", "EMAIL_ONLY");
+
+      const { data: keys, error: keyErr } = await query;
 
       if (keyErr || !keys || keys.length === 0) {
         return { data: null, error: "No active Lusha keys" };
@@ -203,6 +211,16 @@ export const CsvEnrichTool: React.FC = () => {
       const getPhone = (p: any) =>
         p?.e164Format || p?.internationalFormat || p?.localFormat || p?.number || "";
 
+      // Extract emails (multiple possible shapes)
+      const emailsArr = contact.emailAddresses || contact.emails || contact.email_addresses || [];
+      const getEmail = (e: any) => (typeof e === "string" ? e : e?.email || e?.address || "");
+      const primaryEmail =
+        getEmail(emailsArr[0]) ||
+        contact.email ||
+        contact.workEmail ||
+        contact.work_email ||
+        "";
+
       return {
         data: {
           full_name: contact.fullName || contact.name || "",
@@ -215,6 +233,7 @@ export const CsvEnrichTool: React.FC = () => {
             contact.current_position?.title ||
             contact.jobTitle?.title ||
             contact.title || "",
+          prospect_email: primaryEmail,
           prospect_city: contact.location?.city || contact.city || "",
           phone1: getPhone(phones[0]),
           phone2: getPhone(phones[1]),
@@ -259,8 +278,13 @@ export const CsvEnrichTool: React.FC = () => {
         else { lushaError = res.error || ""; }
       }
 
-      const hasPhone = enriched && (enriched.phone1 || enriched.phone2);
-      if (hasPhone) found++;
+      const hasPhone = !!(enriched && (enriched.phone1 || enriched.phone2));
+      const hasEmail = !!(enriched && enriched.prospect_email);
+      const hasWanted =
+        dataType === "phone" ? hasPhone :
+        dataType === "email" ? hasEmail :
+        (hasPhone || hasEmail);
+      if (hasWanted) found++;
 
       out.push({
         linkedin_url: url,
@@ -274,7 +298,7 @@ export const CsvEnrichTool: React.FC = () => {
         phone3: enriched?.phone3 || "",
         phone4: enriched?.phone4 || "",
         source: usedSource || (lushaError ? `Error: ${lushaError}` : "Not Found"),
-        status: hasPhone ? "Found" : "Not Found",
+        status: hasWanted ? "Found" : "Not Found",
       });
 
       setProgress({ current: i + 1, total: linkedInUrls.length, found, lushaUsed, dbHits });
@@ -318,7 +342,18 @@ export const CsvEnrichTool: React.FC = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label>What to Extract</Label>
+            <Select value={dataType} onValueChange={(v) => setDataType(v as DataType)} disabled={processing}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="phone">📞 Phone Numbers Only</SelectItem>
+                <SelectItem value="email">📧 Emails Only</SelectItem>
+                <SelectItem value="both">✨ Both Phone + Email</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <Label>Enrichment Source</Label>
             <Select value={source} onValueChange={(v) => setSource(v as EnrichSource)} disabled={processing}>
