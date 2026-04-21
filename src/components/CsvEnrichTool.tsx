@@ -155,19 +155,27 @@ export const CsvEnrichTool: React.FC = () => {
   const lookupLusha = async (url: string): Promise<{ data: Partial<EnrichedRow> | null; error?: string }> => {
     try {
       const preferredCategory = dataType === "email" ? "EMAIL_ONLY" : "PHONE_ONLY";
-      const categories = dataType === "both" ? ["PHONE_ONLY", "EMAIL_ONLY"] : [preferredCategory];
+      const preferredCategories = dataType === "both" ? ["PHONE_ONLY", "EMAIL_ONLY"] : [preferredCategory];
 
-      const { data: keys, error: keyErr } = await supabase
+      const baseKeyQuery = () => supabase
         .from("lusha_api_keys")
         .select("id, key_value, credits_remaining, category, last_used_at")
-        .in("category", categories)
         .eq("is_active", true)
         .eq("status", "ACTIVE")
         .order("last_used_at", { ascending: true, nullsFirst: true })
         .limit(25);
 
+      let { data: keys, error: keyErr } = await baseKeyQuery().in("category", preferredCategories);
+
+      // If admin added keys under the other category, still use them instead of failing.
+      if (!keyErr && (!keys || keys.length === 0)) {
+        const fallback = await baseKeyQuery();
+        keys = fallback.data;
+        keyErr = fallback.error;
+      }
+
       if (keyErr) return { data: null, error: keyErr.message };
-      if (!keys || keys.length === 0) return { data: null, error: `No active ${categories.join("/")} Lusha keys` };
+      if (!keys || keys.length === 0) return { data: null, error: "No active Lusha keys found in manager" };
 
       let lastError = "No usable Lusha response";
 
