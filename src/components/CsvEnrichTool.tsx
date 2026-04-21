@@ -150,24 +150,80 @@ export const CsvEnrichTool: React.FC = () => {
     return null;
   };
 
-  const lookupLusha = async (url: string): Promise<Partial<EnrichedRow> | null> => {
+  const lookupLusha = async (url: string): Promise<{ data: Partial<EnrichedRow> | null; error?: string }> => {
     try {
-      const { data, error } = await supabase.functions.invoke("lusha-enrich", {
-        body: { linkedinUrl: url, category: "PHONE_ONLY" },
-      });
-      if (error || !data?.success) return null;
+      // Fetch the next available key directly (round-robin by last_used_at)
+      const { data: keys, error: keyErr } = await supabase
+        .from("lusha_api_keys")
+        .select("id, key_value, credits_remaining")
+        .eq("category", "PHONE_ONLY")
+        .eq("is_active", true)
+        .eq("status", "ACTIVE")
+        .order("last_used_at", { ascending: true, nullsFirst: true })
+        .limit(1);
+
+      if (keyErr || !keys || keys.length === 0) {
+        return { data: null, error: "No active Lusha keys" };
+      }
+      const key = keys[0];
+
+      // Call the proxy edge function (no JWT required)
+      const resp = await fetch(
+        `https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/lusha-enrich-proxy`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            apiKey: key.key_value,
+            params: { linkedinUrl: url },
+          }),
+        }
+      );
+
+      const result = await resp.json();
+
+      // Update key usage
+      await supabase
+        .from("lusha_api_keys")
+        .update({
+          last_used_at: new Date().toISOString(),
+          credits_remaining: result.creditsRemaining ?? key.credits_remaining,
+        })
+        .eq("id", key.id);
+
+      if (result.status !== 200) {
+        return { data: null, error: `Lusha HTTP ${result.status}` };
+      }
+
+      // Parse v2 response
+      const contact = result.data?.contact?.data || result.data?.data || result.data;
+      if (!contact) return { data: null, error: "No contact data" };
+
+      const phones = contact.phoneNumbers || contact.phone_numbers || [];
+      const getPhone = (p: any) =>
+        p?.e164Format || p?.internationalFormat || p?.localFormat || p?.number || "";
+
       return {
-        full_name: data.fullName || "",
-        company_name: data.company || "",
-        prospect_designation: data.title || "",
-        prospect_city: data.city || "",
-        phone1: data.phone || "",
-        phone2: data.phone2 || "",
-        phone3: data.phone3 || "",
-        phone4: data.phone4 || "",
+        data: {
+          full_name: contact.fullName || contact.name || "",
+          company_name:
+            contact.company?.name ||
+            contact.currentPosition?.company?.name ||
+            contact.current_position?.company?.name || "",
+          prospect_designation:
+            contact.currentPosition?.title ||
+            contact.current_position?.title ||
+            contact.jobTitle?.title ||
+            contact.title || "",
+          prospect_city: contact.location?.city || contact.city || "",
+          phone1: getPhone(phones[0]),
+          phone2: getPhone(phones[1]),
+          phone3: getPhone(phones[2]),
+          phone4: getPhone(phones[3]),
+        },
       };
-    } catch {
-      return null;
+    } catch (e: any) {
+      return { data: null, error: e?.message || "Network error" };
     }
   };
 
