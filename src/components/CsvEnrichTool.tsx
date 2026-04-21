@@ -154,75 +154,91 @@ export const CsvEnrichTool: React.FC = () => {
 
   const lookupLusha = async (url: string): Promise<{ data: Partial<EnrichedRow> | null; error?: string }> => {
     try {
-      // Sequential rotation: pick least-recently-used active key (1st → 2nd → 3rd …)
-      // Filter category by data type: EMAIL_ONLY for emails, PHONE_ONLY for phones, any for both
-      let query = supabase
+      const preferredCategory = dataType === "email" ? "EMAIL_ONLY" : "PHONE_ONLY";
+      const preferredCategories = dataType === "both" ? ["PHONE_ONLY", "EMAIL_ONLY"] : [preferredCategory];
+
+      const baseKeyQuery = () => supabase
         .from("lusha_api_keys")
-        .select("id, key_value, credits_remaining, category")
+        .select("id, key_value, credits_remaining, category, last_used_at")
         .eq("is_active", true)
         .eq("status", "ACTIVE")
-        .gt("credits_remaining", 0)
         .order("last_used_at", { ascending: true, nullsFirst: true })
-        .limit(1);
+        .limit(25);
 
-      if (dataType === "phone") query = query.eq("category", "PHONE_ONLY");
-      else if (dataType === "email") query = query.eq("category", "EMAIL_ONLY");
+      let { data: keys, error: keyErr } = await baseKeyQuery().in("category", preferredCategories);
 
-      const { data: keys, error: keyErr } = await query;
-
-      if (keyErr || !keys || keys.length === 0) {
-        return { data: null, error: "No active Lusha keys" };
+      // If admin added keys under the other category, still use them instead of failing.
+      if (!keyErr && (!keys || keys.length === 0)) {
+        const fallback = await baseKeyQuery();
+        keys = fallback.data;
+        keyErr = fallback.error;
       }
-      const key = keys[0];
 
-      // Call the proxy edge function (no JWT required)
-      const resp = await fetch(
-        `https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/lusha-enrich-proxy`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            apiKey: key.key_value,
-            params: { linkedinUrl: url },
-          }),
+      if (keyErr) return { data: null, error: keyErr.message };
+      if (!keys || keys.length === 0) return { data: null, error: "No active Lusha keys found in manager" };
+
+      let lastError = "No usable Lusha response";
+
+      for (const key of keys) {
+        const resp = await fetch(
+          `https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/lusha-enrich-proxy`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              apiKey: key.key_value,
+              params: { linkedinUrl: url },
+            }),
+          }
+        );
+
+        const result = await resp.json().catch(() => ({ status: resp.status, error: "Invalid proxy response" }));
+
+        await supabase
+          .from("lusha_api_keys")
+          .update({
+            last_used_at: new Date().toISOString(),
+            credits_remaining: result.creditsRemaining ?? key.credits_remaining,
+          })
+          .eq("id", key.id);
+
+        if (result.status === 401 || result.status === 403) {
+          lastError = `Key ...${key.key_value.slice(-4)} invalid (${result.status})`;
+          await supabase.from("lusha_api_keys").update({ status: "INVALID", is_active: false }).eq("id", key.id);
+          continue;
         }
-      );
 
-      const result = await resp.json();
+        if (result.status === 402 || result.status === 429) {
+          lastError = `Key ...${key.key_value.slice(-4)} exhausted/rate-limited (${result.status})`;
+          await supabase.from("lusha_api_keys").update({ status: "EXHAUSTED", is_active: false, credits_remaining: 0 }).eq("id", key.id);
+          continue;
+        }
 
-      // Update key usage
-      await supabase
-        .from("lusha_api_keys")
-        .update({
-          last_used_at: new Date().toISOString(),
-          credits_remaining: result.creditsRemaining ?? key.credits_remaining,
-        })
-        .eq("id", key.id);
+        if (result.status !== 200) {
+          lastError = `Lusha HTTP ${result.status || resp.status}`;
+          continue;
+        }
 
-      if (result.status !== 200) {
-        return { data: null, error: `Lusha HTTP ${result.status}` };
-      }
+        const contact = result.data?.contact?.data || result.data?.data || result.data;
+        if (!contact) {
+          lastError = "No contact data";
+          continue;
+        }
 
-      // Parse v2 response
-      const contact = result.data?.contact?.data || result.data?.data || result.data;
-      if (!contact) return { data: null, error: "No contact data" };
+        const phones = contact.phoneNumbers || contact.phone_numbers || [];
+        const getPhone = (p: any) =>
+          p?.e164Format || p?.internationalFormat || p?.localFormat || p?.number || "";
 
-      const phones = contact.phoneNumbers || contact.phone_numbers || [];
-      const getPhone = (p: any) =>
-        p?.e164Format || p?.internationalFormat || p?.localFormat || p?.number || "";
+        const emailsArr = contact.emailAddresses || contact.emails || contact.email_addresses || [];
+        const getEmail = (e: any) => (typeof e === "string" ? e : e?.email || e?.address || "");
+        const primaryEmail =
+          getEmail(emailsArr[0]) ||
+          contact.email ||
+          contact.workEmail ||
+          contact.work_email ||
+          "";
 
-      // Extract emails (multiple possible shapes)
-      const emailsArr = contact.emailAddresses || contact.emails || contact.email_addresses || [];
-      const getEmail = (e: any) => (typeof e === "string" ? e : e?.email || e?.address || "");
-      const primaryEmail =
-        getEmail(emailsArr[0]) ||
-        contact.email ||
-        contact.workEmail ||
-        contact.work_email ||
-        "";
-
-      return {
-        data: {
+        const enriched = {
           full_name: contact.fullName || contact.name || "",
           company_name:
             contact.company?.name ||
@@ -239,8 +255,18 @@ export const CsvEnrichTool: React.FC = () => {
           phone2: getPhone(phones[1]),
           phone3: getPhone(phones[2]),
           phone4: getPhone(phones[3]),
-        },
-      };
+        };
+
+        const matchesRequest =
+          dataType === "phone" ? !!(enriched.phone1 || enriched.phone2) :
+          dataType === "email" ? !!enriched.prospect_email :
+          !!(enriched.phone1 || enriched.phone2 || enriched.prospect_email);
+
+        if (matchesRequest) return { data: enriched };
+        lastError = `No ${dataType === "both" ? "phone/email" : dataType} found`;
+      }
+
+      return { data: null, error: lastError };
     } catch (e: any) {
       return { data: null, error: e?.message || "Network error" };
     }
