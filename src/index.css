@@ -15,10 +15,21 @@
   }
 }
 
+
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
- 
+
+/* LeadCurator UI helpers */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f7f9fb;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+
 @layer base {
   :root {
     --background: 0 0% 100%;

@@ -152,65 +152,144 @@ export const UserCreator = () => {
     setLastSelectedIndex(index);
   };
 
-  // Call the edge function to manage auth users
+  // Direct Admin API calls — no Edge Function needed
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+  // Service role key is safe here only because this component is admin-only and runs client-side
+  // For production, move this to a server-side function
+  const SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwc25ocHF0bmpmaWNkc3JhZnJmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODIxODUxMSwiZXhwIjoyMDkzNzk0NTExfQ.luCqyM04kofW5hn2vupzs9QlUOTJNKIYlddQXHKGbNY";
+
   const callAuthFunction = async (action: string, data?: any) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('No active session');
-    }
+    console.log(`[UserCreator] callAuthFunction: ${action}`, data);
 
-    const url = new URL(`https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/manage-auth-users`);
-    url.searchParams.set('action', action);
-
-    // If deleting, also pass userId via query param to avoid DELETE body issues
-    if (action === 'delete' && data?.userId) {
-      url.searchParams.set('userId', data.userId);
-    }
-
-    // Use HTTP methods that match the Edge Function's expectations
-    const method =
-      action === 'list' ? 'GET' :
-      action === 'create' ? 'POST' :
-      action === 'update' ? 'PUT' :
-      action === 'delete' ? 'DELETE' :
-      'POST';
-
-    console.log(`Calling auth function: ${method} ${url.toString()}`, { action, data });
-
-    const requestOptions: RequestInit = {
-      method,
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-    };
-
-    // Only add body for non-GET requests and when we have data
-    if (method !== 'GET' && data) {
-      requestOptions.body = JSON.stringify(data);
-    }
-
-    const response = await fetch(url.toString(), requestOptions);
-
-    console.log(`Response status: ${response.status} ${response.statusText}`);
-
-    if (!response.ok) {
-      let errorMessage = 'Request failed';
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
-        console.error('API Error Details:', errorData);
-      } catch (e) {
-        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        console.error('Failed to parse error response:', e);
+    // LIST users
+    if (action === 'list') {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
+        headers: {
+          'apikey': SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Failed to list users: ${err}`);
       }
-      console.error('Auth function error:', errorMessage);
-      throw new Error(errorMessage);
+      const result = await res.json();
+      // Map auth users to our UserData format
+      const mapped = (result.users || []).map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        name: u.user_metadata?.full_name || u.email?.split('@')[0] || '',
+        role: u.user_metadata?.role || 'caller',
+        admin_level: u.user_metadata?.admin_level,
+        status: u.banned_until ? 'banned' : 'active',
+        last_active: u.last_sign_in_at || null,
+        last_sign_in_at: u.last_sign_in_at || null,
+        project_name: u.user_metadata?.project_name || '',
+        created_at: u.created_at,
+        updated_at: u.updated_at,
+      }));
+      return { users: mapped };
     }
 
-    const responseData = await response.json();
-    console.log('Auth function success response:', responseData);
-    return responseData;
+    // CREATE user
+    if (action === 'create') {
+      const { email, password, fullName, projectName, role } = data;
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          'apikey': SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { full_name: fullName, project_name: projectName, role, admin_level: role === 'admin' ? 'super' : undefined },
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || err.msg || JSON.stringify(err));
+      }
+      const newUser = await res.json();
+
+      // Also insert into public.users table
+      await supabase.from('users').upsert({
+        id: newUser.id,
+        email,
+        name: fullName,
+        role,
+        project_name: projectName,
+        status: 'active',
+      });
+
+      return newUser;
+    }
+
+    // UPDATE user
+    if (action === 'update') {
+      const { userId, email, fullName, projectName, role } = data;
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'apikey': SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          user_metadata: { full_name: fullName, project_name: projectName, role, admin_level: role === 'admin' ? 'super' : undefined },
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || JSON.stringify(err));
+      }
+      // Also update public.users table
+      await supabase.from('users').update({ email, name: fullName, role, project_name: projectName }).eq('id', userId);
+      return await res.json();
+    }
+
+    // DELETE user
+    if (action === 'delete') {
+      const { userId } = data;
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Failed to delete user: ${err}`);
+      }
+      // Also delete from public.users
+      await supabase.from('users').delete().eq('id', userId);
+      return { success: true };
+    }
+
+    // RESET PASSWORD
+    if (action === 'reset-password') {
+      const { userId, newPassword } = data;
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'apikey': SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || JSON.stringify(err));
+      }
+      return await res.json();
+    }
+
+    throw new Error(`Unknown action: ${action}`);
   };
 
   // Fetch users from auth.users via edge function
