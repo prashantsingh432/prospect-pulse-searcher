@@ -203,9 +203,8 @@ async function makeLushaApiCall(
     companyName?: string;
   }
 ): Promise<{ status: number; data: any; error?: string }> {
-  // Edge function URL is built from VITE_SUPABASE_URL env variable (set in .env)
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-  const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/lusha-enrich-proxy`;
+  // 🔥 HARDCODED PRODUCTION URL - DO NOT USE supabase.functions.invoke()
+  const EDGE_FUNCTION_URL = "https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/lusha-enrich-proxy";
 
   try {
     console.log(`\n📡 Calling Lusha API via Direct Fetch to Edge Function`);
@@ -224,31 +223,35 @@ async function makeLushaApiCall(
       console.log(`📤 Sending payload: [Unable to stringify]`);
     }
 
-    // Use supabase.functions.invoke to handle auth and CORS automatically
-    const { data: responseData, error: invokeError } = await supabase.functions.invoke('lusha-enrich-proxy', {
-      body: payload
+    // Direct fetch() call to production edge function
+    // 🔥 CRITICAL: Only Content-Type header - no Authorization/apikey to avoid CORS preflight
+    const response = await fetch(EDGE_FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
 
-    if (invokeError) {
-      console.error(`❌ Edge Function Error:`, invokeError);
-      
-      // Check if it's a "Not Found" error indicating the function isn't deployed
-      if (invokeError.message?.includes('Not Found') || invokeError.message?.includes('Failed to fetch')) {
-         return {
-           status: 0,
-           data: null,
-           error: `It looks like the 'lusha-enrich-proxy' Edge Function hasn't been deployed to your new Supabase backend yet. Please run 'npx supabase functions deploy lusha-enrich-proxy' in your terminal.`
-         };
-      }
-      
+    console.log(`📊 Response Status: ${response.status}`);
+    console.log(`📊 Response OK: ${response.ok}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ HTTP Error ${response.status}:`, errorText);
       return {
-        status: 0,
+        status: response.status,
         data: null,
-        error: `Edge Function Error: ${invokeError.message}`,
+        error: `HTTP ${response.status}: ${errorText}`,
       };
     }
 
-    console.log(`📊 Response Data:`, responseData);
+    const responseData = await response.json();
+    try {
+      console.log(`📊 Response Data:`, JSON.stringify(responseData, null, 2));
+    } catch {
+      console.log(`📊 Response Data: [Unable to stringify - showing type]`, typeof responseData);
+    }
 
     return {
       status: responseData?.status || response.status,
