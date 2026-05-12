@@ -249,12 +249,12 @@ export const CsvEnrichTool: React.FC = () => {
             contact.current_position?.title ||
             contact.jobTitle?.title ||
             contact.title || "",
-          prospect_email: primaryEmail,
+          prospect_email: dataType === "phone" ? "" : primaryEmail,
           prospect_city: contact.location?.city || contact.city || "",
-          phone1: getPhone(phones[0]),
-          phone2: getPhone(phones[1]),
-          phone3: getPhone(phones[2]),
-          phone4: getPhone(phones[3]),
+          phone1: dataType === "email" ? "" : getPhone(phones[0]),
+          phone2: dataType === "email" ? "" : getPhone(phones[1]),
+          phone3: dataType === "email" ? "" : getPhone(phones[2]),
+          phone4: dataType === "email" ? "" : getPhone(phones[3]),
         };
 
         const matchesRequest =
