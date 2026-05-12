@@ -249,12 +249,12 @@ export const CsvEnrichTool: React.FC = () => {
             contact.current_position?.title ||
             contact.jobTitle?.title ||
             contact.title || "",
-          prospect_email: primaryEmail,
+          prospect_email: dataType === "phone" ? "" : primaryEmail,
           prospect_city: contact.location?.city || contact.city || "",
-          phone1: getPhone(phones[0]),
-          phone2: getPhone(phones[1]),
-          phone3: getPhone(phones[2]),
-          phone4: getPhone(phones[3]),
+          phone1: dataType === "email" ? "" : getPhone(phones[0]),
+          phone2: dataType === "email" ? "" : getPhone(phones[1]),
+          phone3: dataType === "email" ? "" : getPhone(phones[2]),
+          phone4: dataType === "email" ? "" : getPhone(phones[3]),
         };
 
         const matchesRequest =
@@ -317,12 +317,12 @@ export const CsvEnrichTool: React.FC = () => {
         full_name: enriched?.full_name || "",
         company_name: enriched?.company_name || "",
         prospect_designation: enriched?.prospect_designation || "",
-        prospect_email: enriched?.prospect_email || "",
+        prospect_email: dataType === "phone" ? "" : (enriched?.prospect_email || ""),
         prospect_city: enriched?.prospect_city || "",
-        phone1: enriched?.phone1 || "",
-        phone2: enriched?.phone2 || "",
-        phone3: enriched?.phone3 || "",
-        phone4: enriched?.phone4 || "",
+        phone1: dataType === "email" ? "" : (enriched?.phone1 || ""),
+        phone2: dataType === "email" ? "" : (enriched?.phone2 || ""),
+        phone3: dataType === "email" ? "" : (enriched?.phone3 || ""),
+        phone4: dataType === "email" ? "" : (enriched?.phone4 || ""),
         source: usedSource || (lushaError ? `Error: ${lushaError}` : "Not Found"),
         status: hasWanted ? "Found" : "Not Found",
       });
