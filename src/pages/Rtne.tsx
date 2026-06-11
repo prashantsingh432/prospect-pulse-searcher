@@ -674,8 +674,19 @@ const Rtne: React.FC = () => {
             console.log(`✅ Record updated successfully`);
           }
         } else {
-          // Insert new record only if there's actual data
-          if (requestData.linkedin_url || requestData.full_name || requestData.company_name) {
+          // Insert new record only if there's actual data (any user-entered field)
+          if (
+            requestData.linkedin_url ||
+            requestData.full_name ||
+            requestData.company_name ||
+            requestData.primary_phone ||
+            requestData.phone2 ||
+            requestData.phone3 ||
+            requestData.phone4 ||
+            requestData.email_address ||
+            requestData.city ||
+            requestData.job_title
+          ) {
             // Check for uniqueness: check by ROW_NUMBER first (primary), then LinkedIn URL
             let shouldInsert = true;
             
