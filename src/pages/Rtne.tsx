@@ -1357,8 +1357,9 @@ const Rtne: React.FC = () => {
 
   // Direct Lusha enrichment - skips database lookup
   const enrichFromLushaDirectly = async (rowId: number) => {
-    // Check if database search was performed first
-    if (!databaseSearchedRows.has(rowId) && !enrichedFromDbRows.has(rowId)) {
+    // Admins can bypass the Database-first requirement and hit Lusha directly.
+    // Non-admins must still search the database first.
+    if (!isAdmin() && !databaseSearchedRows.has(rowId) && !enrichedFromDbRows.has(rowId)) {
       setDatabaseFirstWarningRow(rowId);
       setShowDatabaseFirstWarning(true);
       return;
