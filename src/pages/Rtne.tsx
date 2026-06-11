@@ -1357,8 +1357,9 @@ const Rtne: React.FC = () => {
 
   // Direct Lusha enrichment - skips database lookup
   const enrichFromLushaDirectly = async (rowId: number) => {
-    // Check if database search was performed first
-    if (!databaseSearchedRows.has(rowId) && !enrichedFromDbRows.has(rowId)) {
+    // Admins can bypass the Database-first requirement and hit Lusha directly.
+    // Non-admins must still search the database first.
+    if (!isAdmin() && !databaseSearchedRows.has(rowId) && !enrichedFromDbRows.has(rowId)) {
       setDatabaseFirstWarningRow(rowId);
       setShowDatabaseFirstWarning(true);
       return;
@@ -2811,7 +2812,7 @@ const Rtne: React.FC = () => {
                                     className="cursor-pointer"
                                   >
                                     <Play className="h-4 w-4 mr-2 text-green-600" />
-                                    Enrich (Database First)
+                                    {isAdmin() ? "Enrich from Database" : "Enrich (Database First)"}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={(e) => {
@@ -2819,22 +2820,22 @@ const Rtne: React.FC = () => {
                                       enrichFromLushaDirectly(row.id);
                                     }}
                                     className={`cursor-pointer ${
-                                      !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id)
+                                      !isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id)
                                         ? 'opacity-70'
                                         : ''
                                     }`}
                                   >
-                                    {!databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) ? (
+                                    {!isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) ? (
                                       <Lock className="h-4 w-4 mr-2 text-gray-400" />
                                     ) : (
                                       <svg className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                                       </svg>
                                     )}
-                                    <span className={!databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) ? 'text-gray-500' : ''}>
-                                      Enrich from Lusha
+                                    <span className={!isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) ? 'text-gray-500' : ''}>
+                                      {isAdmin() ? "Enrich from Lusha (Admin)" : "Enrich from Lusha"}
                                     </span>
-                                    {!databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) && (
+                                    {!isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) && (
                                       <span className="ml-auto text-xs text-amber-500 font-medium">DB first!</span>
                                     )}
                                   </DropdownMenuItem>
