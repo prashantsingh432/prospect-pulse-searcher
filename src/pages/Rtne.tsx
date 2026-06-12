@@ -897,11 +897,9 @@ const Rtne: React.FC = () => {
         }
       }
 
-      toast({
-        title: errorCount > 0 ? 'Saved with errors' : 'All changes saved',
-        description: `${savedCount} row(s) saved, ${syncedCount} synced to database${errorCount > 0 ? `, ${errorCount} error(s)` : ''}.`,
-        variant: errorCount > 0 ? 'destructive' : 'default',
-      });
+      const msg = `${savedCount} row(s) saved, ${syncedCount} synced to database${errorCount > 0 ? `, ${errorCount} error(s)` : ''}.`;
+      if (errorCount > 0) toast.error(msg);
+      else toast.success(msg);
     } finally {
       setIsSavingAll(false);
     }
