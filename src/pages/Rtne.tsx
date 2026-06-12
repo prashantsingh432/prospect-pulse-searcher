@@ -808,6 +808,103 @@ const Rtne: React.FC = () => {
     }
   };
 
+  // Force-save ALL rows to rtne_requests AND sync to prospects table (manual Save button)
+  const [isSavingAll, setIsSavingAll] = useState(false);
+  const handleSaveAll = async () => {
+    setIsSavingAll(true);
+    // Flush any pending debounced saves first
+    Object.values(saveTimeoutRef.current).forEach(t => clearTimeout(t));
+    saveTimeoutRef.current = {};
+
+    let savedCount = 0;
+    let syncedCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const row of rows) {
+        const requestData: any = {
+          project_name: projectName,
+          user_id: user?.id,
+          user_name: user?.fullName || user?.email?.split('@')[0] || 'Unknown',
+          linkedin_url: row.prospect_linkedin || null,
+          full_name: row.full_name || null,
+          company_name: row.company_name || null,
+          company_linkedin_url: (row as any).company_linkedin_url || null,
+          city: row.prospect_city || null,
+          primary_phone: row.prospect_number || null,
+          phone2: row.prospect_number2 || null,
+          phone3: row.prospect_number3 || null,
+          phone4: row.prospect_number4 || null,
+          email_address: row.prospect_email || null,
+          job_title: row.prospect_designation || null,
+          row_number: row.id,
+          status: row.status || 'pending',
+          updated_at: new Date().toISOString(),
+        };
+
+        const hasAnyData = requestData.linkedin_url || requestData.full_name ||
+          requestData.company_name || requestData.primary_phone ||
+          requestData.phone2 || requestData.phone3 || requestData.phone4 ||
+          requestData.email_address || requestData.city || requestData.job_title;
+
+        if (!hasAnyData) continue;
+
+        try {
+          if ((row as any).supabaseId) {
+            const { error } = await supabase
+              .from('rtne_requests')
+              .update(requestData)
+              .eq('id', (row as any).supabaseId);
+            if (error) throw error;
+          } else {
+            const { data: existingByRow } = await supabase
+              .from('rtne_requests')
+              .select('id')
+              .eq('user_id', user?.id)
+              .eq('project_name', projectName)
+              .eq('row_number', row.id)
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (existingByRow) {
+              const { error } = await supabase
+                .from('rtne_requests')
+                .update(requestData)
+                .eq('id', existingByRow.id);
+              if (error) throw error;
+              setRows(prev => prev.map(r => r.id === row.id ? { ...r, supabaseId: existingByRow.id } as any : r));
+            } else {
+              const { data, error } = await supabase
+                .from('rtne_requests')
+                .insert([requestData])
+                .select()
+                .single();
+              if (error) throw error;
+              if (data) {
+                setRows(prev => prev.map(r => r.id === row.id ? { ...r, supabaseId: data.id } as any : r));
+              }
+            }
+          }
+          savedCount++;
+
+          // Also sync to prospects table for search
+          await syncManualEditToProspects(requestData);
+          syncedCount++;
+        } catch (e) {
+          console.error(`❌ Save failed for row ${row.id}:`, e);
+          errorCount++;
+        }
+      }
+
+      const msg = `${savedCount} row(s) saved, ${syncedCount} synced to database${errorCount > 0 ? `, ${errorCount} error(s)` : ''}.`;
+      if (errorCount > 0) toast.error(msg);
+      else toast.success(msg);
+    } finally {
+      setIsSavingAll(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     // Process rows with LinkedIn URLs
@@ -2512,9 +2609,14 @@ const Rtne: React.FC = () => {
                 <ArrowLeft className="h-4 w-4" />
                 <span>Dashboard</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-[#0A66C2] hover:bg-blue-800">
-                <Share className="h-4 w-4" />
-                <span>Share</span>
+              <button
+                onClick={handleSaveAll}
+                disabled={isSavingAll}
+                title="Save all rows to database (rtne_requests + prospects)"
+                className="flex items-center space-x-2 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSavingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                <span>{isSavingAll ? 'Saving...' : 'Save'}</span>
               </button>
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-bold border border-blue-200">
