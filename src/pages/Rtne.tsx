@@ -738,10 +738,74 @@ const Rtne: React.FC = () => {
             }
           }
         }
+        // 🔄 ALSO sync manual edits to the global prospects table (used by search)
+        await syncManualEditToProspects(requestData);
       } catch (error) {
         console.error('Error saving to Supabase:', error);
       }
     }, 1000); // Save after 1 second of no typing
+  };
+
+  // Sync manually-edited row data to the global prospects table so search reflects it
+  const syncManualEditToProspects = async (requestData: any) => {
+    try {
+      const linkedinUrl = requestData.linkedin_url;
+      if (!linkedinUrl && !(requestData.full_name && requestData.company_name)) {
+        return; // Not enough identity info to match a prospect
+      }
+
+      // Only include non-empty fields so we never wipe existing data with nulls
+      const updates: any = {};
+      if (requestData.full_name) updates.full_name = requestData.full_name;
+      if (requestData.company_name) updates.company_name = requestData.company_name;
+      if (requestData.company_linkedin_url) updates.company_linkedin_url = requestData.company_linkedin_url;
+      if (requestData.city) updates.prospect_city = requestData.city;
+      if (requestData.job_title) updates.prospect_designation = requestData.job_title;
+      if (requestData.primary_phone) updates.prospect_number = requestData.primary_phone;
+      if (requestData.phone2) updates.prospect_number2 = requestData.phone2;
+      if (requestData.phone3) updates.prospect_number3 = requestData.phone3;
+      if (requestData.phone4) updates.prospect_number4 = requestData.phone4;
+      if (requestData.email_address) updates.prospect_email = requestData.email_address;
+
+      if (Object.keys(updates).length === 0) return;
+
+      if (linkedinUrl) {
+        const normalizedLinkedInUrl = linkedinUrl.trim().toLowerCase().replace(/\/+$/, '');
+        updates.prospect_linkedin = normalizedLinkedInUrl;
+        const slug = normalizedLinkedInUrl.split('/in/')[1]?.split('/')[0] || normalizedLinkedInUrl;
+
+        const { data: existingProspect } = await supabase
+          .from('prospects')
+          .select('id')
+          .ilike('prospect_linkedin', `%${slug}%`)
+          .maybeSingle();
+
+        if (existingProspect) {
+          await supabase.from('prospects').update(updates).eq('id', existingProspect.id);
+          console.log('✅ Manual edit synced to existing prospect (by LinkedIn)');
+        } else if (updates.full_name && updates.company_name) {
+          await supabase.from('prospects').insert([updates]);
+          console.log('✅ Manual edit created new prospect (by LinkedIn)');
+        }
+      } else {
+        const { data: existingProspect } = await supabase
+          .from('prospects')
+          .select('id')
+          .ilike('full_name', requestData.full_name)
+          .ilike('company_name', requestData.company_name)
+          .maybeSingle();
+
+        if (existingProspect) {
+          await supabase.from('prospects').update(updates).eq('id', existingProspect.id);
+          console.log('✅ Manual edit synced to existing prospect (by name+company)');
+        } else {
+          await supabase.from('prospects').insert([updates]);
+          console.log('✅ Manual edit created new prospect (by name+company)');
+        }
+      }
+    } catch (e) {
+      console.error('❌ Failed to sync manual edit to prospects table:', e);
+    }
   };
 
   const handleSubmit = async () => {
