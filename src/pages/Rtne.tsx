@@ -2609,9 +2609,14 @@ const Rtne: React.FC = () => {
                 <ArrowLeft className="h-4 w-4" />
                 <span>Dashboard</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-[#0A66C2] hover:bg-blue-800">
-                <Share className="h-4 w-4" />
-                <span>Share</span>
+              <button
+                onClick={handleSaveAll}
+                disabled={isSavingAll}
+                title="Save all rows to database (rtne_requests + prospects)"
+                className="flex items-center space-x-2 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSavingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                <span>{isSavingAll ? 'Saving...' : 'Save'}</span>
               </button>
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-bold border border-blue-200">
