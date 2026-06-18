@@ -63,7 +63,8 @@ const ICON_COLORS: Record<string, string> = {
   highRisk: "text-slate-800 dark:text-slate-200",
 };
 
-export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], spamHistory = [] }) => {
+export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], spamHistory = [], hideDeactivated = false }) => {
+  const visibleCards = hideDeactivated ? KPI_CARDS.filter(c => c.key !== "deactivated") : KPI_CARDS;
   const [activeFilter, setActiveFilter] = useState<FilterType>("total");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
