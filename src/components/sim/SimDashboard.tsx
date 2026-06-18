@@ -37,6 +37,7 @@ interface SimDashboardProps {
   };
   sims?: SimRecord[];
   spamHistory?: SpamHistoryRecord[];
+  hideDeactivated?: boolean;
 }
 
 type FilterType = "total" | "active" | "spam" | "deactivated" | "inactive" | "highRisk" | null;
