@@ -164,7 +164,7 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
     <div className="space-y-8">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {KPI_CARDS.map((card) => {
+        {visibleCards.map((card) => {
           const isSelected = activeFilter === card.key;
           return (
             <div
