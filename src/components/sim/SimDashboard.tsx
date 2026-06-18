@@ -37,6 +37,7 @@ interface SimDashboardProps {
   };
   sims?: SimRecord[];
   spamHistory?: SpamHistoryRecord[];
+  hideDeactivated?: boolean;
 }
 
 type FilterType = "total" | "active" | "spam" | "deactivated" | "inactive" | "highRisk" | null;
@@ -62,7 +63,8 @@ const ICON_COLORS: Record<string, string> = {
   highRisk: "text-slate-800 dark:text-slate-200",
 };
 
-export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], spamHistory = [] }) => {
+export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], spamHistory = [], hideDeactivated = false }) => {
+  const visibleCards = hideDeactivated ? KPI_CARDS.filter(c => c.key !== "deactivated") : KPI_CARDS;
   const [activeFilter, setActiveFilter] = useState<FilterType>("total");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -162,7 +164,7 @@ export const SimDashboard: React.FC<SimDashboardProps> = ({ stats, sims = [], sp
     <div className="space-y-8">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {KPI_CARDS.map((card) => {
+        {visibleCards.map((card) => {
           const isSelected = activeFilter === card.key;
           return (
             <div

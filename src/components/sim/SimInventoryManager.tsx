@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SimDashboard } from "./SimDashboard";
 import { SimTable } from "./SimTable";
 import { SimAgentManager } from "./SimAgentManager";
-import { LayoutDashboard, Smartphone, Users, Settings } from "lucide-react";
+import { SimUsageCharts } from "./SimUsageCharts";
+import { LayoutDashboard, Smartphone, Users, Settings, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 // Types
@@ -77,13 +78,14 @@ export function calculateRiskLevel(spamCount: number): string {
 }
 
 export const SimInventoryManager: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [sims, setSims] = useState<SimRecord[]>([]);
   const [agents, setAgents] = useState<SimAgent[]>([]);
   const [spamHistory, setSpamHistory] = useState<SpamHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const superAdmin = isSuperAdmin();
 
   const fetchAll = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
@@ -121,6 +123,16 @@ export const SimInventoryManager: React.FC = () => {
   }, []);
 
   useEffect(() => { fetchAll(true); }, [fetchAll]);
+
+  // Real-time subscription: refresh on any SIM changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("sim-usage-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sim_master" }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "sim_spam_history" }, () => fetchAll())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchAll]);
 
   const stats = {
     total: sims.filter((s) => s.current_status !== "Deactivated").length,
@@ -304,6 +316,7 @@ export const SimInventoryManager: React.FC = () => {
           {[
             { value: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
             { value: "sims", icon: Smartphone, label: "SIM Cards" },
+            { value: "usage", icon: BarChart3, label: "SIM Usage" },
             { value: "agents", icon: Users, label: "Agents" },
             { value: "admin", icon: Settings, label: "Admin Panel" },
           ].map((tab) => (
@@ -329,7 +342,11 @@ export const SimInventoryManager: React.FC = () => {
         </div>
 
         <TabsContent value="dashboard" className="mt-6">
-          <SimDashboard stats={stats} sims={sims} spamHistory={spamHistory} />
+          <SimDashboard stats={stats} sims={sims} spamHistory={spamHistory} hideDeactivated={!superAdmin} />
+        </TabsContent>
+
+        <TabsContent value="usage" className="mt-6">
+          <SimUsageCharts sims={sims} />
         </TabsContent>
 
         <TabsContent value="sims" className="mt-6">
