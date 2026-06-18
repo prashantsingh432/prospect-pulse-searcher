@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SimDashboard } from "./SimDashboard";
 import { SimTable } from "./SimTable";
 import { SimAgentManager } from "./SimAgentManager";
-import { LayoutDashboard, Smartphone, Users, Settings } from "lucide-react";
+import { SimUsageCharts } from "./SimUsageCharts";
+import { LayoutDashboard, Smartphone, Users, Settings, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 // Types
