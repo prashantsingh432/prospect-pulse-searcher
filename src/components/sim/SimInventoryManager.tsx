@@ -316,6 +316,7 @@ export const SimInventoryManager: React.FC = () => {
           {[
             { value: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
             { value: "sims", icon: Smartphone, label: "SIM Cards" },
+            { value: "usage", icon: BarChart3, label: "SIM Usage" },
             { value: "agents", icon: Users, label: "Agents" },
             { value: "admin", icon: Settings, label: "Admin Panel" },
           ].map((tab) => (
@@ -341,7 +342,11 @@ export const SimInventoryManager: React.FC = () => {
         </div>
 
         <TabsContent value="dashboard" className="mt-6">
-          <SimDashboard stats={stats} sims={sims} spamHistory={spamHistory} />
+          <SimDashboard stats={stats} sims={sims} spamHistory={spamHistory} hideDeactivated={!superAdmin} />
+        </TabsContent>
+
+        <TabsContent value="usage" className="mt-6">
+          <SimUsageCharts sims={sims} />
         </TabsContent>
 
         <TabsContent value="sims" className="mt-6">
