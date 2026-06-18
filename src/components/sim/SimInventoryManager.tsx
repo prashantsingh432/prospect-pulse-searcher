@@ -124,6 +124,16 @@ export const SimInventoryManager: React.FC = () => {
 
   useEffect(() => { fetchAll(true); }, [fetchAll]);
 
+  // Real-time subscription: refresh on any SIM changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("sim-usage-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sim_master" }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "sim_spam_history" }, () => fetchAll())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchAll]);
+
   const stats = {
     total: sims.filter((s) => s.current_status !== "Deactivated").length,
     active: sims.filter((s) => s.current_status === "Active").length,
