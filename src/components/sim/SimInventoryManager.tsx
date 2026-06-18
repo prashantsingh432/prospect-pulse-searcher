@@ -78,13 +78,14 @@ export function calculateRiskLevel(spamCount: number): string {
 }
 
 export const SimInventoryManager: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [sims, setSims] = useState<SimRecord[]>([]);
   const [agents, setAgents] = useState<SimAgent[]>([]);
   const [spamHistory, setSpamHistory] = useState<SpamHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const superAdmin = isSuperAdmin();
 
   const fetchAll = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
