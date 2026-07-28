@@ -369,7 +369,7 @@ serve(async (req) => {
       }
     }
 
-    if (method === 'PUT' && action === 'reset-password') {
+    if ((method === 'PUT' || method === 'POST') && action === 'reset-password') {
       const body = await req.json()
       const { userId, newPassword } = body
 
@@ -405,7 +405,8 @@ serve(async (req) => {
       })
     }
 
-    return new Response(JSON.stringify({ error: 'Invalid action' }), {
+    console.error('Unhandled request', { method, action })
+    return new Response(JSON.stringify({ error: `Invalid action: ${action ?? 'none'} (${method})` }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
