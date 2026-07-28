@@ -172,6 +172,7 @@ export const UserCreator = () => {
       action === 'list' ? 'GET' :
       action === 'create' ? 'POST' :
       action === 'update' ? 'PUT' :
+      action === 'reset-password' ? 'PUT' :
       action === 'delete' ? 'DELETE' :
       'POST';
 
