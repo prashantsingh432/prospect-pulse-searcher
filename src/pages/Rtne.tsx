@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { validateLinkedInUrl } from "@/utils/linkedInUtils";
+import { extractLinkedInUsername, normalizeLinkedInUrl, validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X, RotateCcw, Send, Wifi, WifiOff } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -747,13 +747,13 @@ const Rtne: React.FC = () => {
   };
 
   // Sync manually-edited row data to the global prospects table so search reflects it
-  const syncManualEditToProspects = async (requestData: any) => {
-    try {
-      const linkedinUrl = requestData.linkedin_url;
-      if (!linkedinUrl && !(requestData.full_name && requestData.company_name)) {
-        return; // Not enough identity info to match a prospect
-      }
+  const syncManualEditToProspects = async (requestData: any): Promise<boolean> => {
+    const linkedinUrl = requestData.linkedin_url;
+    if (!linkedinUrl && !(requestData.full_name && requestData.company_name)) {
+      return false; // Not enough identity info to match a prospect
+    }
 
+    try {
       // Only include non-empty fields so we never wipe existing data with nulls
       const updates: any = {};
       if (requestData.full_name) updates.full_name = requestData.full_name;
@@ -767,44 +767,63 @@ const Rtne: React.FC = () => {
       if (requestData.phone4) updates.prospect_number4 = requestData.phone4;
       if (requestData.email_address) updates.prospect_email = requestData.email_address;
 
-      if (Object.keys(updates).length === 0) return;
+      if (Object.keys(updates).length === 0) return false;
 
       if (linkedinUrl) {
-        const normalizedLinkedInUrl = linkedinUrl.trim().toLowerCase().replace(/\/+$/, '');
+        const normalizedLinkedInUrl = normalizeLinkedInUrl(linkedinUrl);
         updates.prospect_linkedin = normalizedLinkedInUrl;
-        const slug = normalizedLinkedInUrl.split('/in/')[1]?.split('/')[0] || normalizedLinkedInUrl;
+        const slug = extractLinkedInUsername(linkedinUrl) || normalizedLinkedInUrl;
 
-        const { data: existingProspect } = await supabase
+        const { data: existingProspects, error: lookupError } = await supabase
           .from('prospects')
           .select('id')
           .ilike('prospect_linkedin', `%${slug}%`)
-          .maybeSingle();
+          .limit(1);
+        if (lookupError) throw lookupError;
+
+        const existingProspect = existingProspects?.[0];
 
         if (existingProspect) {
-          await supabase.from('prospects').update(updates).eq('id', existingProspect.id);
+          const { error } = await supabase.from('prospects').update(updates).eq('id', existingProspect.id);
+          if (error) throw error;
           console.log('✅ Manual edit synced to existing prospect (by LinkedIn)');
-        } else if (updates.full_name && updates.company_name) {
-          await supabase.from('prospects').insert([updates]);
+        } else {
+          // full_name and company_name are required by the legacy prospects schema.
+          // Empty placeholders allow LinkedIn + contact-only RTNE rows to be searchable.
+          const newProspect = {
+            ...updates,
+            full_name: requestData.full_name || '',
+            company_name: requestData.company_name || '',
+          };
+          const { error } = await supabase.from('prospects').insert([newProspect]);
+          if (error) throw error;
           console.log('✅ Manual edit created new prospect (by LinkedIn)');
         }
       } else {
-        const { data: existingProspect } = await supabase
+        const { data: existingProspects, error: lookupError } = await supabase
           .from('prospects')
           .select('id')
           .ilike('full_name', requestData.full_name)
           .ilike('company_name', requestData.company_name)
-          .maybeSingle();
+          .limit(1);
+        if (lookupError) throw lookupError;
+
+        const existingProspect = existingProspects?.[0];
 
         if (existingProspect) {
-          await supabase.from('prospects').update(updates).eq('id', existingProspect.id);
+          const { error } = await supabase.from('prospects').update(updates).eq('id', existingProspect.id);
+          if (error) throw error;
           console.log('✅ Manual edit synced to existing prospect (by name+company)');
         } else {
-          await supabase.from('prospects').insert([updates]);
+          const { error } = await supabase.from('prospects').insert([updates]);
+          if (error) throw error;
           console.log('✅ Manual edit created new prospect (by name+company)');
         }
       }
+      return true;
     } catch (e) {
       console.error('❌ Failed to sync manual edit to prospects table:', e);
+      throw e;
     }
   };
 
@@ -889,8 +908,8 @@ const Rtne: React.FC = () => {
           savedCount++;
 
           // Also sync to prospects table for search
-          await syncManualEditToProspects(requestData);
-          syncedCount++;
+          const synced = await syncManualEditToProspects(requestData);
+          if (synced) syncedCount++;
         } catch (e) {
           console.error(`❌ Save failed for row ${row.id}:`, e);
           errorCount++;
