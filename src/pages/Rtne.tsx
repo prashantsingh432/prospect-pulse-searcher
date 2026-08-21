@@ -2038,13 +2038,15 @@ const Rtne: React.FC = () => {
     deleteSelectedCells();
   }, [copySelectedCells, deleteSelectedCells]);
 
-  const pasteSelectedCells = useCallback(async () => {
+  const applyPastedText = useCallback(async (
+    clipboardText: string,
+    overrideStartCell?: { rowId: number; field: keyof RtneRow } | null
+  ) => {
     try {
-      const clipboardText = await navigator.clipboard.readText();
+      // Use explicit start cell, else selectionStart (top-left of selection) or selectedCell
+      const startCell = overrideStartCell || selectionStart || selectedCell;
+      if (!startCell || !clipboardText) return;
 
-      // Use selectionStart (top-left of selection) or fall back to selectedCell
-      const startCell = selectionStart || selectedCell;
-      if (!startCell) return;
 
       // Parse clipboard data - handle multiple separators: tabs, newlines, commas
       // Google Sheets uses tabs for columns and newlines for rows
