@@ -1384,7 +1384,7 @@ const Rtne: React.FC = () => {
       // Wait minimum 3 seconds so user can see the animation cycle
       const dbElapsed = Date.now() - startTime;
       const dbMinDelay = 3000;
-      if (dbElapsed < dbMinDelay) {
+      if (!fastMode && dbElapsed < dbMinDelay) {
         await new Promise(resolve => setTimeout(resolve, dbMinDelay - dbElapsed));
       }
 
@@ -1419,7 +1419,7 @@ const Rtne: React.FC = () => {
 
         // Ensure minimum 10 seconds total
         const totalElapsed = Date.now() - startTime;
-        if (totalElapsed < 10000) {
+        if (!fastMode && totalElapsed < 10000) {
           await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
         }
 
@@ -1438,12 +1438,12 @@ const Rtne: React.FC = () => {
 
       // STEP 2: Show "not found" stage (1.5 seconds)
       console.log("❌ Not found in database.");
-      setEnrichmentStage("not_found");
+      if (!fastMode) setEnrichmentStage("not_found");
       
       // Mark this row as database searched (even if not found)
       setDatabaseSearchedRows(prev => new Set(prev).add(rowId));
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!fastMode) await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Check if cancelled after "not found" stage
       if (enrichmentCancelledRef.current) {
@@ -1453,8 +1453,10 @@ const Rtne: React.FC = () => {
 
       // STEP 3: Switch to Lusha search (minimum 3 seconds)
       console.log("🔍 Searching Lusha...");
-      setEnrichmentSource("lusha");
-      setEnrichmentStage("searching");
+      if (!fastMode) {
+        setEnrichmentSource("lusha");
+        setEnrichmentStage("searching");
+      }
       
       const lushaStartTime = Date.now();
       const result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
@@ -1468,13 +1470,13 @@ const Rtne: React.FC = () => {
       // Wait minimum 3 seconds for Lusha animation
       const lushaElapsed = Date.now() - lushaStartTime;
       const lushaMinDelay = 3000;
-      if (lushaElapsed < lushaMinDelay) {
+      if (!fastMode && lushaElapsed < lushaMinDelay) {
         await new Promise(resolve => setTimeout(resolve, lushaMinDelay - lushaElapsed));
       }
 
       // Ensure minimum 10 seconds total
       const totalElapsed = Date.now() - startTime;
-      if (totalElapsed < 10000) {
+      if (!fastMode && totalElapsed < 10000) {
         await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
       }
 
@@ -1529,7 +1531,7 @@ const Rtne: React.FC = () => {
       
       // Ensure minimum 10 seconds even on error
       const totalElapsed = Date.now() - startTime;
-      if (totalElapsed < 10000) {
+      if (!fastMode && totalElapsed < 10000) {
         await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
       }
       
