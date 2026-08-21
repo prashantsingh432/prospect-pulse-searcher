@@ -2889,6 +2889,8 @@ const Rtne: React.FC = () => {
                               type={field === 'prospect_email' ? 'email' : 'text'}
                               value={cellValue}
                               onChange={(e) => handleChange(row.id, field, e.target.value)}
+                              onPaste={(e) => handleCellPaste(e, row.id, field)}
+
                               onFocus={() => {
                                 setSelectedCell({ rowId: row.id, field });
                                 setSelectionStart({ rowId: row.id, field });
