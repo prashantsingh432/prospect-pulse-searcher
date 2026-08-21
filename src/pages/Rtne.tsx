@@ -1354,13 +1354,19 @@ const Rtne: React.FC = () => {
     // Reset cancellation flag
     enrichmentCancelledRef.current = false;
 
+    // Admins get instant results: no animation modal, no artificial delays
+    const fastMode = isAdmin();
+
     // Add row to enriching set and show loading modal - Start with database search
     setEnrichingRows(prev => new Set(prev).add(rowId));
-    setEnrichmentLoading(true);
-    setEnrichmentSource("database");
-    setEnrichmentStage("searching");
+    if (!fastMode) {
+      setEnrichmentLoading(true);
+      setEnrichmentSource("database");
+      setEnrichmentStage("searching");
+    }
     
     const startTime = Date.now();
+
 
     try {
       console.log(`🚀 Starting enrichment for row ${rowId} with LinkedIn: ${row.prospect_linkedin}`);
@@ -1378,7 +1384,7 @@ const Rtne: React.FC = () => {
       // Wait minimum 3 seconds so user can see the animation cycle
       const dbElapsed = Date.now() - startTime;
       const dbMinDelay = 3000;
-      if (dbElapsed < dbMinDelay) {
+      if (!fastMode && dbElapsed < dbMinDelay) {
         await new Promise(resolve => setTimeout(resolve, dbMinDelay - dbElapsed));
       }
 
@@ -1413,7 +1419,7 @@ const Rtne: React.FC = () => {
 
         // Ensure minimum 10 seconds total
         const totalElapsed = Date.now() - startTime;
-        if (totalElapsed < 10000) {
+        if (!fastMode && totalElapsed < 10000) {
           await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
         }
 
@@ -1432,12 +1438,12 @@ const Rtne: React.FC = () => {
 
       // STEP 2: Show "not found" stage (1.5 seconds)
       console.log("❌ Not found in database.");
-      setEnrichmentStage("not_found");
+      if (!fastMode) setEnrichmentStage("not_found");
       
       // Mark this row as database searched (even if not found)
       setDatabaseSearchedRows(prev => new Set(prev).add(rowId));
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!fastMode) await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Check if cancelled after "not found" stage
       if (enrichmentCancelledRef.current) {
@@ -1447,8 +1453,10 @@ const Rtne: React.FC = () => {
 
       // STEP 3: Switch to Lusha search (minimum 3 seconds)
       console.log("🔍 Searching Lusha...");
-      setEnrichmentSource("lusha");
-      setEnrichmentStage("searching");
+      if (!fastMode) {
+        setEnrichmentSource("lusha");
+        setEnrichmentStage("searching");
+      }
       
       const lushaStartTime = Date.now();
       const result = await enrichProspect(row.prospect_linkedin, "PHONE_ONLY");
@@ -1462,13 +1470,13 @@ const Rtne: React.FC = () => {
       // Wait minimum 3 seconds for Lusha animation
       const lushaElapsed = Date.now() - lushaStartTime;
       const lushaMinDelay = 3000;
-      if (lushaElapsed < lushaMinDelay) {
+      if (!fastMode && lushaElapsed < lushaMinDelay) {
         await new Promise(resolve => setTimeout(resolve, lushaMinDelay - lushaElapsed));
       }
 
       // Ensure minimum 10 seconds total
       const totalElapsed = Date.now() - startTime;
-      if (totalElapsed < 10000) {
+      if (!fastMode && totalElapsed < 10000) {
         await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
       }
 
@@ -1523,7 +1531,7 @@ const Rtne: React.FC = () => {
       
       // Ensure minimum 10 seconds even on error
       const totalElapsed = Date.now() - startTime;
-      if (totalElapsed < 10000) {
+      if (!fastMode && totalElapsed < 10000) {
         await new Promise(resolve => setTimeout(resolve, 10000 - totalElapsed));
       }
       
@@ -1565,11 +1573,16 @@ const Rtne: React.FC = () => {
       return;
     }
 
+    // Admins get instant results: no animation modal, no artificial delays
+    const fastMode = isAdmin();
+
     // Add row to enriching set and show loading modal - Start with Lusha directly
     setEnrichingRows(prev => new Set(prev).add(rowId));
-    setEnrichmentLoading(true);
-    setEnrichmentSource("lusha");
-    setEnrichmentStage("enriching_lusha");
+    if (!fastMode) {
+      setEnrichmentLoading(true);
+      setEnrichmentSource("lusha");
+      setEnrichmentStage("enriching_lusha");
+    }
     
     const startTime = Date.now();
 
@@ -1581,9 +1594,10 @@ const Rtne: React.FC = () => {
       // Wait minimum 3 seconds for animation
       const elapsed = Date.now() - startTime;
       const minDelay = 3000;
-      if (elapsed < minDelay) {
+      if (!fastMode && elapsed < minDelay) {
         await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
       }
+
 
       if (result.success) {
         // Smart merge phone numbers - combine existing DB phones with new Lusha phones
@@ -2038,13 +2052,15 @@ const Rtne: React.FC = () => {
     deleteSelectedCells();
   }, [copySelectedCells, deleteSelectedCells]);
 
-  const pasteSelectedCells = useCallback(async () => {
+  const applyPastedText = useCallback(async (
+    clipboardText: string,
+    overrideStartCell?: { rowId: number; field: keyof RtneRow } | null
+  ) => {
     try {
-      const clipboardText = await navigator.clipboard.readText();
+      // Use explicit start cell, else selectionStart (top-left of selection) or selectedCell
+      const startCell = overrideStartCell || selectionStart || selectedCell;
+      if (!startCell || !clipboardText) return;
 
-      // Use selectionStart (top-left of selection) or fall back to selectedCell
-      const startCell = selectionStart || selectedCell;
-      if (!startCell) return;
 
       // Parse clipboard data - handle multiple separators: tabs, newlines, commas
       // Google Sheets uses tabs for columns and newlines for rows
@@ -2177,6 +2193,43 @@ const Rtne: React.FC = () => {
       toast.error('Failed to paste data');
     }
   }, [selectedCell, selectionStart, rows, fieldOrder, handleChange, makeEmptyRow]);
+
+  const pasteSelectedCells = useCallback(async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      await applyPastedText(clipboardText);
+    } catch (error) {
+      console.error('Error reading clipboard:', error);
+      toast.error('Failed to read clipboard');
+    }
+  }, [applyPastedText]);
+
+  // Paste directly inside a focused cell (Google Sheets style multi-row paste)
+  const handleCellPaste = useCallback((
+    e: React.ClipboardEvent<HTMLInputElement>,
+    rowId: number,
+    field: keyof RtneRow
+  ) => {
+    const text = e.clipboardData?.getData('text/plain') || '';
+    if (!text) return;
+    // Only intercept multi-value pastes; single values paste natively
+    const isMulti = text.includes('\n') || text.includes('\t') ||
+      (field === 'prospect_linkedin' && /[,\s]/.test(text.trim()) && text.trim().split(/[,\s]+/).filter(Boolean).length > 1);
+    if (!isMulti) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    let normalized = text.replace(/\r/g, '');
+    // For LinkedIn column, treat space/comma separated URLs as separate rows
+    if (field === 'prospect_linkedin' && !normalized.includes('\t')) {
+      normalized = normalized.split(/[,\s]+/).filter(Boolean).join('\n');
+    }
+
+    setIsEditing(false);
+    void applyPastedText(normalized, { rowId, field });
+  }, [applyPastedText]);
+
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!selectedCell) return;
@@ -2850,6 +2903,8 @@ const Rtne: React.FC = () => {
                               type={field === 'prospect_email' ? 'email' : 'text'}
                               value={cellValue}
                               onChange={(e) => handleChange(row.id, field, e.target.value)}
+                              onPaste={(e) => handleCellPaste(e, row.id, field)}
+
                               onFocus={() => {
                                 setSelectedCell({ rowId: row.id, field });
                                 setSelectionStart({ rowId: row.id, field });
