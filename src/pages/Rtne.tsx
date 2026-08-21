@@ -1573,11 +1573,16 @@ const Rtne: React.FC = () => {
       return;
     }
 
+    // Admins get instant results: no animation modal, no artificial delays
+    const fastMode = isAdmin();
+
     // Add row to enriching set and show loading modal - Start with Lusha directly
     setEnrichingRows(prev => new Set(prev).add(rowId));
-    setEnrichmentLoading(true);
-    setEnrichmentSource("lusha");
-    setEnrichmentStage("enriching_lusha");
+    if (!fastMode) {
+      setEnrichmentLoading(true);
+      setEnrichmentSource("lusha");
+      setEnrichmentStage("enriching_lusha");
+    }
     
     const startTime = Date.now();
 
@@ -1589,9 +1594,10 @@ const Rtne: React.FC = () => {
       // Wait minimum 3 seconds for animation
       const elapsed = Date.now() - startTime;
       const minDelay = 3000;
-      if (elapsed < minDelay) {
+      if (!fastMode && elapsed < minDelay) {
         await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
       }
+
 
       if (result.success) {
         // Smart merge phone numbers - combine existing DB phones with new Lusha phones
