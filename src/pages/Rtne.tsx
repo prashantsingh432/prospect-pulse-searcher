@@ -1354,13 +1354,19 @@ const Rtne: React.FC = () => {
     // Reset cancellation flag
     enrichmentCancelledRef.current = false;
 
+    // Admins get instant results: no animation modal, no artificial delays
+    const fastMode = isAdmin();
+
     // Add row to enriching set and show loading modal - Start with database search
     setEnrichingRows(prev => new Set(prev).add(rowId));
-    setEnrichmentLoading(true);
-    setEnrichmentSource("database");
-    setEnrichmentStage("searching");
+    if (!fastMode) {
+      setEnrichmentLoading(true);
+      setEnrichmentSource("database");
+      setEnrichmentStage("searching");
+    }
     
     const startTime = Date.now();
+
 
     try {
       console.log(`🚀 Starting enrichment for row ${rowId} with LinkedIn: ${row.prospect_linkedin}`);
