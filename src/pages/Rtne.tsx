@@ -2180,6 +2180,43 @@ const Rtne: React.FC = () => {
     }
   }, [selectedCell, selectionStart, rows, fieldOrder, handleChange, makeEmptyRow]);
 
+  const pasteSelectedCells = useCallback(async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      await applyPastedText(clipboardText);
+    } catch (error) {
+      console.error('Error reading clipboard:', error);
+      toast.error('Failed to read clipboard');
+    }
+  }, [applyPastedText]);
+
+  // Paste directly inside a focused cell (Google Sheets style multi-row paste)
+  const handleCellPaste = useCallback((
+    e: React.ClipboardEvent<HTMLInputElement>,
+    rowId: number,
+    field: keyof RtneRow
+  ) => {
+    const text = e.clipboardData?.getData('text/plain') || '';
+    if (!text) return;
+    // Only intercept multi-value pastes; single values paste natively
+    const isMulti = text.includes('\n') || text.includes('\t') ||
+      (field === 'prospect_linkedin' && /[,\s]/.test(text.trim()) && text.trim().split(/[,\s]+/).filter(Boolean).length > 1);
+    if (!isMulti) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    let normalized = text.replace(/\r/g, '');
+    // For LinkedIn column, treat space/comma separated URLs as separate rows
+    if (field === 'prospect_linkedin' && !normalized.includes('\t')) {
+      normalized = normalized.split(/[,\s]+/).filter(Boolean).join('\n');
+    }
+
+    setIsEditing(false);
+    void applyPastedText(normalized, { rowId, field });
+  }, [applyPastedText]);
+
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!selectedCell) return;
 
