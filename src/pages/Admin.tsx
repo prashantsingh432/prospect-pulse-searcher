@@ -21,7 +21,7 @@ const Admin = () => {
   // Super admins also see the external enrichment provider managers.
   const showLusha = isSuperAdmin();
   const showBetterContact = isSuperAdmin();
-  const tabCount = 3 + (showLusha ? 1 : 0) + (showBetterContact ? 1 : 0);
+  const tabGridClass = showLusha && showBetterContact ? "grid-cols-5" : "grid-cols-3";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -32,7 +32,7 @@ const Admin = () => {
             navigate("/sim-inventory");
           }
         }}>
-          <TabsList className={`grid w-full grid-cols-${tabCount}`}>
+          <TabsList className={`grid w-full ${tabGridClass}`}>
             <TabsTrigger value="users">User Management</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             {showLusha && <TabsTrigger value="lusha">Lusha API Manager</TabsTrigger>}
