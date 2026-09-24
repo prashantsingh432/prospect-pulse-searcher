@@ -3,6 +3,7 @@ import React from "react";
 import { Navbar } from "@/components/Navbar";
 import { UserCreator } from "@/components/UserCreator";
 import { LushaApiManager } from "@/components/LushaApiManager";
+import { BetterContactApiManager } from "@/components/BetterContactApiManager";
 import { ProjectManager } from "@/components/ProjectManager";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -17,9 +18,10 @@ const Admin = () => {
   }
 
   // Sub-admins see: User Management, Projects, SIM Inventory
-  // Super admins see: User Management, Projects, Lusha API Manager, SIM Inventory
+  // Super admins also see the external enrichment provider managers.
   const showLusha = isSuperAdmin();
-  const tabCount = showLusha ? 4 : 3;
+  const showBetterContact = isSuperAdmin();
+  const tabCount = 3 + (showLusha ? 1 : 0) + (showBetterContact ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -30,10 +32,11 @@ const Admin = () => {
             navigate("/sim-inventory");
           }
         }}>
-          <TabsList className={showLusha ? "grid w-full grid-cols-4" : "grid w-full grid-cols-3"}>
+          <TabsList className={`grid w-full grid-cols-${tabCount}`}>
             <TabsTrigger value="users">User Management</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             {showLusha && <TabsTrigger value="lusha">Lusha API Manager</TabsTrigger>}
+            {showBetterContact && <TabsTrigger value="bettercontact">BetterContact API</TabsTrigger>}
             <TabsTrigger value="sim">SIM Inventory</TabsTrigger>
           </TabsList>
 
@@ -48,6 +51,12 @@ const Admin = () => {
           {showLusha && (
             <TabsContent value="lusha" className="mt-6">
               <LushaApiManager />
+            </TabsContent>
+          )}
+
+          {showBetterContact && (
+            <TabsContent value="bettercontact" className="mt-6">
+              <BetterContactApiManager />
             </TabsContent>
           )}
         </Tabs>

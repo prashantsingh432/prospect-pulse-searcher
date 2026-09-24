@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.lusha-enrich-proxy]
 verify_jwt = false
+
+[functions.bettercontact-enrich]
+verify_jwt = true
