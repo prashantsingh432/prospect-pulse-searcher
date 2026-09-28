@@ -3,9 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 export type BetterContactMode = "phone" | "email" | "both";
 
 export interface BetterContactInput {
-  firstName: string;
-  lastName: string;
-  companyDomain: string;
+  firstName?: string;
+  lastName?: string;
+  companyDomain?: string;
   linkedinUrl?: string;
   mode: BetterContactMode;
 }
@@ -50,9 +50,9 @@ export async function enrichBetterContact(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        firstName: input.firstName.trim(),
-        lastName: input.lastName.trim(),
-        companyDomain: input.companyDomain.trim(),
+        firstName: input.firstName?.trim() || undefined,
+        lastName: input.lastName?.trim() || undefined,
+        companyDomain: input.companyDomain?.trim() || undefined,
         linkedinUrl: input.linkedinUrl?.trim() || undefined,
         mode: input.mode,
       }),
