@@ -41,8 +41,12 @@ Deno.serve(async (request) => {
     const linkedinUrl = typeof body?.linkedinUrl === "string" ? body.linkedinUrl.trim() : "";
     const mode: Mode = body?.mode === "phone" || body?.mode === "email" || body?.mode === "both" ? body.mode : "both";
 
-    if (!firstName || firstName.length > 100 || !lastName || lastName.length > 100 || !companyDomain || companyDomain.length > 255) {
-      return jsonResponse({ success: false, error: "Invalid input", message: "First name, last name, and company domain are required." }, 400);
+    const hasNameAndCompany = Boolean(firstName && lastName && companyDomain);
+    if (!linkedinUrl && !hasNameAndCompany) {
+      return jsonResponse({ success: false, error: "Invalid input", message: "Enter a LinkedIn URL, or provide first name, last name, and company domain." }, 400);
+    }
+    if (firstName.length > 100 || lastName.length > 100 || companyDomain.length > 255) {
+      return jsonResponse({ success: false, error: "Invalid input", message: "One or more input fields are too long." }, 400);
     }
     if (linkedinUrl && linkedinUrl.length > 500) return jsonResponse({ success: false, error: "Invalid LinkedIn URL" }, 400);
 
@@ -53,9 +57,9 @@ Deno.serve(async (request) => {
         enrich_email_address: mode === "email" || mode === "both",
         enrich_phone_number: mode === "phone" || mode === "both",
         data: [{
-          first_name: firstName,
-          last_name: lastName,
-          company_domain: companyDomain,
+          ...(firstName ? { first_name: firstName } : {}),
+          ...(lastName ? { last_name: lastName } : {}),
+          ...(companyDomain ? { company_domain: companyDomain } : {}),
           ...(linkedinUrl ? { linkedin_url: linkedinUrl } : {}),
         }],
       }),
@@ -87,7 +91,7 @@ Deno.serve(async (request) => {
       success: hasRequestedData,
       phone: mode === "email" ? null : phone,
       email: mode === "phone" ? null : email,
-      fullName: contact?.contact_full_name || `${firstName} ${lastName}`,
+       fullName: contact?.contact_full_name || [firstName, lastName].filter(Boolean).join(" ") || null,
       company: contact?.company_name || null,
       title: contact?.contact_job_title || null,
       city: contact?.contact_location_city || null,
