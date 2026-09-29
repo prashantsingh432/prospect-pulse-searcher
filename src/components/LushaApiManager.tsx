@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchLushaKeys,
@@ -16,10 +17,13 @@ import {
   getLushaKeyStats,
   enrichProspect,
   enrichProspectByName,
+  syncLushaKeyBalances,
+  updateLushaKeyRenewalDate,
+  updateLushaKeyRenewalDay,
   LushaApiKey,
   LushaCategory,
 } from "@/services/lushaService";
-import { Loader2, Plus, Trash2, Key, TrendingUp, AlertCircle, TestTube, CheckCircle, XCircle, Trash } from "lucide-react";
+import { Loader2, Plus, Trash2, Key, TrendingUp, AlertCircle, TestTube, CheckCircle, XCircle, Trash, RotateCcw, Calendar } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +59,8 @@ export const LushaApiManager = () => {
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [deletingAllKeys, setDeletingAllKeys] = useState(false);
+  const [syncingBalances, setSyncingBalances] = useState(false);
+  const [syncingKeyId, setSyncingKeyId] = useState<string | null>(null);
 
   useEffect(() => {
     loadKeys();
@@ -161,6 +167,57 @@ export const LushaApiManager = () => {
       toast({
         title: "Error",
         description: "Failed to delete key: " + error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSyncBalances = async (keyId?: string) => {
+    try {
+      if (keyId) {
+        setSyncingKeyId(keyId);
+      } else {
+        setSyncingBalances(true);
+      }
+      const res = await syncLushaKeyBalances(keyId);
+      if (res.success) {
+        toast({
+          title: "Balances Updated",
+          description: res.message || "Key balances refreshed directly from Lusha",
+        });
+        await loadKeys();
+        await loadStats();
+      } else {
+        toast({
+          title: "Balance Check Failed",
+          description: res.message || "Could not check balances",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error checking balances",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingBalances(false);
+      setSyncingKeyId(null);
+    }
+  };
+
+  const handleUpdateRenewalDay = async (id: string, day: number | null) => {
+    try {
+      await updateLushaKeyRenewalDay(id, day);
+      setKeys((prev) => prev.map((k) => (k.id === id ? { ...k, renewal_day: day } : k)));
+      toast({
+        title: "Renewal Day Updated",
+        description: day ? `Renews on the ${getOrdinal(day)} of every month` : "Cleared renewal day",
+      });
+    } catch (error) {
+      toast({
+        title: "Error updating renewal day",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     }
@@ -608,8 +665,18 @@ export const LushaApiManager = () => {
 
       {/* Keys Management Tabs */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>Manage API Keys</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleSyncBalances()}
+            disabled={syncingBalances || keys.length === 0}
+            className="gap-2"
+          >
+            <RotateCcw className={`h-4 w-4 ${syncingBalances ? "animate-spin" : ""}`} />
+            {syncingBalances ? "Checking Balances..." : "Check / Refresh Balances"}
+          </Button>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -668,7 +735,15 @@ export const LushaApiManager = () => {
                         </AlertDialogContent>
                       </AlertDialog>
                     </div>
-                    <KeysTable keys={phoneKeys} onToggle={handleToggleActive} onDelete={handleDeleteKey} getStatusBadge={getStatusBadge} />
+                    <KeysTable
+                      keys={phoneKeys}
+                      onToggle={handleToggleActive}
+                      onDelete={handleDeleteKey}
+                      onSyncKey={handleSyncBalances}
+                      onUpdateRenewalDay={handleUpdateRenewalDay}
+                      syncingKeyId={syncingKeyId}
+                      getStatusBadge={getStatusBadge}
+                    />
                   </div>
                 )}
               </TabsContent>
@@ -718,7 +793,15 @@ export const LushaApiManager = () => {
                         </AlertDialogContent>
                       </AlertDialog>
                     </div>
-                    <KeysTable keys={emailKeys} onToggle={handleToggleActive} onDelete={handleDeleteKey} getStatusBadge={getStatusBadge} />
+                    <KeysTable
+                      keys={emailKeys}
+                      onToggle={handleToggleActive}
+                      onDelete={handleDeleteKey}
+                      onSyncKey={handleSyncBalances}
+                      onUpdateRenewalDay={handleUpdateRenewalDay}
+                      syncingKeyId={syncingKeyId}
+                      getStatusBadge={getStatusBadge}
+                    />
                   </div>
                 )}
               </TabsContent>
@@ -730,15 +813,62 @@ export const LushaApiManager = () => {
   );
 };
 
+const getOrdinal = (n: number) => {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+
+const formatRenewalDayBadge = (day: number | null | undefined) => {
+  if (!day || day < 1 || day > 31) {
+    return <span className="text-[10px] text-muted-foreground italic">Click to set</span>;
+  }
+  const now = new Date();
+  const currentDay = now.getDate();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  let daysUntil = 0;
+  let nextDateStr = "";
+
+  if (day === currentDay) {
+    return <span className="text-[10px] text-amber-600 font-semibold">● Renews today!</span>;
+  } else if (day > currentDay) {
+    daysUntil = day - currentDay;
+    const targetDate = new Date(currentYear, currentMonth, day);
+    nextDateStr = targetDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  } else {
+    // Next month renewal
+    const daysInThisMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    daysUntil = (daysInThisMonth - currentDay) + day;
+    const targetDate = new Date(currentYear, currentMonth + 1, day);
+    nextDateStr = targetDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  if (daysUntil === 1) {
+    return <span className="text-[10px] text-amber-600 font-medium">● Tomorrow ({nextDateStr})</span>;
+  }
+  if (daysUntil <= 5) {
+    return <span className="text-[10px] text-emerald-600 font-medium">● In {daysUntil} days ({nextDateStr})</span>;
+  }
+  return <span className="text-[10px] text-muted-foreground">In {daysUntil} days ({nextDateStr})</span>;
+};
+
 const KeysTable = ({
   keys,
   onToggle,
   onDelete,
+  onSyncKey,
+  onUpdateRenewalDay,
+  syncingKeyId,
   getStatusBadge,
 }: {
   keys: LushaApiKey[];
   onToggle: (id: string, currentStatus: boolean) => void;
   onDelete: (id: string) => void;
+  onSyncKey?: (id: string) => void;
+  onUpdateRenewalDay: (id: string, day: number | null) => void;
+  syncingKeyId?: string | null;
   getStatusBadge: (status: string) => JSX.Element;
 }) => (
   <div className="overflow-x-auto">
@@ -748,9 +878,10 @@ const KeysTable = ({
           <TableHead>API Key</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Credits</TableHead>
+          <TableHead>Renews On</TableHead>
           <TableHead>Last Used</TableHead>
           <TableHead>Active</TableHead>
-          <TableHead>Actions</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -760,17 +891,62 @@ const KeysTable = ({
               {key.key_value.substring(0, 12)}...{key.key_value.substring(key.key_value.length - 4)}
             </TableCell>
             <TableCell>{getStatusBadge(key.status)}</TableCell>
-            <TableCell>{key.credits_remaining}</TableCell>
+            <TableCell>
+              <Badge
+                variant="outline"
+                className={`font-mono font-semibold ${
+                  key.credits_remaining > 0
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                    : "bg-red-50 text-red-700 border-red-300"
+                }`}
+              >
+                {key.credits_remaining} credits
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <div className="flex flex-col gap-1 min-w-[130px]">
+                <Select
+                  value={key.renewal_day ? String(key.renewal_day) : "none"}
+                  onValueChange={(val) => onUpdateRenewalDay(key.id, val === "none" ? null : parseInt(val))}
+                >
+                  <SelectTrigger className="h-7 text-xs font-medium w-[125px] bg-background">
+                    <SelectValue placeholder="Pick day" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    <SelectItem value="none">Not set</SelectItem>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>
+                        {getOrdinal(d)} of month
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formatRenewalDayBadge(key.renewal_day)}
+              </div>
+            </TableCell>
             <TableCell className="text-sm text-muted-foreground">
               {key.last_used_at ? new Date(key.last_used_at).toLocaleString() : "Never"}
             </TableCell>
             <TableCell>
               <Switch checked={key.is_active} onCheckedChange={() => onToggle(key.id, key.is_active)} />
             </TableCell>
-            <TableCell>
-              <Button variant="ghost" size="sm" onClick={() => onDelete(key.id)}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+            <TableCell className="text-right">
+              <div className="flex items-center justify-end gap-1">
+                {onSyncKey && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Refresh balance directly from Lusha"
+                    disabled={syncingKeyId === key.id}
+                    onClick={() => onSyncKey(key.id)}
+                  >
+                    <RotateCcw className={`h-3.5 w-3.5 text-muted-foreground ${syncingKeyId === key.id ? "animate-spin" : ""}`} />
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => onDelete(key.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
             </TableCell>
           </TableRow>
         ))}

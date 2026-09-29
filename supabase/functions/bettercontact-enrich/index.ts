@@ -1,5 +1,9 @@
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 type Mode = "phone" | "email" | "both";
 
@@ -29,10 +33,71 @@ Deno.serve(async (request) => {
     if (authError || !authData.user) return jsonResponse({ success: false, error: "Unauthorized" }, 401);
 
     const metadata = authData.user.user_metadata || {};
-    const isSuperAdmin = metadata.project_name === "ADMIN" && (!metadata.admin_level || metadata.admin_level === "super");
-    if (!isSuperAdmin) return jsonResponse({ success: false, error: "Super Admin access required" }, 403);
+    const isAdmin =
+      metadata.project_name === "ADMIN" ||
+      metadata.admin_level === "super" ||
+      metadata.admin_level === "sub" ||
+      metadata.role === "admin";
+    if (!isAdmin) return jsonResponse({ success: false, error: "Admin access required" }, 403);
 
     const body = await request.json().catch(() => null);
+
+    // Balance check / sync action
+    if (body?.action === "sync_balances") {
+      let query = adminClient
+        .from("bettercontact_api_keys")
+        .select("id,key_value");
+      if (typeof body.keyId === "string" && body.keyId) {
+        query = query.eq("id", body.keyId);
+      }
+      const { data: keysToCheck, error: fetchErr } = await query;
+      if (fetchErr) return jsonResponse({ success: false, error: fetchErr.message }, 500);
+
+      const results = [];
+      for (const k of keysToCheck || []) {
+        try {
+          const resp = await fetch("https://app.bettercontact.rocks/api/v2/account", {
+            headers: { "X-API-Key": k.key_value },
+          });
+          const accData = await resp.json().catch(() => ({}));
+          if (resp.ok && accData.success !== false && accData.credits_left !== undefined) {
+            const credits = parseFloat(accData.credits_left) || 0;
+            const email = typeof accData.email === "string" ? accData.email : null;
+            const status = credits > 0 ? "ACTIVE" : "EXHAUSTED";
+            const isActive = credits > 0;
+            await adminClient
+              .from("bettercontact_api_keys")
+              .update({
+                credits_remaining: credits,
+                account_email: email,
+                status,
+                is_active: isActive,
+              })
+              .eq("id", k.id);
+            results.push({ id: k.id, credits, email, status, is_active: isActive });
+          } else {
+            const isInvalid = resp.status === 401 || resp.status === 403;
+            await adminClient
+              .from("bettercontact_api_keys")
+              .update({
+                status: isInvalid ? "INVALID" : "EXHAUSTED",
+                is_active: false,
+              })
+              .eq("id", k.id);
+            results.push({ id: k.id, status: isInvalid ? "INVALID" : "EXHAUSTED", is_active: false });
+          }
+        } catch (e) {
+          results.push({ id: k.id, error: e instanceof Error ? e.message : "Network error" });
+        }
+      }
+
+      return jsonResponse({
+        success: true,
+        message: `Synced ${results.length} key balance(s)`,
+        results,
+      });
+    }
+
     const firstName = typeof body?.firstName === "string" ? body.firstName.trim() : "";
     const lastName = typeof body?.lastName === "string" ? body.lastName.trim() : "";
     const companyDomain = typeof body?.companyDomain === "string" ? body.companyDomain.trim() : "";
@@ -106,7 +171,28 @@ Deno.serve(async (request) => {
       if (candidate.id) await adminClient.from("bettercontact_api_keys").update({ status: "EXHAUSTED", is_active: false }).eq("id", candidate.id);
     }
 
-    if (usedKeyId) await adminClient.from("bettercontact_api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", usedKeyId);
+    if (usedKeyId) {
+      const updates: Record<string, unknown> = { last_used_at: new Date().toISOString() };
+      const candidateObj = candidateKeys.find((c) => c.id === usedKeyId);
+      if (candidateObj?.value) {
+        try {
+          const accResp = await fetch("https://app.bettercontact.rocks/api/v2/account", {
+            headers: { "X-API-Key": candidateObj.value },
+          });
+          const accJson = await accResp.json().catch(() => ({}));
+          if (accResp.ok && accJson.credits_left !== undefined) {
+            const rem = parseFloat(accJson.credits_left) || 0;
+            updates.credits_remaining = rem;
+            if (accJson.email) updates.account_email = accJson.email;
+            if (rem <= 0) {
+              updates.status = "EXHAUSTED";
+              updates.is_active = false;
+            }
+          }
+        } catch (_) {}
+      }
+      await adminClient.from("bettercontact_api_keys").update(updates).eq("id", usedKeyId);
+    }
     if (completedBody.status !== "terminated") {
       if (requestFailure) return jsonResponse({ success: false, error: requestFailure.body.error || requestFailure.body.message || `BetterContact HTTP ${requestFailure.status}`, rawData: requestFailure.body }, requestFailure.status >= 400 ? requestFailure.status : 502);
       return jsonResponse({ success: false, error: "BetterContact timed out", message: "The request is still processing. Please try again shortly.", rawData: completedBody }, 504);

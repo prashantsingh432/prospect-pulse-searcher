@@ -24,7 +24,60 @@ serve(async (req: Request): Promise<Response> => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
-    const { linkedinUrl, firstName, lastName, companyName, category, masterProspectId } = await req.json();
+    const body = await req.json().catch(() => ({}));
+
+    // Action: Sync real credit balances from Lusha API GET /v3/account/usage
+    if (body?.action === "sync_balances") {
+      let query = supabaseAdmin.from("lusha_api_keys").select("id, key_value, credits_remaining, status, is_active");
+      if (body.keyId) {
+        query = query.eq("id", body.keyId);
+      }
+      const { data: keysToCheck, error: fetchErr } = await query;
+      if (fetchErr) {
+        return new Response(
+          JSON.stringify({ success: false, error: fetchErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const results = [];
+      for (const k of keysToCheck || []) {
+        try {
+          const resp = await fetch("https://api.lusha.com/v3/account/usage", {
+            headers: { api_key: k.key_value, Accept: "application/json" },
+          });
+          const usageData = await resp.json().catch(() => ({}));
+          if (resp.ok && usageData.credits) {
+            const creditsRemaining = usageData.credits.remaining;
+            const status = creditsRemaining > 0 ? "ACTIVE" : "EXHAUSTED";
+            const isActive = creditsRemaining > 0;
+            await supabaseAdmin.from("lusha_api_keys").update({
+              credits_remaining: creditsRemaining,
+              status,
+              is_active: isActive,
+            }).eq("id", k.id);
+            results.push({ id: k.id, credits: creditsRemaining, status, is_active: isActive });
+          } else {
+            const isInvalid = resp.status === 401 || resp.status === 403;
+            const status = isInvalid ? "INVALID" : "EXHAUSTED";
+            await supabaseAdmin.from("lusha_api_keys").update({
+              status,
+              is_active: false,
+            }).eq("id", k.id);
+            results.push({ id: k.id, status, is_active: false });
+          }
+        } catch (e: any) {
+          results.push({ id: k.id, error: e?.message || "Network error" });
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, count: results.length, results }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { linkedinUrl, firstName, lastName, companyName, category, masterProspectId } = body;
 
     // Validate: Either linkedinUrl OR (firstName + companyName) must be present
     if (!category) {
@@ -169,25 +222,19 @@ async function enrichWithRetry(
     if (lushaResponse.status === 200) {
       const data = await lushaResponse.json();
 
-      // Update credits from response header
-      if (creditsLeft !== null) {
-        const creditsNum = parseInt(creditsLeft);
-        console.log(`[Lusha Enrich] Updating key credits to: ${creditsNum}`);
-        
-        await supabase
-          .from("lusha_api_keys")
-          .update({ credits_remaining: creditsNum })
-          .eq("id", key.id);
+      // Update credits: decrement by 1 for revealed contact (do not overwrite with daily HTTP request limit)
+      const currentCredits = typeof key.credits_remaining === "number" ? key.credits_remaining : 1;
+      const newCredits = Math.max(0, currentCredits - 1);
+      console.log(`[Lusha Enrich] Contact revealed, updating key credits from ${key.credits_remaining} to: ${newCredits}`);
 
-        // ONLY mark as exhausted when credits actually reach 0
-        if (creditsNum === 0) {
-          console.log(`[Lusha Enrich] Key credits exhausted (0), marking as EXHAUSTED`);
-          await supabase
-            .from("lusha_api_keys")
-            .update({ status: "EXHAUSTED" })
-            .eq("id", key.id);
-        }
-      }
+      await supabase
+        .from("lusha_api_keys")
+        .update({ 
+          credits_remaining: newCredits,
+          status: newCredits === 0 ? "EXHAUSTED" : "ACTIVE",
+          is_active: newCredits > 0
+        })
+        .eq("id", key.id);
 
       // Extract relevant data from v2 response structure
       let extractedData: any = { 
@@ -307,22 +354,14 @@ async function enrichWithRetry(
 
       return { success: false, error: "Invalid key", message: "All available keys are invalid" };
     } else if (lushaResponse.status === 404) {
-      // Contact not found - don't mark key as bad, just return not found
+      // Contact not found - don't mark key as bad, 404 consumes 0 credits
       console.log(`[Lusha Enrich] Contact not found (404)`);
-      
-      // Still update credits since call was made
-      if (creditsLeft !== null) {
-        await supabase
-          .from("lusha_api_keys")
-          .update({ credits_remaining: parseInt(creditsLeft) })
-          .eq("id", key.id);
-      }
 
       return { 
         success: false, 
         error: "Not found", 
         message: "Contact not found in Lusha database",
-        creditsRemaining: creditsLeft ? parseInt(creditsLeft) : null,
+        creditsRemaining: key.credits_remaining,
         keyUsed: `...${key.key_value.slice(-4)}`
       };
     } else {

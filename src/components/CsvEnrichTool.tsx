@@ -5,11 +5,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, UploadCloud, Download, Sparkles, Database, Zap, Square } from "lucide-react";
+import { Loader2, UploadCloud, Download, Sparkles, Database, Zap, Square, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { enrichBetterContact } from "@/services/bettercontactService";
 
-type EnrichSource = "database" | "lusha" | "both";
+type EnrichSource = "database" | "lusha" | "bettercontact" | "both" | "db_bettercontact" | "all";
 type DataType = "phone" | "email" | "both";
 
 interface EnrichedRow {
@@ -73,7 +74,7 @@ export const CsvEnrichTool: React.FC = () => {
   const [linkedInUrls, setLinkedInUrls] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
   const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0, found: 0, lushaUsed: 0, dbHits: 0 });
+  const [progress, setProgress] = useState({ current: 0, total: 0, found: 0, lushaUsed: 0, betterContactUsed: 0, dbHits: 0 });
   const [results, setResults] = useState<EnrichedRow[]>([]);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,6 +273,31 @@ export const CsvEnrichTool: React.FC = () => {
     }
   };
 
+  const lookupBetterContact = async (url: string): Promise<{ data: Partial<EnrichedRow> | null; error?: string }> => {
+    try {
+      const mode = dataType === "phone" ? "phone" : dataType === "email" ? "email" : "both";
+      const result = await enrichBetterContact({ linkedinUrl: url, mode });
+      if (result.success) {
+        return {
+          data: {
+            full_name: result.fullName || "",
+            company_name: result.company || "",
+            prospect_designation: result.title || "",
+            prospect_email: dataType === "phone" ? "" : (result.email || ""),
+            prospect_city: result.city || "",
+            phone1: dataType === "email" ? "" : (result.phone || ""),
+            phone2: "",
+            phone3: "",
+            phone4: "",
+          }
+        };
+      }
+      return { data: null, error: result.error || result.message || "No contact found" };
+    } catch (e: any) {
+      return { data: null, error: e?.message || "BetterContact error" };
+    }
+  };
+
   const startEnrichment = async () => {
     if (linkedInUrls.length === 0) {
       toast({ title: "No URLs", description: "Please upload a CSV first", variant: "destructive" });
@@ -284,6 +310,7 @@ export const CsvEnrichTool: React.FC = () => {
     const out: EnrichedRow[] = [];
     let dbHits = 0;
     let lushaUsed = 0;
+    let betterContactUsed = 0;
     let found = 0;
 
     for (let i = 0; i < linkedInUrls.length; i++) {
@@ -292,16 +319,26 @@ export const CsvEnrichTool: React.FC = () => {
       let enriched: Partial<EnrichedRow> | null = null;
       let usedSource = "";
 
-      if (source === "database" || source === "both") {
+      // Database search
+      if (source === "database" || source === "both" || source === "db_bettercontact" || source === "all") {
         enriched = await lookupDatabase(url);
         if (enriched) { dbHits++; usedSource = "Database"; }
       }
 
+      // Lusha search
       let lushaError = "";
-      if (!enriched && (source === "lusha" || source === "both")) {
+      if (!enriched && (source === "lusha" || source === "both" || source === "all")) {
         const res = await lookupLusha(url);
         if (res.data) { enriched = res.data; lushaUsed++; usedSource = "Lusha"; }
         else { lushaError = res.error || ""; }
+      }
+
+      // BetterContact search
+      let bcError = "";
+      if (!enriched && (source === "bettercontact" || source === "db_bettercontact" || source === "all")) {
+        const res = await lookupBetterContact(url);
+        if (res.data) { enriched = res.data; betterContactUsed++; usedSource = "BetterContact"; }
+        else { bcError = res.error || ""; }
       }
 
       const hasPhone = !!(enriched && (enriched.phone1 || enriched.phone2));
@@ -311,6 +348,8 @@ export const CsvEnrichTool: React.FC = () => {
         dataType === "email" ? hasEmail :
         (hasPhone || hasEmail);
       if (hasWanted) found++;
+
+      const errorMsg = lushaError || bcError;
 
       out.push({
         linkedin_url: url,
@@ -323,18 +362,18 @@ export const CsvEnrichTool: React.FC = () => {
         phone2: dataType === "email" ? "" : (enriched?.phone2 || ""),
         phone3: dataType === "email" ? "" : (enriched?.phone3 || ""),
         phone4: dataType === "email" ? "" : (enriched?.phone4 || ""),
-        source: usedSource || (lushaError ? `Error: ${lushaError}` : "Not Found"),
+        source: usedSource || (errorMsg ? `Error: ${errorMsg}` : "Not Found"),
         status: hasWanted ? "Found" : "Not Found",
       });
 
-      setProgress({ current: i + 1, total: linkedInUrls.length, found, lushaUsed, dbHits });
+      setProgress({ current: i + 1, total: linkedInUrls.length, found, lushaUsed, betterContactUsed, dbHits });
       setResults([...out]);
     }
 
     setProcessing(false);
     toast({
       title: cancelRef.current ? "Cancelled" : "Enrichment complete",
-      description: `${found}/${linkedInUrls.length} numbers found (DB: ${dbHits}, Lusha: ${lushaUsed})`,
+      description: `${found}/${linkedInUrls.length} found (DB: ${dbHits}, Lusha: ${lushaUsed}, BetterContact: ${betterContactUsed})`,
     });
   };
 
@@ -391,10 +430,19 @@ export const CsvEnrichTool: React.FC = () => {
                   <div className="flex items-center gap-2"><Database className="h-4 w-4" /> Database Only (Free)</div>
                 </SelectItem>
                 <SelectItem value="lusha">
-                  <div className="flex items-center gap-2"><Zap className="h-4 w-4" /> Lusha Only (Uses Credits)</div>
+                  <div className="flex items-center gap-2"><Zap className="h-4 w-4 text-blue-500" /> Lusha Only (Uses Credits)</div>
+                </SelectItem>
+                <SelectItem value="bettercontact">
+                  <div className="flex items-center gap-2"><Globe className="h-4 w-4 text-purple-600" /> BetterContact Only (Uses Credits)</div>
                 </SelectItem>
                 <SelectItem value="both">
-                  <div className="flex items-center gap-2"><Sparkles className="h-4 w-4" /> Both (DB first, Lusha fallback)</div>
+                  <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-amber-500" /> Both (DB first, Lusha fallback)</div>
+                </SelectItem>
+                <SelectItem value="db_bettercontact">
+                  <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-500" /> Both (DB first, BetterContact fallback)</div>
+                </SelectItem>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-green-600" /> All (DB first, Lusha, BetterContact fallback)</div>
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -444,11 +492,12 @@ export const CsvEnrichTool: React.FC = () => {
         {(processing || progress.total > 0) && (
           <div className="space-y-2">
             <Progress value={pct} />
-            <div className="grid grid-cols-4 gap-2 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
               <div className="bg-blue-50 p-2 rounded">Progress: <strong>{progress.current}/{progress.total}</strong></div>
               <div className="bg-green-50 p-2 rounded">Found: <strong>{progress.found}</strong></div>
               <div className="bg-purple-50 p-2 rounded">DB Hits: <strong>{progress.dbHits}</strong></div>
-              <div className="bg-orange-50 p-2 rounded">Lusha Used: <strong>{progress.lushaUsed}</strong></div>
+              <div className="bg-orange-50 p-2 rounded">Lusha: <strong>{progress.lushaUsed}</strong></div>
+              <div className="bg-indigo-50 p-2 rounded">BetterContact: <strong>{progress.betterContactUsed}</strong></div>
             </div>
           </div>
         )}

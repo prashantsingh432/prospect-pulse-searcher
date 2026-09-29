@@ -3,12 +3,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { extractLinkedInUsername, normalizeLinkedInUrl, validateLinkedInUrl } from "@/utils/linkedInUtils";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X, RotateCcw, Send, Wifi, WifiOff } from "lucide-react";
+import { Loader2, CheckCircle, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, Play, Share, ArrowLeft, HourglassIcon, Plus, AlertTriangle, ChevronDown, Table, Settings, FilePlus2, Lock, Check, X, RotateCcw, Send, Wifi, WifiOff, Globe } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import RowContextMenu from "@/components/RowContextMenu";
 import { enrichProspectByName, enrichProspect } from "@/services/lushaService";
 import { lookupProspectInDatabase } from "@/services/databaseLookupService";
+import { enrichBetterContact } from "@/services/bettercontactService";
 import EnrichmentLoadingModal from "@/components/EnrichmentLoadingModal";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -1664,6 +1665,133 @@ const Rtne: React.FC = () => {
     }
   };
 
+  // Direct BetterContact enrichment - skips database lookup
+  const enrichFromBetterContactDirectly = async (rowId: number) => {
+    if (!isAdmin() && !databaseSearchedRows.has(rowId) && !enrichedFromDbRows.has(rowId)) {
+      setDatabaseFirstWarningRow(rowId);
+      setShowDatabaseFirstWarning(true);
+      return;
+    }
+
+    const row = rows.find(r => r.id === rowId);
+    if (!row) return;
+
+    if (!row.prospect_linkedin || !validateLinkedInUrl(row.prospect_linkedin)) {
+      toast.error("Valid LinkedIn URL required for enrichment");
+      return;
+    }
+
+    setEnrichingRows(prev => new Set(prev).add(rowId));
+
+    try {
+      console.log(`🚀 Starting direct BetterContact enrichment for row ${rowId}`);
+      const result = await enrichBetterContact({
+        linkedinUrl: row.prospect_linkedin,
+        mode: "both",
+      });
+
+      if (result.success) {
+        const mergedPhones = mergePhoneNumbers(
+          { phone1: row.prospect_number, phone2: row.prospect_number2, phone3: row.prospect_number3, phone4: row.prospect_number4 },
+          { phone1: result.phone || undefined }
+        );
+
+        const updates: Partial<RtneRow> = {
+          ...mergedPhones,
+        };
+
+        if (result.email) updates.prospect_email = result.email;
+        if (result.city) updates.prospect_city = result.city;
+        if (result.title) updates.prospect_designation = result.title;
+        if (result.company) updates.company_name = result.company;
+        if (result.fullName) updates.full_name = result.fullName;
+
+        setRows(prev => prev.map(r =>
+          r.id === rowId ? { ...r, ...updates } : r
+        ));
+
+        await saveEnrichedDataToSupabase(rowId, updates, row);
+
+        setEnrichedFromDbRows(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(rowId);
+          return newSet;
+        });
+
+        const populatedCount = Object.keys(updates).filter(k => updates[k as keyof RtneRow]).length;
+        toast.success(`✅ Enriched ${populatedCount} fields from BetterContact`);
+      } else {
+        toast.error(result.message || result.error || "BetterContact enrichment failed");
+      }
+    } catch (error) {
+      console.error("❌ Direct BetterContact enrichment error:", error);
+      toast.error("BetterContact enrichment failed");
+    } finally {
+      setEnrichingRows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(rowId);
+        return newSet;
+      });
+    }
+  };
+
+  const bulkEnrichBetterContact = async () => {
+    setIsBulkEnriching(true);
+    let successCount = 0;
+    let failedCount = 0;
+
+    const targetRows = rows.filter(row =>
+      (!row.prospect_number || !row.prospect_email) &&
+      (row.prospect_linkedin && validateLinkedInUrl(row.prospect_linkedin))
+    );
+
+    setBulkEnrichProgress({ current: 0, total: targetRows.length });
+
+    for (let i = 0; i < targetRows.length; i++) {
+      const row = targetRows[i];
+      setBulkEnrichProgress({ current: i + 1, total: targetRows.length });
+
+      try {
+        const result = await enrichBetterContact({
+          linkedinUrl: row.prospect_linkedin,
+          mode: "both",
+        });
+
+        if (result.success && (result.phone || result.email)) {
+          const mergedPhones = mergePhoneNumbers(
+            { phone1: row.prospect_number, phone2: row.prospect_number2, phone3: row.prospect_number3, phone4: row.prospect_number4 },
+            { phone1: result.phone || undefined }
+          );
+
+          const updates: Partial<RtneRow> = {
+            ...mergedPhones,
+            prospect_email: result.email || row.prospect_email,
+            full_name: result.fullName || row.full_name,
+            company_name: result.company || row.company_name,
+            prospect_designation: result.title || row.prospect_designation,
+            prospect_city: result.city || row.prospect_city,
+          };
+
+          setRows(prev => prev.map(r =>
+            r.id === row.id ? { ...r, ...updates } : r
+          ));
+
+          await saveEnrichedDataToSupabase(row.id, updates, row);
+          successCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (error) {
+        console.error("Bulk BetterContact enrichment error:", error);
+        failedCount++;
+      }
+    }
+
+    setIsBulkEnriching(false);
+    setBulkEnrichProgress({ current: 0, total: 0 });
+    toast.success(`BetterContact Bulk Enrichment: ${successCount} enriched, ${failedCount} failed`);
+  };
+
   // Add rows function
   const addRows = (count: number) => {
     if (count > 100000) {
@@ -2631,15 +2759,19 @@ const Rtne: React.FC = () => {
                         <ChevronDown className="h-4 w-4 ml-1 text-gray-500" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuContent align="start" className="w-56">
                       <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichPhonesClick}>
-                        Enrich Phones
+                        Enrich Phones (Lusha)
                       </DropdownMenuItem>
                       <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichEmailsClick}>
-                        Enrich Emails
+                        Enrich Emails (Lusha)
                       </DropdownMenuItem>
                       <DropdownMenuItem disabled={isBulkEnriching} onClick={handleBulkEnrichBothClick}>
-                        Enrich Both
+                        Enrich Both (Lusha)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={isBulkEnriching} onClick={bulkEnrichBetterContact}>
+                        <Globe className="h-4 w-4 mr-2 text-purple-600" />
+                        Enrich with BetterContact (Both)
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -3085,6 +3217,29 @@ const Rtne: React.FC = () => {
                                     )}
                                     <span className={!isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) ? 'text-gray-500' : ''}>
                                       {isAdmin() ? "Enrich from Lusha (Admin)" : "Enrich from Lusha"}
+                                    </span>
+                                    {!isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) && (
+                                      <span className="ml-auto text-xs text-amber-500 font-medium">DB first!</span>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      enrichFromBetterContactDirectly(row.id);
+                                    }}
+                                    className={`cursor-pointer ${
+                                      !isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id)
+                                        ? 'opacity-70'
+                                        : ''
+                                    }`}
+                                  >
+                                    {!isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) ? (
+                                      <Lock className="h-4 w-4 mr-2 text-gray-400" />
+                                    ) : (
+                                      <Globe className="h-4 w-4 mr-2 text-purple-600" />
+                                    )}
+                                    <span className={!isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) ? 'text-gray-500' : ''}>
+                                      {isAdmin() ? "Enrich from BetterContact (Admin)" : "Enrich from BetterContact"}
                                     </span>
                                     {!isAdmin() && !databaseSearchedRows.has(row.id) && !enrichedFromDbRows.has(row.id) && (
                                       <span className="ml-auto text-xs text-amber-500 font-medium">DB first!</span>

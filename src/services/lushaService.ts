@@ -9,6 +9,8 @@ export interface LushaApiKey {
   category: LushaCategory;
   credits_remaining: number;
   last_used_at: string | null;
+  renewal_date?: string | null;
+  renewal_day?: number | null;
   status: LushaKeyStatus;
   is_active: boolean;
   created_at: string;
@@ -82,6 +84,16 @@ export async function addLushaKeys(
   }
 
   results.success = results.errors.length === 0;
+
+  // Automatically sync live balances from Lusha for newly added keys
+  if (results.added > 0) {
+    try {
+      await syncLushaKeyBalances();
+    } catch (e) {
+      console.warn("Auto-sync failed on add:", e);
+    }
+  }
+
   return results;
 }
 
@@ -102,6 +114,30 @@ export async function toggleLushaKeyStatus(id: string, isActive: boolean): Promi
  */
 export async function deleteLushaKey(id: string): Promise<void> {
   const { error } = await supabase.from("lusha_api_keys").delete().eq("id", id);
+
+  if (error) throw error;
+}
+
+/**
+ * Update renewal date for a key
+ */
+export async function updateLushaKeyRenewalDate(id: string, renewalDate: string | null): Promise<void> {
+  const { error } = await supabase
+    .from("lusha_api_keys")
+    .update({ renewal_date: renewalDate || null })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+/**
+ * Update monthly renewal day (1-31) for a key
+ */
+export async function updateLushaKeyRenewalDay(id: string, renewalDay: number | null): Promise<void> {
+  const { error } = await supabase
+    .from("lusha_api_keys")
+    .update({ renewal_day: renewalDay || null })
+    .eq("id", id);
 
   if (error) throw error;
 }
@@ -669,4 +705,49 @@ export async function getLushaKeyStats(category?: LushaCategory): Promise<{
   };
 
   return stats;
+}
+
+/**
+ * Sync real credit balances from Lusha API GET /v3/account/usage
+ */
+export async function syncLushaKeyBalances(keyId?: string): Promise<{ success: boolean; message?: string; results?: any[] }> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const url = `${import.meta.env.VITE_SUPABASE_URL || "https://lodpoepylygsryjdkqjg.supabase.co"}/functions/v1/lusha-enrich`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.access_token || ""}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "sync_balances",
+        keyId,
+      }),
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!payload || !payload.success) {
+      return {
+        success: false,
+        message: payload?.error || "Failed to sync Lusha balances",
+      };
+    }
+
+    return {
+      success: true,
+      message: `Updated ${payload.count || payload.results?.length || 0} Lusha key balances directly from Lusha`,
+      results: payload.results,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Network error syncing Lusha balances",
+    };
+  }
 }

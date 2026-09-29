@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, CheckCircle, Star, Share, Sparkles, Wifi, WifiOff, Search, Filter } from "lucide-react";
+import { ArrowLeft, Loader2, User, MapPin, Briefcase, Building, Mail, Phone, PhoneCall, CheckCircle, Star, Share, Sparkles, Wifi, WifiOff, Search, Filter, Globe } from "lucide-react";
 import RowContextMenu from "@/components/RowContextMenu";
 import { enrichProspect } from "@/services/lushaService";
+import { enrichBetterContact } from "@/services/bettercontactService";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast as sonnerToast } from "sonner";
@@ -532,6 +533,56 @@ export const RtnpProjectView: React.FC = () => {
     }
   };
 
+  const handleBetterContactFetch = async (requestId: string) => {
+    const request = requests.find(r => r.id === requestId);
+    if (!request || !request.linkedin_url) {
+      toast({
+        title: "Error",
+        description: "LinkedIn URL is required for enrichment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEnrichingRows(prev => ({ ...prev, [requestId]: 'bettercontact' }));
+
+    try {
+      const result = await enrichBetterContact({
+        linkedinUrl: request.linkedin_url,
+        mode: "both",
+      });
+
+      if (result.success) {
+        if (result.phone) handleFieldChange(requestId, 'primary_phone', result.phone);
+        if (result.email) handleFieldChange(requestId, 'email_address', result.email);
+        if (result.fullName) handleFieldChange(requestId, 'full_name', result.fullName);
+        if (result.company) handleFieldChange(requestId, 'company_name', result.company);
+        if (result.title) handleFieldChange(requestId, 'job_title', result.title);
+        if (result.city) handleFieldChange(requestId, 'city', result.city);
+
+        toast({
+          title: "BetterContact Success",
+          description: result.phone || result.email ? `Found: ${[result.phone, result.email].filter(Boolean).join(", ")}` : "Enriched contact info",
+        });
+      } else {
+        toast({
+          title: "BetterContact Failed",
+          description: result.message || result.error || "No data found",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("BetterContact fetch error:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred during BetterContact enrichment",
+        variant: "destructive",
+      });
+    } finally {
+      setEnrichingRows(prev => ({ ...prev, [requestId]: null }));
+    }
+  };
+
   // Save acknowledged rows to localStorage
   useEffect(() => {
     localStorage.setItem(`rtnp-acknowledged-${projectName}`, JSON.stringify([...acknowledgedRows]));
@@ -810,6 +861,9 @@ export const RtnpProjectView: React.FC = () => {
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => handleLushaFetch(request.id, 'EMAIL_ONLY')} disabled={request.status === 'completed' || enrichingRows[request.id] === 'email'} className="h-8 px-2 text-xs" title="Fetch Email with Lusha">
                             {enrichingRows[request.id] === 'email' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleBetterContactFetch(request.id)} disabled={request.status === 'completed' || enrichingRows[request.id] === 'bettercontact'} className="h-8 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50" title="Fetch with BetterContact">
+                            {enrichingRows[request.id] === 'bettercontact' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
                           </Button>
                         </div>
                       </div>

@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 
 export type BetterContactMode = "phone" | "email" | "both";
 
@@ -27,8 +27,13 @@ export interface BetterContactApiKey {
   id: string;
   status: string;
   is_active: boolean;
+  credits_remaining: number | null;
+  account_email: string | null;
+  renewal_date?: string | null;
+  renewal_day?: number | null;
   last_used_at: string | null;
   created_at: string;
+  key_value?: string;
 }
 
 type BetterContactKeyTable = {
@@ -43,7 +48,7 @@ const betterContactKeys = (): BetterContactKeyTable =>
 
 export async function fetchBetterContactKeys(): Promise<BetterContactApiKey[]> {
   const { data, error } = await betterContactKeys()
-    .select("id,status,is_active,last_used_at,created_at")
+    .select("id,key_value,status,is_active,credits_remaining,account_email,renewal_date,renewal_day,last_used_at,created_at")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -69,6 +74,16 @@ export async function addBetterContactKeys(keys: string[]) {
   }
 
   results.success = results.errors.length === 0;
+
+  // Auto-sync balances for newly added keys
+  if (results.added > 0) {
+    try {
+      await syncBetterContactBalances();
+    } catch (e) {
+      console.warn("Auto-sync failed on add:", e);
+    }
+  }
+
   return results;
 }
 
@@ -80,6 +95,59 @@ export async function toggleBetterContactKeyStatus(id: string, isActive: boolean
 export async function deleteBetterContactKey(id: string) {
   const { error } = await betterContactKeys().delete().eq("id", id);
   if (error) throw error;
+}
+
+export async function updateBetterContactKeyRenewalDate(id: string, renewalDate: string | null) {
+  const { error } = await betterContactKeys().update({ renewal_date: renewalDate || null }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateBetterContactKeyRenewalDay(id: string, renewalDay: number | null) {
+  const { error } = await betterContactKeys().update({ renewal_day: renewalDay || null }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function syncBetterContactBalances(keyId?: string): Promise<{ success: boolean; message?: string; results?: any[] }> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {
+      success: false,
+      message: "Please sign in again before checking balance.",
+    };
+  }
+
+  try {
+    const response = await fetch(EDGE_FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "sync_balances",
+        keyId,
+      }),
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!payload || !payload.success) {
+      return {
+        success: false,
+        message: payload?.error || payload?.message || "Failed to sync balances",
+      };
+    }
+
+    return payload;
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Network error checking balance",
+    };
+  }
 }
 
 const EDGE_FUNCTION_URL =
@@ -105,7 +173,7 @@ export async function enrichBetterContact(
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.access_token}`,
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
