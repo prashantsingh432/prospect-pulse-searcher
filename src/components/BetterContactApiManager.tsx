@@ -1,15 +1,23 @@
-import { useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Mail, Phone, Search, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertCircle, CheckCircle2, Loader2, Mail, Phone, Search, ShieldCheck, Trash2, KeyRound } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   enrichBetterContact,
+  addBetterContactKeys,
+  deleteBetterContactKey,
+  fetchBetterContactKeys,
+  toggleBetterContactKeyStatus,
+  type BetterContactApiKey,
   type BetterContactMode,
   type BetterContactResult,
 } from "@/services/bettercontactService";
@@ -23,6 +31,68 @@ export const BetterContactApiManager = () => {
   const [loading, setLoading] = useState(false);
   const [connectionState, setConnectionState] = useState<ConnectionState>("unknown");
   const [result, setResult] = useState<BetterContactResult | null>(null);
+  const [keys, setKeys] = useState<BetterContactApiKey[]>([]);
+  const [keysLoading, setKeysLoading] = useState(true);
+  const [addingKeys, setAddingKeys] = useState(false);
+  const [newKeysText, setNewKeysText] = useState("");
+
+  const loadKeys = async () => {
+    try {
+      setKeysLoading(true);
+      setKeys(await fetchBetterContactKeys());
+    } catch (error) {
+      toast({ title: "Could not load BetterContact keys", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setKeysLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadKeys();
+  }, []);
+
+  const handleAddKeys = async () => {
+    const lines = newKeysText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) {
+      toast({ title: "Add at least one key", description: "Paste one BetterContact API key per line.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setAddingKeys(true);
+      const response = await addBetterContactKeys(lines);
+      setNewKeysText("");
+      await loadKeys();
+      toast({
+        title: response.added ? "BetterContact keys added" : "No keys added",
+        description: `${response.added} added${response.errors.length ? `, ${response.errors.length} skipped or already present` : ""}.`,
+        variant: response.errors.length && !response.added ? "destructive" : "default",
+      });
+    } catch (error) {
+      toast({ title: "Could not add BetterContact keys", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setAddingKeys(false);
+    }
+  };
+
+  const handleToggleKey = async (key: BetterContactApiKey) => {
+    try {
+      await toggleBetterContactKeyStatus(key.id, !key.is_active);
+      await loadKeys();
+    } catch (error) {
+      toast({ title: "Could not update key", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteKey = async (key: BetterContactApiKey) => {
+    if (!window.confirm("Delete this BetterContact API key?")) return;
+    try {
+      await deleteBetterContactKey(key.id);
+      await loadKeys();
+    } catch (error) {
+      toast({ title: "Could not delete key", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    }
+  };
 
   const handleTest = async () => {
     if (!linkedinUrl.trim()) {
@@ -116,6 +186,51 @@ export const BetterContactApiManager = () => {
                   {result.company && <p className="text-sm"><span className="font-medium">Company:</span> {result.company}</p>}
                 </div>
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" />BetterContact API key pool</CardTitle>
+          <CardDescription>Paste 100+ keys at once. Keys stay hidden after entry and rotate automatically on the server.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <ShieldCheck className="h-4 w-4" />
+            <AlertDescription>One key per line. The tester uses active pool keys first, then moves to the next key when a key is unavailable.</AlertDescription>
+          </Alert>
+          <Textarea
+            aria-label="BetterContact API keys"
+            placeholder="Paste BetterContact API keys here, one per line..."
+            value={newKeysText}
+            onChange={(event) => setNewKeysText(event.target.value)}
+            rows={6}
+          />
+          <Button onClick={handleAddKeys} disabled={addingKeys} className="gap-2">
+            {addingKeys ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+            {addingKeys ? "Adding keys..." : "Add keys"}
+          </Button>
+
+          {keysLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : keys.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No pool keys added yet. The existing project secret will remain available as a fallback.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader><TableRow><TableHead>Key</TableHead><TableHead>Status</TableHead><TableHead>Last used</TableHead><TableHead>Active</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {keys.map((key, index) => (
+                    <TableRow key={key.id}>
+                      <TableCell className="font-mono">BetterContact key {index + 1}</TableCell>
+                      <TableCell><Badge variant={key.status === "ACTIVE" ? "secondary" : "outline"}>{key.status}</Badge></TableCell>
+                      <TableCell>{key.last_used_at ? new Date(key.last_used_at).toLocaleString() : "Never"}</TableCell>
+                      <TableCell><Switch checked={key.is_active} onCheckedChange={() => void handleToggleKey(key)} /></TableCell>
+                      <TableCell><Button variant="ghost" size="sm" aria-label="Delete BetterContact key" onClick={() => void handleDeleteKey(key)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
