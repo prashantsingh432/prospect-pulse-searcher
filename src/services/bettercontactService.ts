@@ -23,6 +23,65 @@ export interface BetterContactResult {
   rawData?: unknown;
 }
 
+export interface BetterContactApiKey {
+  id: string;
+  status: string;
+  is_active: boolean;
+  last_used_at: string | null;
+  created_at: string;
+}
+
+type BetterContactKeyTable = {
+  select: (columns: string) => any;
+  insert: (values: Record<string, unknown>) => any;
+  update: (values: Record<string, unknown>) => any;
+  delete: () => any;
+};
+
+const betterContactKeys = (): BetterContactKeyTable =>
+  (supabase as unknown as { from: (table: string) => BetterContactKeyTable }).from("bettercontact_api_keys");
+
+export async function fetchBetterContactKeys(): Promise<BetterContactApiKey[]> {
+  const { data, error } = await betterContactKeys()
+    .select("id,status,is_active,last_used_at,created_at")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as BetterContactApiKey[];
+}
+
+export async function addBetterContactKeys(keys: string[]) {
+  const results = { success: true, added: 0, errors: [] as string[] };
+  const uniqueKeys = [...new Set(keys.map((key) => key.trim()).filter(Boolean))];
+
+  for (const key of uniqueKeys) {
+    const { error } = await betterContactKeys().insert({
+      key_value: key,
+      status: "ACTIVE",
+      is_active: true,
+    });
+
+    if (error) {
+      results.errors.push(`${key.slice(0, 8)}...: ${error.message}`);
+    } else {
+      results.added += 1;
+    }
+  }
+
+  results.success = results.errors.length === 0;
+  return results;
+}
+
+export async function toggleBetterContactKeyStatus(id: string, isActive: boolean) {
+  const { error } = await betterContactKeys().update({ is_active: isActive }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteBetterContactKey(id: string) {
+  const { error } = await betterContactKeys().delete().eq("id", id);
+  if (error) throw error;
+}
+
 const EDGE_FUNCTION_URL =
   "https://lodpoepylygsryjdkqjg.supabase.co/functions/v1/bettercontact-enrich";
 

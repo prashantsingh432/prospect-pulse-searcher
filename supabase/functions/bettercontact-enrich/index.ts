@@ -22,9 +22,7 @@ Deno.serve(async (request) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const betterContactKey = Deno.env.get("BETTERCONTACT_API_KEY");
     if (!supabaseUrl || !serviceRoleKey) return jsonResponse({ success: false, error: "Server configuration error" }, 500);
-    if (!betterContactKey) return jsonResponse({ success: false, error: "BetterContact is not configured", message: "Add the BetterContact API key in project secrets." }, 503);
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: authData, error: authError } = await adminClient.auth.getUser(token);
@@ -50,37 +48,69 @@ Deno.serve(async (request) => {
     }
     if (linkedinUrl && linkedinUrl.length > 500) return jsonResponse({ success: false, error: "Invalid LinkedIn URL" }, 400);
 
-    const createResponse = await fetch("https://app.bettercontact.rocks/api/v2/async", {
-      method: "POST",
-      headers: { "X-API-Key": betterContactKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        enrich_email_address: mode === "email" || mode === "both",
-        enrich_phone_number: mode === "phone" || mode === "both",
-        data: [{
-          ...(firstName ? { first_name: firstName } : {}),
-          ...(lastName ? { last_name: lastName } : {}),
-          ...(companyDomain ? { company_domain: companyDomain } : {}),
-          ...(linkedinUrl ? { linkedin_url: linkedinUrl } : {}),
-        }],
-      }),
-    });
-    const createBody = await createResponse.json().catch(() => ({}));
-    if (!createResponse.ok || typeof createBody.id !== "string") {
-      return jsonResponse({ success: false, error: createBody.error || createBody.message || `BetterContact HTTP ${createResponse.status}`, rawData: createBody }, createResponse.status >= 400 ? createResponse.status : 502);
-    }
+    const { data: poolKeys, error: poolError } = await adminClient
+      .from("bettercontact_api_keys")
+      .select("id,key_value,status,is_active,last_used_at")
+      .eq("is_active", true)
+      .eq("status", "ACTIVE")
+      .order("last_used_at", { ascending: true, nullsFirst: true });
+    if (poolError) console.error("[BetterContact Enrich] Key pool lookup failed:", poolError.message);
+
+    const candidateKeys = (poolKeys || []).map((key) => ({ id: key.id as string | null, value: key.key_value as string })).filter((key) => key.value);
+    const fallbackKey = Deno.env.get("BETTERCONTACT_API_KEY");
+    if (fallbackKey && !candidateKeys.some((key) => key.value === fallbackKey)) candidateKeys.push({ id: null, value: fallbackKey });
+    if (!candidateKeys.length) return jsonResponse({ success: false, error: "BetterContact is not configured", message: "Add BetterContact keys to the key pool." }, 503);
+
+    const requestPayload = {
+      enrich_email_address: mode === "email" || mode === "both",
+      enrich_phone_number: mode === "phone" || mode === "both",
+      data: [{
+        ...(firstName ? { first_name: firstName } : {}),
+        ...(lastName ? { last_name: lastName } : {}),
+        ...(companyDomain ? { company_domain: companyDomain } : {}),
+        ...(linkedinUrl ? { linkedin_url: linkedinUrl } : {}),
+      }],
+    };
 
     let completedBody: Record<string, unknown> = {};
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      await wait(1500);
-      const resultResponse = await fetch(`https://app.bettercontact.rocks/api/v2/async/${encodeURIComponent(createBody.id)}`, {
-        headers: { "X-API-Key": betterContactKey },
+    let requestFailure: { status: number; body: Record<string, unknown> } | null = null;
+    let usedKeyId: string | null = null;
+    for (const candidate of candidateKeys) {
+      const createResponse = await fetch("https://app.bettercontact.rocks/api/v2/async", {
+        method: "POST",
+        headers: { "X-API-Key": candidate.value, "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
       });
-      completedBody = await resultResponse.json().catch(() => ({}));
+      const createBody = await createResponse.json().catch(() => ({}));
+      if (!createResponse.ok || typeof createBody.id !== "string") {
+        requestFailure = { status: createResponse.status, body: createBody };
+        if (candidate.id && [401, 402, 403, 429].includes(createResponse.status)) {
+          await adminClient.from("bettercontact_api_keys").update({ status: createResponse.status === 401 || createResponse.status === 403 ? "INVALID" : "EXHAUSTED", is_active: false }).eq("id", candidate.id);
+          continue;
+        }
+        break;
+      }
+
+      usedKeyId = candidate.id;
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        await wait(1500);
+        const resultResponse = await fetch(`https://app.bettercontact.rocks/api/v2/async/${encodeURIComponent(createBody.id)}`, { headers: { "X-API-Key": candidate.value } });
+        completedBody = await resultResponse.json().catch(() => ({}));
+        if (completedBody.status === "terminated") break;
+        if (completedBody.status === "on_hold") {
+          requestFailure = { status: 402, body: completedBody };
+          break;
+        }
+      }
       if (completedBody.status === "terminated") break;
-      if (completedBody.status === "on_hold") return jsonResponse({ success: false, error: "BetterContact request is on hold", message: "BetterContact needs more credits to finish this request.", rawData: completedBody }, 402);
+      if (candidate.id) await adminClient.from("bettercontact_api_keys").update({ status: "EXHAUSTED", is_active: false }).eq("id", candidate.id);
     }
 
-    if (completedBody.status !== "terminated") return jsonResponse({ success: false, error: "BetterContact timed out", message: "The request is still processing. Please try again shortly.", rawData: completedBody }, 504);
+    if (usedKeyId) await adminClient.from("bettercontact_api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", usedKeyId);
+    if (completedBody.status !== "terminated") {
+      if (requestFailure) return jsonResponse({ success: false, error: requestFailure.body.error || requestFailure.body.message || `BetterContact HTTP ${requestFailure.status}`, rawData: requestFailure.body }, requestFailure.status >= 400 ? requestFailure.status : 502);
+      return jsonResponse({ success: false, error: "BetterContact timed out", message: "The request is still processing. Please try again shortly.", rawData: completedBody }, 504);
+    }
 
     const contact = Array.isArray(completedBody.data) ? completedBody.data[0] : null;
     const email = typeof contact?.contact_email_address === "string" ? contact.contact_email_address : null;
